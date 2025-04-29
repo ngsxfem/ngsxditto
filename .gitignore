@@ -1,0 +1,9 @@
+examples/ngsxditto
+**/__pycache__
+build
+dist
+.vscode/*
+workspace.code-workspace
+**/*.html
+**/*.trace
+#**/local_settings.py
