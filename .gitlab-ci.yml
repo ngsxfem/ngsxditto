@@ -1,0 +1,25 @@
+stages:
+    - build
+    - test
+    # - deploy
+
+build_src:
+    stage: build
+    image: python:3.12
+    script:
+        - python3 -m venv .venv
+        - source .venv/bin/activate
+        - pip3 install .
+        - python3 -c "import ngsxditto"
+    needs: []
+
+test_src:
+    stage: test
+    image: python:3.12
+    script:
+        - pip3 install pytest
+        - pip3 install . # quick dirty fix
+        - pytest tests/test_*.py
+    dependencies:
+        - build_src
+    needs: [build_src]
