@@ -39,5 +39,8 @@ build_pages:
     artifacts:
         paths:
           - public
+    pages: true  # specifies that this is a Pages job and publishes the default public directory
+    rules:
+        - if: $CI_COMMIT_BRANCH == "main"
     dependencies: [test_src] 
     needs: [test_src]
