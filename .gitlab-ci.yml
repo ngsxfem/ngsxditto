@@ -1,7 +1,7 @@
 stages:
     - build
     - test
-    # - deploy
+    - deploy
 
 build_src:
     stage: build
@@ -23,3 +23,21 @@ test_src:
     dependencies:
         - build_src
     needs: [build_src]
+
+build_pages:
+    stage: deploy
+    image: python:3.12
+    script:
+        - apt-get update
+        - apt-get install -y make pandoc
+        - pip3 install -r docs/requirements.txt
+        - pip3 install .
+        - cd docs
+        - ./generate_docs.sh
+        - cd ..
+        - mv docs/build/html public
+    artifacts:
+        paths:
+          - public
+    dependencies: [test_src] 
+    needs: [test_src]
