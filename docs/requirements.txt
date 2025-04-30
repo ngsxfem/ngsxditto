@@ -4,6 +4,7 @@ sphinx_mdinclude
 nbsphinx
 ipykernel
 ipython
+ipywidgets
 matplotlib
 scipy
 scikit-image

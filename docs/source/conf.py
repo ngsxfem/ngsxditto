@@ -17,7 +17,15 @@ extensions = [
     "sphinx_rtd_theme",
     "nbsphinx",
     "sphinx_mdinclude",
+    'sphinx.ext.autodoc',
+    'sphinx.ext.coverage',
+    'sphinx.ext.napoleon',
 ]
+
+# make source code visible to sphinx.ext.autodoc
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../..'))
 
 templates_path = ['_templates']
 exclude_patterns = []

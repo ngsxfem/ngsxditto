@@ -34,3 +34,8 @@
    :caption: Examples
 
    examples
+
+.. toctree::
+   :caption: Documentation
+
+   documentation

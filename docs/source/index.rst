@@ -25,6 +25,7 @@
     </style>
 
 .. only:: html
+
     .. role:: raw-html(raw)
         :format: html
             
