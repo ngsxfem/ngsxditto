@@ -1,3 +1,4 @@
+jupyter_sphinx
 sphinx
 sphinx_rtd_theme
 sphinx_mdinclude
@@ -9,3 +10,4 @@ matplotlib
 scipy
 scikit-image
 pandoc
+webgui_jupyter_widgets

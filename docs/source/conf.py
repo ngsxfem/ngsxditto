@@ -16,6 +16,7 @@ author = 'ditto'
 extensions = [
     "sphinx_rtd_theme",
     "nbsphinx",
+    "jupyter_sphinx",
     "sphinx_mdinclude",
     'sphinx.ext.autodoc',
     'sphinx.ext.coverage',

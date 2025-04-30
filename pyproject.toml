@@ -3,6 +3,7 @@ name = "ngsxditto"
 version = "0.0.1"
 dependencies = [
     "ngsolve",
+    "xfem",
 ]
 
 [build-system]
