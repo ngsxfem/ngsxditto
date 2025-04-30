@@ -1,0 +1,10 @@
+sphinx
+sphinx_rtd_theme
+sphinx_mdinclude
+nbsphinx
+ipykernel
+ipython
+matplotlib
+scipy
+scikit-image
+pandoc
