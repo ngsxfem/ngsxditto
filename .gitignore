@@ -7,3 +7,6 @@ workspace.code-workspace
 **/*.html
 **/*.trace
 #**/local_settings.py
+local/**
+examples/.jupyter_ystore.db
+ngsxditto.egg-info/**
