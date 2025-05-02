@@ -1,6 +1,8 @@
 [project]
 name = "ngsxditto"
 version = "0.0.1"
+description = "ngsxditto -- application framework for level-set based unfitted discretization"
+authors = [{ name = "Christoph Lehrenfeld, Mika Meyer, Maximilian Zienecker", email = "lehrenfeld@math.uni-goettingen.de" }]
 dependencies = [
     "ngsolve",
     "xfem",
@@ -9,9 +11,6 @@ dependencies = [
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
-
-description = "ngsxditto -- application framework for level-set based unfitted discretization"
-authors = [{ name = "Christoph Lehrenfeld, Mika Meyer, Maximilian Zienecker", email = "lehrenfeld@math.uni-goettingen.de" }]
 
 [tool.setuptools.packages.find]
 include = ["ngsxditto*"]

@@ -1,4 +1,3 @@
 print("importing ngsxditto")
-from .submodule import *
-from .transport import *
 
+from .transport import *

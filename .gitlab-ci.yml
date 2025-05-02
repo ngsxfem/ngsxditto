@@ -44,3 +44,20 @@ build_pages:
         - if: $CI_COMMIT_BRANCH == "main"
     dependencies: [test_src] 
     needs: [test_src]
+
+build_package:
+    stage: deploy
+    image: python:3.12
+    variables:
+        TWINE_USERNAME: gitlab-ci-token
+        TWINE_PASSWORD: $CI_JOB_TOKEN
+    script:
+        - pip install .
+        - pip install build twine
+        - python -m build
+        - echo "Package built succesfully, not uploading anywhere."
+        #- python -m twine upload --verbose --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+    #rules:
+    #    - if: $CI_COMMIT_BRANCH == "main"
+    dependencies: [build_src]
+    needs: [build_src, test_src] # only build PyPi package if package can be built and tests run through
