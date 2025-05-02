@@ -38,4 +38,4 @@
 .. toctree::
    :caption: Documentation
 
-   documentation
+   modules

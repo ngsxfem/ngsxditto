@@ -2,10 +2,11 @@
 
 mkdir -p build
 
-cp ../examples/ditto_lset.ipynb source/ditto_lset.ipynb
+cp ../examples/*.ipynb source/*.ipynb
 cp ../examples/ditto.png source/ditto.png
 
+SPHINX_APIDOC_OPTIONS=members,show-inheritance sphinx-apidoc --templatedir source/_templates/ -o source/ ../ngsxditto
 make html
 
-rm source/ditto_lset.ipynb
+rm source/*.ipynb
 rm source/ditto.png
