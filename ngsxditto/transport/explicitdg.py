@@ -12,6 +12,7 @@ class ExplicitDGTransport(BaseTransport):
         super().__init__(mesh, wind, inflow_values, timestepsize, source)
         
         fes = L2(mesh, order=order, all_dofs_together=True)
+        fes_cont = H1(mesh, order=order)
         u,v = fes.TnT()
         
         wind = self.wind
@@ -39,12 +40,14 @@ class ExplicitDGTransport(BaseTransport):
         self.invmass = fes.Mass(rho=1).Inverse()
         self.invMA = self.invmass @ aop
         self.gfu = GridFunction(fes)
+        self.gfu_cont = GridFunction(fes_cont)
         self.tempu = self.bfa.mat.CreateColVector()
     
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
         if self.time is not None:
             self.time.Set(initial_time)
         self.gfu.Set (initial_values)
+        self.gfu_cont.Set (self.gfu)
 
     def Propagate(self, t_old: float, t_new: float):
         n = (t_new - t_old) / self.timestepsize
@@ -57,8 +60,10 @@ class ExplicitDGTransport(BaseTransport):
             if self.time is not None:
                 self.time.Set(t_old + (i+0.5) * self.timestepsize)
             self.gfu.vec.data -= self.timestepsize * self.invMA * self.tempu
-            for callback in self.callbacks:
-                callback()
+        self.gfu_cont.Set (self.gfu)
+        # callback inside or outside?
+        for callback in self.callbacks:
+            callback()
 
     @property
     def field(self):

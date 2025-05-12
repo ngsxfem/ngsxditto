@@ -18,7 +18,6 @@ transport = ExplicitDGTransport(mesh, wind, inflow_values, 0.01)
 transport.SetInitialValues(exp((-4*((x-0.6)**2+(y-0.5)**2))), initial_time = 0)
 
 #%%
-
 Draw(transport.field, mesh, "u")
 
 def redraw_callback():

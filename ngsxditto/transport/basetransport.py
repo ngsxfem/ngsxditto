@@ -31,6 +31,14 @@ class BaseTransport:
         """
         raise NotImplementedError("SetInitialValues not implemented")
 
+    def OneStep(self, t_old: float, dt: float):
+        """
+        Propagate the level-set function from t_old to t_old + dt
+        """
+        raise NotImplementedError("OneStep not implemented")
+
+    # deprecated! (use OneStep instead and Wrapper-Class "MultiStepper..." instead
+    # for multiple time steps at once)
     def Propagate(self, t_old: float, t_new: float):
         """
         Propagate the level-set function from t_old to t_new
@@ -40,7 +48,7 @@ class BaseTransport:
     @property
     def field(self):
         """
-        Return the level-set field. This can be the GridFunction (or a part of it)
+        Returns a **continuous** level-set field. This can be the GridFunction (or a part of it)
         """
         raise NotImplementedError("field not implemented")
 
