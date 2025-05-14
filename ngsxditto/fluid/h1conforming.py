@@ -1,7 +1,7 @@
 """
 This file introduces an H1 conforming Stokes discretization for a fluid.
 """
-from ngsolve import Mesh, H1, BilinearForm, LinearForm
+from ngsolve import *
 
 from .discretization import FluidDiscretization
 from .params import FluidParameters, WallParameters
@@ -19,7 +19,50 @@ class H1ConformingFluid(FluidDiscretization):
             print("WARNING: Taylor-Hood for order < 4 is not stable on all meshes.")
         super(H1ConformingFluid, self).__init__(mesh=mesh, fluid_params=fluid_params, order=order, levelset=levelset, wall_params=wall_params)
 
-        Vh = H1(mesh, order=order) * H1(mesh, order=order-1)
-        self.bf = BilinearForm(Vh)
-        self.lf = LinearForm(Vh)
-    
+    def InitializeProblem(self, Dbndc, Dbnd):
+        V = VectorH1(self.mesh, order=self.order, dirichlet=Dbnd)
+        Q = H1(self.mesh, order=self.order-1)
+        X = V*Q
+        self.bf = BilinearForm(X)
+        self.lf = LinearForm(X)
+        self.fespace = X
+
+
+    def SetBoundaryCondition(self, Dbndc, Dbnd):
+        self.Dbndc = Dbndc
+        self.Dbnd = Dbnd
+        self.InitializeProblem(Dbndc=Dbndc, Dbnd=Dbnd)
+
+
+    def InitializeVarForm(self, rhs: CoefficientFunction = None):
+        """
+        Initialize the variational formulation.
+        Currently only homogeneous Dirichlet boundary conditions.
+
+            parameters:
+                rhs: The right hand side f of your variational formulation.
+        """
+        if rhs == None:
+            rhs = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
+
+        g = CF(0) # divergence constraint: I think we never want nonzero, due to mass conservation of our fluids?
+
+        (u,p), (v,q) = self.fespace.TnT()
+        nu = self.fluid_params["viscosity"]
+        n = specialcf.normal(self.mesh.dim)
+
+        self.bf += (nu*InnerProduct(Grad(u), Grad(v)) - div(u)*q - div(v)*p) * dx
+        self.lf += rhs*v*dx + g*q*dx
+
+
+    def SolveStokes(self):
+        self.bf.Assemble()    
+        self.lf.Assemble()
+
+        gfu = GridFunction(self.fespace)
+        gfu.vec.data[:] = 0
+        gfu.components[0].Set(self.Dbndc, definedon=self.mesh.Boundaries(self.Dbnd))
+
+        gfu.vec.data += self.bf.mat.Inverse(freedofs=self.fespace.FreeDofs()) * (self.lf.vec - self.bf.mat * gfu.vec)
+
+        return gfu

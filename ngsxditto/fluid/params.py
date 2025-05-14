@@ -30,8 +30,8 @@ class FluidParameters:
         This class represents wall parameters as a dictionary.
     
             parameters:
-                viscosity: viscosity \nu
-                density: density \rho
+                viscosity: viscosity nu
+                density: density rho
                 surface_tension_coeff: surface tension coeff
         """
         self._UpdateDict(viscosity=viscosity, density=density, surface_tension_coeff=surface_tension_coeff)

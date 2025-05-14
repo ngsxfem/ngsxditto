@@ -29,6 +29,8 @@ class FluidDiscretization:
         self.wall_params = wall_params
         self.bf = None
         self.lf = None
+        self.Dbnd = Dbnd
+        self.Dbndc = None
 
     def Initialize(self, initial_velocity):
         """
