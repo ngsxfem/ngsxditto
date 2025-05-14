@@ -1,7 +1,10 @@
 """
 This file introduces placeholder classes working just as an dictionary, holding corresponding parameters values for some fluid.
 """
+
 from typing import Optional
+
+
 class FluidParameters:
     """
     This class represents the fluid parameters as a dictionary.
