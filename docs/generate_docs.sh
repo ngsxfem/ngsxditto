@@ -2,7 +2,7 @@
 
 mkdir -p build
 
-cp ../examples/*.ipynb source/*.ipynb
+cp ../examples/*.ipynb source/
 cp ../examples/ditto.png source/ditto.png
 
 SPHINX_APIDOC_OPTIONS=members,show-inheritance sphinx-apidoc --templatedir source/_templates/ -o source/ ../ngsxditto
