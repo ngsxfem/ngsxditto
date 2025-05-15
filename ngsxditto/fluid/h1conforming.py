@@ -19,7 +19,7 @@ class H1ConformingFluid(FluidDiscretization):
             print("WARNING: Taylor-Hood for order < 4 is not stable on all meshes.")
         super(H1ConformingFluid, self).__init__(mesh=mesh, fluid_params=fluid_params, order=order, levelset=levelset, wall_params=wall_params)
 
-    def InitializeProblem(self, Dbndc, Dbnd):
+    def InitializeProblem(self, Dbndc, Dbnd, Nbndc=None, Nbnd=""):
         V = VectorH1(self.mesh, order=self.order, dirichlet=Dbnd)
         Q = H1(self.mesh, order=self.order-1)
         X = V*Q
@@ -28,10 +28,30 @@ class H1ConformingFluid(FluidDiscretization):
         self.fespace = X
 
 
-    def SetBoundaryCondition(self, Dbndc, Dbnd):
+    def SetBoundaryCondition(self, Dbndc, Dbnd, Nbndc=None, Nbnd=""):
+        """
+        Set the boundary conditions for your problem.
+
+            parameters:
+                Dbndc: CoefficientFunction or similar, describing the values on the Dirichlet boundary.
+                Dbnd: str indicating the parts of Dirichlet boundary
+                Nbndc: CoefficientFunction or similar, describing the normal derivative on the Neumann boundary, i.e. Nbndc~Dx*n.
+                Nbnd: str indicating the parts of Neumann boundary
+        """
         self.Dbndc = Dbndc
         self.Dbnd = Dbnd
-        self.InitializeProblem(Dbndc=Dbndc, Dbnd=Dbnd)
+
+        if Nbndc == None:
+            if self.mesh.dim == 2:
+                Nbndc = CF((0,0))
+            elif self.mesh.dim == 3:
+                Nbndc = CF((0,0,0))
+            else:
+                raise Exception("Other dimensions than two or three not supported")
+
+        self.Nbndc = Nbndc
+        self.Nbnd = Nbnd
+        self.InitializeProblem(Dbndc=Dbndc, Dbnd=Dbnd, Nbndc=Nbndc, Nbnd=Nbnd)
 
 
     def InitializeVarForm(self, rhs: CoefficientFunction = None):
@@ -52,11 +72,11 @@ class H1ConformingFluid(FluidDiscretization):
         n = specialcf.normal(self.mesh.dim)
 
         self.bf += (nu*InnerProduct(Grad(u), Grad(v)) - div(u)*q - div(v)*p) * dx
-        self.lf += rhs*v*dx + g*q*dx
+        self.lf += rhs*v*dx + g*q*dx + nu*self.Nbndc * v * dx(definedon=self.Nbnd)
 
 
     def SolveStokes(self):
-        self.bf.Assemble()    
+        self.bf.Assemble()
         self.lf.Assemble()
 
         gfu = GridFunction(self.fespace)
