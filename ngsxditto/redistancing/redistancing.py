@@ -3,9 +3,8 @@ from abc import ABC, abstractmethod
 
 
 class BaseRedistancing(ABC):
-    def __init__(self, bandwidth:float=None, globally:bool=True):
+    def __init__(self, bandwidth:float=None):
         self.bandwidth = bandwidth
-        self.globally = globally
 
     @abstractmethod
     def Redistance(self, phi: GridFunction):
