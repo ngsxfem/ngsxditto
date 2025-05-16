@@ -6,7 +6,7 @@ class BaseTransport:
     """
     This class is responsible for the abstract implementation of an interface for (level-set) transport.
     """
-    def __init__(self, mesh: Mesh, wind: CoefficientFunction, inflow_values: CoefficientFunction, timestepsize: typing.Optional[float] = None, time: typing.Optional[Parameter] = None, source: typing.Optional[CoefficientFunction] = None):
+    def __init__(self, mesh: Mesh, wind: CoefficientFunction, inflow_values: CoefficientFunction, dt: typing.Optional[float] = None, time: typing.Optional[Parameter] = None, source: typing.Optional[CoefficientFunction] = None):
         """
             parameters:
                 mesh: computational Mesh 
@@ -20,7 +20,7 @@ class BaseTransport:
         self.wind = wind
         self.inflow_values = inflow_values
         self.time = time
-        self.timestepsize = timestepsize
+        self.dt = dt
         self.source = source
         self.callbacks = []
 
@@ -31,9 +31,17 @@ class BaseTransport:
         """
         raise NotImplementedError("SetInitialValues not implemented")
 
-    def OneStep(self, t_old: float, dt: float):
+
+    def SetWind(self, wind: CoefficientFunction):
         """
-        Propagate the level-set function from t_old to t_old + dt
+        Set the wind velocity field that is responsible for (level-set) transport.
+        """
+        raise NotImplementedError("SetWind not implemented")
+
+
+    def OneStep(self):
+        """
+        Propagate the level-set function one step with self.dt
         """
         raise NotImplementedError("OneStep not implemented")
 

@@ -8,8 +8,8 @@ import typing
 
 class ExplicitDGTransport(BaseTransport):
     
-    def __init__(self, mesh, wind, inflow_values, timestepsize, order=2, source=None, usetrace=True, compile=True):
-        super().__init__(mesh, wind, inflow_values, timestepsize, source)
+    def __init__(self, mesh, wind, inflow_values, dt, order=2, source=None, usetrace=True, compile=True):
+        super().__init__(mesh, wind, inflow_values, dt, source)
         
         fes = L2(mesh, order=order, all_dofs_together=True)
         fes_cont = H1(mesh, order=order)
@@ -47,20 +47,28 @@ class ExplicitDGTransport(BaseTransport):
         if self.time is not None:
             self.time.Set(initial_time)
         self.gfu.Set (initial_values)
+        self.gfu_cont.Set(self.gfu)
+
+    def OneStep(self):
+        self.tempu.data = self.gfu.vec - 0.5 * self.dt * self.invMA * self.gfu.vec
+        if self.time is not None:
+            self.time.Set(self.time.Get() + self.dt)
+        self.gfu.vec.data -= self.dt * self.invMA * self.tempu
         self.gfu_cont.Set (self.gfu)
 
+
     def Propagate(self, t_old: float, t_new: float):
-        n = (t_new - t_old) / self.timestepsize
+        n = (t_new - t_old) / self.dt
         if (n - round(n)) > 1e-6:
             raise Exception("timesteps not aligned - adaptivity not implemented")
         for i in range(round(n)):
             if self.time is not None:
-                self.time.Set(t_old + i * self.timestepsize)
-            self.tempu.data = self.gfu.vec - 0.5 * self.timestepsize * self.invMA * self.gfu.vec
+                self.time.Set(t_old + i * self.dt)
+            self.tempu.data = self.gfu.vec - 0.5 * self.dt * self.invMA * self.gfu.vec
             if self.time is not None:
-                self.time.Set(t_old + (i+0.5) * self.timestepsize)
-            self.gfu.vec.data -= self.timestepsize * self.invMA * self.tempu
-        self.gfu_cont.Set (self.gfu)
+                self.time.Set(t_old + (i+0.5) * self.dt)
+            self.gfu.vec.data -= self.dt * self.invMA * self.tempu
+        self.gfu_cont.Set(self.gfu)
         # callback inside or outside?
         for callback in self.callbacks:
             callback()
