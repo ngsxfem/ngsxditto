@@ -1,3 +1,4 @@
 from .params import *
-from .meancurv import *
 from .discretization import *
+from .h1conforming import *
+from .meancurv import *
