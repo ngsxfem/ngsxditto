@@ -78,16 +78,12 @@ def get_edge_midpoint(mesh, edge):
     return (midx, midy)
 
 
-def find_levelset_elements(V, mesh, phi):
+def find_levelset_elements(phi):
     """
     Loops through the elements of the Finite Element Space to find the elements that the zero levelset crosses.
 
     Parameters
     ----------
-        V: ngsolve.comp.FESpace
-            The Finite Element Space of the functions
-        mesh: ngsolve.comp.Mesh
-            The mesh on which the finite element spaces are defined
         phi: ngsolve.comp.GridFunction
             The levelset function
 
@@ -96,6 +92,8 @@ def find_levelset_elements(V, mesh, phi):
         list:
             List of all elements (ngsolve.comp.FESpaceElement) that the zero levelset of the levelset function crosses
     """
+    V = phi.space
+    mesh = V.mesh
 
     levelset_elements = []
     for el in V.Elements():
@@ -177,27 +175,26 @@ def get_all_dofs(V):
     return list(dofs)
 
 
-def find_zero_points(V, mesh, element, phi):
+def find_zero_points(phi, element):
     """
-    Finds the points on the boundary of an element where the levelset function is zero. Exact only for Polynomial degree one.
+    Finds the points on the boundary of an element where the levelset function is zero.
+    Exact only for Polynomial degree one.
 
     Parameters
     ----------
-        V: ngsolve.comp.FESpace
-            The Finite Element Space of the function
-        mesh: ngsolve.comp.Mesh
-            The mesh on which the element lives on
-        element: ngsolve.comp.FESpaceElement
-            The element we want to find the zero points on
         phi: ngsolve.comp.GridFunction
             The levelset function
+
+        element: ngsolve.comp.FESpaceElement
+            The element we want to find the zero points on
 
     Returns
     -------
         list:
             List of the points as tuples of floats
     """
-
+    V = phi.space
+    mesh = V.mesh
     vs = element.vertices
     coord = [mesh[v].point for v in vs]
 
@@ -280,7 +277,7 @@ def get_length_of_edge(mesh, edge):
     return distance(coord[0], coord[1])
 
 
-def get_fes_matrix(V, mesh):
+def get_fes_matrix(V):
     """
     Get the matrix that multiplied by the vector of the basis coefficients equals the values of the function at the vertices and edges.
 
@@ -288,8 +285,6 @@ def get_fes_matrix(V, mesh):
     ----------
         V: ngsolve.comp.FESpace
             The Finite Element Space that defines the degrees of freedom
-        mesh: ngsolve.comp.Mesh
-            The mesh the vertices and edges are defined on
 
     Returns
     -------
@@ -297,6 +292,7 @@ def get_fes_matrix(V, mesh):
             The matrix that converts basis coefficients to values of a function
     """
 
+    mesh = V.mesh
     n = V.ndof
 
     if V.globalorder == 1:
@@ -320,16 +316,16 @@ def get_fes_matrix(V, mesh):
         raise NotImplementedError("Only implemented for polynomial degrees 1 and 2")
 
 
-def get_signed_distance_vector(V, mesh, phi, distance_dict):
+def get_signed_distance_vector(phi, distance_dict):
     """
     Get the vector that takes a dictionary of distances and converts it to a vector of the signed distances
 
     Parameters
     ----------
-        V: ngsolve.comp.FESpace
-            The Finite Element Space that defines the degrees of freedom
-        mesh: ngsolve.comp.Mesh
-            The mesh the vertices and edges are defined on
+        phi: ngsolve.comp.GridFunction
+            The levelset function
+        distance_dict: dict
+            dictionary of distances to convert
 
     Returns
     -------
@@ -337,6 +333,8 @@ def get_signed_distance_vector(V, mesh, phi, distance_dict):
             A vector of all signed distances to the levelset
     """
 
+    V = phi.space
+    mesh = V.mesh
     n = len(distance_dict.items())
     vector = np.empty(n)
 
