@@ -83,7 +83,6 @@ class LinearFastMarching(BaseRedistancing):
                 if min_distance_dict[V.GetDofNrs(vertex)[0]] == min_distance:
                     v = vertex
                     break
-
             edges = V.mesh[v].edges
             for edge in edges:
                 opposite_vertex = get_opposite_vertex(V.mesh, v, edge)
@@ -107,7 +106,12 @@ class LinearFastMarching(BaseRedistancing):
 
         # solve linear system to get basis coefficients
         matrix = get_fes_matrix(V)
+
+        if self.bandwidth is not None:
+            old_distances = np.array(matrix @ phi_copy.vec.data)
+            min_distance_dict = {dof: dist if not math.isinf(dist) else abs(old_distances[dof]) for dof, dist in min_distance_dict.items()}
         signed_distances = get_signed_distance_vector(phi_copy, min_distance_dict)
+
         phi_copy.vec.data = sp.sparse.linalg.spsolve(matrix, signed_distances)
         if l2_function:
             phi_copy = h1_to_l2(phi_copy)
