@@ -7,7 +7,9 @@ ipykernel
 ipython
 ipywidgets
 matplotlib
+numpy
 scipy
 scikit-image
+sympy
 pandoc
 webgui_jupyter_widgets
