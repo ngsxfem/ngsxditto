@@ -6,7 +6,7 @@ class BaseTransport:
     """
     This class is responsible for the abstract implementation of an interface for (level-set) transport.
     """
-    def __init__(self, mesh: Mesh, wind: CoefficientFunction, inflow_values: CoefficientFunction, dt: typing.Optional[float] = None, time: typing.Optional[Parameter] = None, source: typing.Optional[CoefficientFunction] = None):
+    def __init__(self, mesh: Mesh, wind: CoefficientFunction, inflow_values: CoefficientFunction, dt: typing.Optional[float] = None, time: typing.Optional[Parameter] = None, source: typing.Optional[CoefficientFunction] = None, order:int = None):
         """
             parameters:
                 mesh: computational Mesh 
@@ -21,6 +21,7 @@ class BaseTransport:
         self.inflow_values = inflow_values
         self.time = time
         self.dt = dt
+        self.order = order
         self.source = source
         self.callbacks = []
 
