@@ -1,0 +1,33 @@
+from ngsolve import *
+from .redistancing import *
+from .linear_fmm import *
+from .quadratic_fmm import *
+
+
+class FastMarching(BaseRedistancing):
+    def __init__(self, bandwidth: float=None, order: int=None):
+        super().__init__(bandwidth)
+        self.order = order
+        if self.order is not None:
+            if self.order == 1:
+                self.redistancing_algorithm = LinearFastMarching(bandwidth)
+            if self.order == 2:
+                self.redistancing_algorithm = QuadraticFastMarching(bandwidth)
+            else:
+                raise NotImplementedError("FastMarching only supports order 1 and 2")
+        else:
+            self.redistancing_algorithm = None
+
+    def SetOrder(self, order: int):
+        if order > 2:
+            raise NotImplementedError("FastMarching only supports order 1 and 2")
+
+        self.order = order
+
+        if self.order == 1:
+            self.redistancing_algorithm = LinearFastMarching(self.bandwidth)
+        if self.order == 2:
+            self.redistancing_algorithm = QuadraticFastMarching(self.bandwidth)
+
+    def Redistance(self, phi: GridFunction):
+        self.redistancing_algorithm.Redistance(phi)

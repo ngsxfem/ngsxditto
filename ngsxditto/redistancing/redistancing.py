@@ -6,6 +6,9 @@ class BaseRedistancing(ABC):
     def __init__(self, bandwidth:float=None):
         self.bandwidth = bandwidth
 
+    def SetOrder(self, order:int):
+        raise NotImplementedError("SetOrder not implemented")
+
     @abstractmethod
     def Redistance(self, phi: GridFunction):
         """
