@@ -9,7 +9,7 @@ import typing
 class ExplicitDGTransport(BaseTransport):
     
     def __init__(self, mesh, wind, inflow_values, dt, order=2, source=None, usetrace=True, compile=True):
-        super().__init__(mesh, wind, inflow_values, dt, source)
+        super().__init__(mesh, wind, inflow_values, dt, source, order=order)
         
         fes = L2(mesh, order=order, all_dofs_together=True)
         fes_cont = H1(mesh, order=order)
@@ -48,6 +48,9 @@ class ExplicitDGTransport(BaseTransport):
             self.time.Set(initial_time)
         self.gfu.Set (initial_values)
         self.gfu_cont.Set(self.gfu)
+
+    def SetWind(self, wind: CoefficientFunction):
+        raise NotImplementedError("SetWind not yet implemented")
 
     def OneStep(self):
         self.tempu.data = self.gfu.vec - 0.5 * self.dt * self.invMA * self.gfu.vec
