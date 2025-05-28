@@ -1,25 +1,40 @@
 from ngsolve import *
+
+from .multistepper import MultiStepper
 from ngsxditto.transport import *
 from ngsxditto.redistancing import *
 
 
 class LevelSetGeometry:
-    def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing):
+    def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing, multistepper: MultiStepper, autoredistancing: AutoRedistancing=None):
         self.transport = transport
         self.redistancing = redistancing
         self.redistancing.SetOrder(transport.order)
         self.mesh = self.transport.mesh
+        self.multistepper = multistepper
+        self.multistepper.SetLevelSet(self)
+        self.autoredistancing = autoredistancing
+        self.steps_since_last_redistancing = 0
 
     def Initialize(self, initial_lset: CoefficientFunction, initial_time: float=0.0):
         self.transport.SetInitialValues(initial_lset, initial_time)
 
     def OneStep(self):
         self.transport.OneStep()
+        self.steps_since_last_redistancing += 1
+
+    def ShouldRedistance(self):
+        if self.autoredistancing is not None:
+            return self.autoredistancing.ShouldRedistance(self)
+
 
     def Redistance(self):
+        print("The next function is redistanced")
         self.redistancing.Redistance(self.transport.field)
+        self.steps_since_last_redistancing = 0
 
-    def TestGradients(self, lower_bound, upper_bound, bandwidth=None):
+
+    def MinMaxGradientNorm(self, bandwidth=None):
         phi = self.transport.field
         norm_grad = Norm(grad(phi))
         V = phi.space
@@ -35,6 +50,4 @@ class LevelSetGeometry:
             max_grad = max(max_grad, val)
             min_grad = min(min_grad, val)
 
-        if min_grad < lower_bound or max_grad > upper_bound:
-            return False
-        return True
+        return min_grad, max_grad
