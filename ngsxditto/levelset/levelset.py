@@ -1,12 +1,12 @@
 from ngsolve import *
 
-from .multistepper import MultiStepper
+from ngsxditto.levelset.multistepper import MultiStepper
 from ngsxditto.transport import *
 from ngsxditto.redistancing import *
 
 
 class LevelSetGeometry:
-    def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing, multistepper: MultiStepper, autoredistancing: AutoRedistancing=None):
+    def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing, multistepper: MultiStepper = None, autoredistancing: AutoRedistancing=None):
         self.transport = transport
         self.redistancing = redistancing
         self.redistancing.SetOrder(transport.order)
@@ -22,11 +22,18 @@ class LevelSetGeometry:
     def OneStep(self):
         self.transport.OneStep()
         self.steps_since_last_redistancing += 1
+        if self.ShouldRedistance():
+            self.Redistance()
+
+    def RunFixedSteps(self, n):
+        self.multistepper.RunFixedSteps(n)
+
+    def RunUntilTime(self, end_time):
+        self.multistepper.RunUntilTime(end_time)
 
     def ShouldRedistance(self):
         if self.autoredistancing is not None:
             return self.autoredistancing.ShouldRedistance(self)
-
 
     def Redistance(self):
         print("The next function is redistanced")
