@@ -25,7 +25,7 @@ def test_propagation():
     while transport.time < T_end:
         transport.OneStep()
 
-    assert Integrate((transport.gfu - true_circle)**2, mesh)**(1/2) < 1e-2
+    assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-2
 
     transport.SetWind(-wind)
 
@@ -33,7 +33,7 @@ def test_propagation():
         transport.OneStep()
 
     t.Set(0)
-    assert Integrate((transport.gfu - true_circle)**2, mesh)**(1/2) < 1e-2
+    assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-2
 
 
 
