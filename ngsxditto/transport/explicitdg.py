@@ -38,7 +38,7 @@ class ExplicitDGTransport(BaseTransport):
         if not self.usetrace:
             self.bfa = BilinearForm(fes, nonassemble=True)
             self.bfa += -u * wind * grad(v) * dx
-            wn = wind * specialcf.normal(mesh.dim)
+            wn = wind * specialcf.normal(self.mesh.dim)
             self.bfa += (wn * IfPos(wn, u, u.Other(bnd=self.inflow_values)) * v).Compile(self.compile, wait=True) * dx(
                 element_boundary=True)
             aop = self.bfa.mat
