@@ -9,6 +9,7 @@ class ImplicitSUPGTransport(BaseTransport):
 
         self.fes = H1(mesh, order=order)
         self.u, self.v = self.fes.TnT()
+        u, v = self.u, self.v
 
         wind = self.wind
 
@@ -22,6 +23,9 @@ class ImplicitSUPGTransport(BaseTransport):
         self.rhs = BilinearForm(self.fes, symmetric=False)
         self.inv = None
 
+        self.mass_term = u * (v + self.gamma * wind * grad(v)) * dx
+        self.conv = wind * grad(u) * (v + self.gamma * wind * grad(v)) * dx
+
         self.SetWind(wind)
 
         self.gfu = GridFunction(self.fes)
@@ -33,20 +37,35 @@ class ImplicitSUPGTransport(BaseTransport):
         self.gfu.Set(initial_values)
 
     def SetWind(self, wind: CoefficientFunction):
+        self.wind = wind
         u, v = self.u, self.v
-        mass_term = u * (v + self.gamma * wind * grad(v)) * dx
-        conv = wind * grad(u) * (v + self.gamma * wind * grad(v)) * dx
+        self.mass_term = u * (v + self.gamma * wind * grad(v)) * dx
+        self.conv = wind * grad(u) * (v + self.gamma * wind * grad(v)) * dx
 
         self.bfa = BilinearForm(self.fes, symmetric=False)
-        self.bfa += mass_term
-        self.bfa += self.dt/2 * conv
+        self.bfa += self.mass_term
+        self.bfa += self.dt/2 * self.conv
         self.bfa.Assemble()
 
         self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs())
         self.rhs = BilinearForm(self.fes, symmetric=False)
-        self.rhs += mass_term
-        self.rhs += -self.dt / 2 * conv
+        self.rhs += self.mass_term
+        self.rhs += -self.dt / 2 * self.conv
         self.rhs.Assemble()
+
+    def SetTimeStepSize(self, dt: float):
+        self.dt = dt
+        self.bfa = BilinearForm(self.fes, symmetric=False)
+        self.bfa += self.mass_term
+        self.bfa += self.dt/2 * self.conv
+        self.bfa.Assemble()
+
+        self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs())
+        self.rhs = BilinearForm(self.fes, symmetric=False)
+        self.rhs += self.mass_term
+        self.rhs += -self.dt / 2 * self.conv
+        self.rhs.Assemble()
+
 
     def OneStep(self):
         if self.time is not None:

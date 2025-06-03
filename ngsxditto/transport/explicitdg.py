@@ -10,37 +10,19 @@ class ExplicitDGTransport(BaseTransport):
     
     def __init__(self, mesh, wind, inflow_values, dt, order=2, source=None, usetrace=True, compile=True):
         super().__init__(mesh, wind, inflow_values, dt, source, order=order)
-        
-        fes = L2(mesh, order=order, all_dofs_together=True)
-        fes_cont = H1(mesh, order=order)
-        u,v = fes.TnT()
-        
-        wind = self.wind
 
-        if not usetrace:
-            self.bfa = BilinearForm(fes, nonassemble=True)
-            self.bfa += -u * wind * grad(v) * dx
-            wn = wind*specialcf.normal(mesh.dim)
-            self.bfa += (wn * IfPos(wn, u, u.Other(bnd=inflow_values)) * v).Compile(compile, wait=True) * dx(element_boundary=True)
-            aop = self.bfa.mat
-        else:
-            fes_trace = Discontinuous(FacetFESpace(mesh, order=order))
-            utr,vtr = fes_trace.TnT()
-            trace = fes.TraceOperator(fes_trace, False)
-            
-            self.bfa = BilinearForm(fes, nonassemble=True)
-            self.bfa += -u * wind * grad(v) * dx
+        self.usetrace = usetrace
+        self.compile = compile
+        self.fes = L2(mesh, order=order, all_dofs_together=True)
+        self.fes_cont = H1(mesh, order=order)
+        self.u, self.v = self.fes.TnT()
+        self.bfa = BilinearForm(self.fes, nonassemble=True)
+        self.invmass = self.fes.Mass(rho=1).Inverse()
+        self.invMA = None
+        self.SetWind(wind)
 
-            self.bfa_trace = BilinearForm(fes_trace, nonassemble=True)
-            wn = wind*specialcf.normal(mesh.dim)
-            self.bfa_trace += (wn * IfPos(wn, utr, utr.Other(bnd=inflow_values)) * vtr).Compile(compile,wait=True) * dx(element_boundary=True)
-
-            aop = self.bfa.mat + trace.T @ self.bfa_trace.mat @ trace
-        
-        self.invmass = fes.Mass(rho=1).Inverse()
-        self.invMA = self.invmass @ aop
-        self.gfu = GridFunction(fes)
-        self.gfu_cont = GridFunction(fes_cont)
+        self.gfu = GridFunction(self.fes)
+        self.gfu_cont = GridFunction(self.fes_cont)
         self.tempu = self.bfa.mat.CreateColVector()
     
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
@@ -50,7 +32,35 @@ class ExplicitDGTransport(BaseTransport):
         self.gfu_cont.Set(self.gfu)
 
     def SetWind(self, wind: CoefficientFunction):
-        raise NotImplementedError("SetWind not yet implemented")
+        u, v = self.u, self.v
+        fes = self.fes
+
+        if not self.usetrace:
+            self.bfa = BilinearForm(fes, nonassemble=True)
+            self.bfa += -u * wind * grad(v) * dx
+            wn = wind * specialcf.normal(mesh.dim)
+            self.bfa += (wn * IfPos(wn, u, u.Other(bnd=self.inflow_values)) * v).Compile(self.compile, wait=True) * dx(
+                element_boundary=True)
+            aop = self.bfa.mat
+        else:
+            fes_trace = Discontinuous(FacetFESpace(self.mesh, order=self.order))
+            utr, vtr = fes_trace.TnT()
+            trace = fes.TraceOperator(fes_trace, False)
+
+            self.bfa = BilinearForm(fes, nonassemble=True)
+            self.bfa += -u * wind * grad(v) * dx
+
+            self.bfa_trace = BilinearForm(fes_trace, nonassemble=True)
+            wn = wind * specialcf.normal(self.mesh.dim)
+            self.bfa_trace += ((wn * IfPos(wn, utr, utr.Other(bnd=self.inflow_values)) * vtr).Compile(
+                self.compile,wait=True) * dx(element_boundary=True))
+
+            aop = self.bfa.mat + trace.T @ self.bfa_trace.mat @ trace
+        self.invMA = self.invmass @ aop
+
+
+    def SetTimeStepSize(self, dt: float):
+        self.dt = dt
 
     def OneStep(self):
         self.tempu.data = self.gfu.vec - 0.5 * self.dt * self.invMA * self.gfu.vec

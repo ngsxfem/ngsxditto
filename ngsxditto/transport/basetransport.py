@@ -40,6 +40,10 @@ class BaseTransport:
         raise NotImplementedError("SetWind not implemented")
 
 
+    def SetTimeStepSize(self, dt: float):
+        raise NotImplementedError("SetTimeStepSize not implemented")
+
+
     def OneStep(self):
         """
         Propagate the level-set function one step with self.dt
