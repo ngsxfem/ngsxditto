@@ -22,8 +22,7 @@ def test_without_autoredistancing():
     transport.SetInitialValues(true_circle)
 
     redistancing = FastMarching()
-    multistepper = MultiStepper()
-    levelset = LevelSetGeometry(transport, redistancing, multistepper)
+    levelset = LevelSetGeometry(transport, redistancing)
     while transport.time < T_end:
         levelset.OneStep()
     assert Integrate((levelset.transport.field - true_circle)**2, mesh)**(1/2) < 0.1
@@ -47,9 +46,8 @@ def test_with_autoredistancing():
     transport.SetInitialValues(true_circle)
 
     redistancing = FastMarching()
-    multistepper = MultiStepper()
     auto_redistancing = PeriodicRedistancing(100)
-    levelset = LevelSetGeometry(transport, redistancing, multistepper, auto_redistancing)
+    levelset = LevelSetGeometry(transport, redistancing, auto_redistancing)
 
     levelset.RunFixedSteps(99)
     assert levelset.steps_since_last_redistancing == 99

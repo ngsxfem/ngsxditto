@@ -6,12 +6,12 @@ from ngsxditto.redistancing import *
 
 
 class LevelSetGeometry:
-    def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing, multistepper: MultiStepper = None, autoredistancing: AutoRedistancing=None):
+    def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing, autoredistancing: AutoRedistancing=None):
         self.transport = transport
         self.redistancing = redistancing
         self.redistancing.SetOrder(transport.order)
         self.mesh = self.transport.mesh
-        self.multistepper = multistepper
+        self.multistepper = MultiStepper()
         self.multistepper.SetLevelSet(self)
         self.autoredistancing = autoredistancing
         self.steps_since_last_redistancing = 0
