@@ -1,4 +1,7 @@
 class MultiStepper:
+    """
+    This class allows handling multiple steps at the same time and checks while automatically applying redistancing.
+    """
     def __init__(self):
         self.levelset = None
 

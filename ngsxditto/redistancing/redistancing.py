@@ -3,6 +3,9 @@ from abc import ABC, abstractmethod
 
 
 class BaseRedistancing(ABC):
+    """
+    This class is responsible for the abstract implementation of redistancing functionality.
+    """
     def __init__(self, bandwidth:float=None):
         self.bandwidth = bandwidth
 

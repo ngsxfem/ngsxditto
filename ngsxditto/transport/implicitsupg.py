@@ -3,7 +3,10 @@ from .basetransport import BaseTransport
 
 
 class ImplicitSUPGTransport(BaseTransport):
-
+    """
+    This class propagates a function along a given velocity field (wind) using the Crank-Nicolson scheme
+    in time and the SUPG method as space discretization.
+    """
     def __init__(self, mesh, wind, inflow_values, dt, order=2, source=None):
         super().__init__(mesh, wind, inflow_values, dt, source, order=order)
 

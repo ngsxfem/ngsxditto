@@ -5,6 +5,10 @@ from .quadratic_fmm import *
 
 
 class FastMarching(BaseRedistancing):
+    """
+    This class handles redistancing using the Fast Matching Method. Implemented only for orders 1 and 2.
+    Approximately restores the signed distance property globally or in a bandwidth around the level set.
+    """
     def __init__(self, bandwidth: float=None, order: int=None):
         super().__init__(bandwidth)
         self.order = order

@@ -7,7 +7,10 @@ import typing
 # taken and adapted from NGSolve's modeltemplates
 
 class ExplicitDGTransport(BaseTransport):
-    
+    """
+    This class propagates a function along a given velocity field (wind) using the Runge-Kutta-2 discretization
+    in time and the DG or HDG method as space discretization.
+    """
     def __init__(self, mesh, wind, inflow_values, dt, order=2, source=None, usetrace=True, compile=True):
         super().__init__(mesh, wind, inflow_values, dt, source, order=order)
 

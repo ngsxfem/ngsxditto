@@ -3,6 +3,9 @@ from .redistancing import *
 from .helping_functions_redistancing import *
 
 class QuadraticFastMarching(BaseRedistancing):
+    """
+    The Quadratic Fast Marching algorithm.
+    """
     def __init__(self, bandwidth: float=None):
         super().__init__(bandwidth)
         self.order = 2

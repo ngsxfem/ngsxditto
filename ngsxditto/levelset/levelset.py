@@ -6,7 +6,13 @@ from ngsxditto.redistancing import *
 
 
 class LevelSetGeometry:
+    """
+    This class handles the level set geometry.
+    """
     def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing, autoredistancing: AutoRedistancing=None):
+        """
+        Initializes the level set object with a transport method, a redistancing method and optionally an autoredistancing scheme.
+        """
         self.transport = transport
         self.redistancing = redistancing
         self.redistancing.SetOrder(transport.order)

@@ -1,4 +1,7 @@
 class AutoRedistancing:
+    """
+    This is the base class for handling auto-redistancing algorithms.
+    """
     def __init__(self):
         pass
 
@@ -7,6 +10,9 @@ class AutoRedistancing:
 
 
 class PeriodicRedistancing(AutoRedistancing):
+    """
+    Use if redistancing should be applied after a fixed amount of steps.
+    """
     def __init__(self, n):
         super().__init__()
         self.n = n
@@ -15,7 +21,11 @@ class PeriodicRedistancing(AutoRedistancing):
     def ShouldRedistance(self, levelset):
         return levelset.steps_since_last_redistancing % self.n == 0
 
+
 class GradientRedistancing(AutoRedistancing):
+    """
+    Use if redistancing should be applied if the level set function is out of given gradient bounds. .
+    """
     def __init__(self, gradient_bounds):
         super().__init__()
         self.gradient_bounds = gradient_bounds
