@@ -3,6 +3,7 @@ from ngsolve import *
 from ngsxditto.levelset.multistepper import MultiStepper
 from ngsxditto.transport import *
 from ngsxditto.redistancing import *
+import types
 
 
 class LevelSetGeometry:
@@ -22,14 +23,21 @@ class LevelSetGeometry:
         self.autoredistancing = autoredistancing
         self.steps_since_last_redistancing = 0
 
+        original_func = self.transport.OneStep
+        # wrapper to track calls (useful for periodic auto redistancing)
+        def wrapped_OneStep(transport):
+            self.steps_since_last_redistancing += 1
+            original_func()
+            if self.ShouldRedistance():
+                self.Redistance()
+
+        self.transport.OneStep = types.MethodType(wrapped_OneStep, self.transport)
+
     def Initialize(self, initial_lset: CoefficientFunction, initial_time: float=0.0):
         self.transport.SetInitialValues(initial_lset, initial_time)
 
     def OneStep(self):
         self.transport.OneStep()
-        self.steps_since_last_redistancing += 1
-        if self.ShouldRedistance():
-            self.Redistance()
 
     def RunFixedSteps(self, n):
         self.multistepper.RunFixedSteps(n)
