@@ -11,9 +11,23 @@ class MeanCurvatureSolver:
     def __init__(self, mesh: Mesh, order: int = 1, 
                  cutinfo: Optional[CutInfo] = None,
                  lsetadap: Optional[LevelSetMeshAdaptation] = None,
-                 gp_param: Union[None, float, CoefficientFunction] = None):
+                 gp_param: Union[None, float, CoefficientFunction] = specialcf.mesh_size):
         """
-        Initialisiere den Solver mit Mesh, Level-Set-Funktion und Diskretisierungsparametern.
+        Initialize the mean curvature solver with a mesh discretization parameters, 
+        and (if existing anyway) lsetadap and cutinfo
+
+        Parameters
+        ----------
+        mesh : Mesh
+            The computational mesh
+        order : int
+            The polynomial order of the sought for mean curvature vector
+        cutinfo : CutInfo or None
+            The cut information of the level set function (if provided)
+        lsetadap : LevelSetMeshAdaptation or None
+            The level set mesh adaptation (if provided)
+        gp_param : float or CoefficientFunction or None
+            The parameter for the generalized Poisson problem
         """
 
         self.mesh = mesh
@@ -40,12 +54,12 @@ class MeanCurvatureSolver:
             self.cutinfo = CutInfo(mesh)
         
 
-        self.X = VectorH1(mesh, order=order, dgjumps=gp_param!=None)
+        self.X = VectorH1(mesh, order=order, dgjumps=(gp_param!=None))
 
         self.H = GridFunction(self.X)
 
 
-    def compute_mean_curvature_vector(self, levelset : CoefficientFunction) -> GridFunction:
+    def compute(self, levelset : CoefficientFunction) -> GridFunction:
         """
         Solve for the mean curvature vector.
         Returns: GridFunction with vector values on the interface.
@@ -87,7 +101,7 @@ class MeanCurvatureSolver:
 
         # linear form
         f = LinearForm(self.X)
-        f += CF((x,y)) * v * ds # InnerProduct(P*E, P*grad(v)) * ds
+        f += InnerProduct(P*E, P*grad(v)) * ds
         f.Assemble()
 
         # solution
@@ -98,7 +112,7 @@ class MeanCurvatureSolver:
         self.H.vec.data = a.mat.Inverse(self.freedofs) * f.vec
 
     def compute_l2_error(self, H):
-        return sqrt(Integrate( InnerProduct(H-self.H,H-self.H) * ds, mesh=self.mesh))
+        return sqrt(Integrate( InnerProduct(H-self.H,H-self.H) * self.ds, mesh=self.mesh))
 
 if __name__ == "__main__":
     from netgen.geom2d import SplineGeometry
@@ -111,6 +125,11 @@ if __name__ == "__main__":
     phi = sqrt(x*x + y*y) - 1
     h = specialcf.mesh_size
     solver = MeanCurvatureSolver(mesh, order=1, gp_param=0.5*h*h)
-    solver.compute_mean_curvature_vector(phi)
+    solver.compute(phi)
+    Hexact = CF((x, y))
+    err = solver.compute_l2_error(Hexact)
+    print("L2-error: ", err)
     from netgen import gui
-    Draw(solver.H, mesh, "H")
+    Draw(BitArrayCF(solver.cutinfo.GetElementsOfType(IF))*solver.H, mesh, "H")    
+    Draw(BitArrayCF(solver.cutinfo.GetElementsOfType(IF))*solver.H-BitArrayCF(solver.cutinfo.GetElementsOfType(IF))*Hexact, mesh, "Herr")    
+    Draw(BitArrayCF(solver.cutinfo.GetElementsOfType(IF))*Hexact, mesh, "Hexact")
