@@ -11,4 +11,4 @@ In the following we collect examples that were computed with `ngsxditto`.
 
    basic_stokes.ipynb
 
-   mean_curv_ditto_lset.ipynb
+   mean_curv_ditto.ipynb
