@@ -8,4 +8,7 @@ In the following we collect examples that were computed with `ngsxditto`.
    :caption: Examples:
 
    ditto_lset.ipynb
+
    basic_stokes.ipynb
+
+   mean_curv_ditto.ipynb
