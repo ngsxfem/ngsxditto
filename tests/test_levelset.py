@@ -1,5 +1,3 @@
-from ngsxditto.transport import *
-from ngsxditto.redistancing import *
 from ngsxditto.levelset import *
 from ngsolve import *
 from netgen.geom2d import SplineGeometry
@@ -31,7 +29,7 @@ def test_without_autoredistancing():
     assert Integrate((levelset.transport.field - true_circle)**2, mesh)**(1/2) < 0.1
 
     levelset.RunUntilTime(transport.time.Get() + T_end)
-    assert Integrate((levelset.transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 0.1
+    assert Integrate((levelset.transport.field - true_circle)**2, mesh) ** (1/2) < 0.1
 
     min_grad_old, max_grad_old = levelset.MinMaxGradientNorm()
     levelset.Redistance()
@@ -49,9 +47,9 @@ def test_with_autoredistancing():
     auto_redistancing = PeriodicRedistancing(100)
     levelset = LevelSetGeometry(transport, redistancing, auto_redistancing)
 
-    levelset.RunFixedSteps(99)
+    levelset.transport.multistepper.RunFixedSteps(99)
     assert levelset.steps_since_last_redistancing == 99
-    levelset.OneStep()
+    levelset.transport.OneStep()
     assert levelset.steps_since_last_redistancing == 0
 
     assert Integrate((levelset.transport.field - true_circle)**2, mesh)**(1/2) < 0.1

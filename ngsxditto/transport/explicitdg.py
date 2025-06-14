@@ -1,8 +1,6 @@
 from ngsolve import *
-
 from .basetransport import BaseTransport
-
-import typing 
+import typing
 
 # taken and adapted from NGSolve's modeltemplates
 
@@ -64,6 +62,11 @@ class ExplicitDGTransport(BaseTransport):
 
     def SetTimeStepSize(self, dt: float):
         self.dt = dt
+
+
+    def SetLevelset(self, levelset):
+        self.levelset = levelset
+
 
     def OneStep(self):
         self.tempu.data = self.gfu.vec - 0.5 * self.dt * self.invMA * self.gfu.vec

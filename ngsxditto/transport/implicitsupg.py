@@ -70,6 +70,10 @@ class ImplicitSUPGTransport(BaseTransport):
         self.rhs.Assemble()
 
 
+    def SetLevelset(self, levelset):
+        self.levelset = levelset
+
+
     def OneStep(self):
         if self.time is not None:
             self.time.Set(self.time.Get() + self.dt)

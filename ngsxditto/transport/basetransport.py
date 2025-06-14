@@ -1,4 +1,5 @@
 from ngsolve import CoefficientFunction, Mesh, Parameter
+from ngsxditto.multistepper import MultiStepper
 
 import typing 
 
@@ -6,7 +7,9 @@ class BaseTransport:
     """
     This class is responsible for the abstract implementation of an interface for (level-set) transport.
     """
-    def __init__(self, mesh: Mesh, wind: CoefficientFunction, inflow_values: CoefficientFunction, dt: typing.Optional[float] = None, time: typing.Optional[Parameter] = None, source: typing.Optional[CoefficientFunction] = None, order:int = None):
+    def __init__(self, mesh: Mesh, wind: CoefficientFunction, inflow_values: CoefficientFunction,
+                 dt: typing.Optional[float] = None, time: typing.Optional[Parameter] = None,
+                 source: typing.Optional[CoefficientFunction] = None, order:int = None) -> None:
         """
             parameters:
                 mesh: computational Mesh 
@@ -23,6 +26,9 @@ class BaseTransport:
         self.dt = dt
         self.order = order
         self.source = source
+        self.multistepper = MultiStepper()
+        self.multistepper.SetTransport(self)
+        self.levelset = None
         self.callbacks = []
 
 
@@ -42,6 +48,10 @@ class BaseTransport:
 
     def SetTimeStepSize(self, dt: float):
         raise NotImplementedError("SetTimeStepSize not implemented")
+
+
+    def SetLevelset(self, levelset):
+        raise NotImplementedError("SetLevelset not implemented")
 
 
     def OneStep(self):
