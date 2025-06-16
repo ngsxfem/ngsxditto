@@ -7,14 +7,15 @@ class LevelSetGeometry:
     """
     This class handles the level set geometry.
     """
-    def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing, autoredistancing: AutoRedistancing=None):
+    def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing=None, autoredistancing: AutoRedistancing=None):
         """
         Initializes the level set object with a transport method, a redistancing method and optionally an autoredistancing scheme.
         """
         self.transport = transport
         self.transport.SetLevelset(self)
-        self.redistancing = redistancing
-        self.redistancing.SetOrder(transport.order)
+        if redistancing is not None:
+            self.redistancing = redistancing
+            self.redistancing.SetOrder(transport.order)
         self.mesh = self.transport.mesh
         self.autoredistancing = autoredistancing
         self.steps_since_last_redistancing = 0
@@ -28,6 +29,9 @@ class LevelSetGeometry:
                 self.Redistance()
 
         self.transport.OneStep = types.MethodType(wrapped_OneStep, self.transport)
+
+    def SetRedistancing(self, redistancing: BaseRedistancing):
+        self.redistancing = redistancing
 
     def Initialize(self, initial_lset: CoefficientFunction, initial_time: float=0.0):
         self.transport.SetInitialValues(initial_lset, initial_time)
@@ -65,7 +69,7 @@ class LevelSetGeometry:
 
         for v in self.mesh.vertices:
             point = self.mesh[v].point
-            val = gfu(self.mesh(*point))
+            val = gfu(self.mesh(*point))  # this is not scale well in terms of evaluations
             max_grad = max(max_grad, val)
             min_grad = min(min_grad, val)
 
