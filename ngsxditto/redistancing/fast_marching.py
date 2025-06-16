@@ -15,7 +15,7 @@ class FastMarching(BaseRedistancing):
         if self.order is not None:
             if self.order == 1:
                 self.redistancing_algorithm = LinearFastMarching(bandwidth)
-            if self.order == 2:
+            elif self.order == 2:
                 self.redistancing_algorithm = QuadraticFastMarching(bandwidth)
             else:
                 raise NotImplementedError("FastMarching only supports order 1 and 2")
