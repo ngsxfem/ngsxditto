@@ -28,7 +28,6 @@ class BaseTransport:
         self.source = source
         self.multistepper = MultiStepper()
         self.multistepper.SetTransport(self)
-        self.levelset = None
         self.callbacks = []
 
 
@@ -48,10 +47,6 @@ class BaseTransport:
 
     def SetTimeStepSize(self, dt: float):
         raise NotImplementedError("SetTimeStepSize not implemented")
-
-
-    def SetLevelset(self, levelset):
-        raise NotImplementedError("SetLevelset not implemented")
 
 
     def OneStep(self):

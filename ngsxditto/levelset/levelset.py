@@ -12,7 +12,6 @@ class LevelSetGeometry:
         Initializes the level set object with a transport method, a redistancing method and optionally an autoredistancing scheme.
         """
         self.transport = transport
-        self.transport.SetLevelset(self)
         if redistancing is not None:
             self.redistancing = redistancing
             self.redistancing.SetOrder(transport.order)
