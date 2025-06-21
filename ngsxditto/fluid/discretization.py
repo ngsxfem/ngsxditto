@@ -2,7 +2,6 @@
 This file handles fluid discretizations.
 """
 from ngsolve import BilinearForm, LinearForm, Mesh
-from abc import ABC, abstractmethod
 from .params import FluidParameters, WallParameters
 
 
@@ -27,10 +26,27 @@ class FluidDiscretization:
         self.order = order
         self.lset = levelset
         self.wall_params = wall_params
-        self.bf = None
+        self.gfu = None
+        self.a = None
         self.lf = None
-        self.Dbnd = None
+        self.conv = None
+        self.m_star = None
+        self.inv = None
+        self.mass = None
+        self.stokes = None
+        self.fes = None
+        self.dirichlet = None
+        self.neumann = None
+        self.dbnd = None
         self.dt = dt
+
+
+    def InitializeSpaces(self, dbnd):
+        raise NotImplementedError("InitializeSpaces not implemented.")
+
+
+    def InitializeForms(self):
+        raise NotImplementedError("InitializeForms not implemented.")
 
 
     def SetLevelSet(self, levelset):
