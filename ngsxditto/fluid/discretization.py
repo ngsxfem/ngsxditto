@@ -9,7 +9,8 @@ class FluidDiscretization:
     """
     Base class for a discretized fluid.
     """
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None, wall_params: WallParameters = None, dt=1e-3):
+    DEFAULT_DT = 1e-3
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None, wall_params: WallParameters = None, dt=None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, we simply compute the Stokes problem.
@@ -38,7 +39,26 @@ class FluidDiscretization:
         self.dirichlet = None
         self.neumann = None
         self.dbnd = None
-        self.dt = dt
+        self.dt = dt if dt is not None else self.DEFAULT_DT
+        self.nu = self.fluid_params["viscosity"]
+
+
+    def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
+        """
+        Set the non-zero dirichlet and neumann boundary conditions for your problem.
+
+            parameters:
+                dirichlet: CoefficientFunction or similar, describing the values on the Dirichlet boundary.
+                neumann: str indicating the parts of Neumann boundary
+        """
+        if dirichlet is None:
+            dirichlet = {}
+
+        if neumann is None:
+            neumann = {}
+
+        self.dirichlet = dirichlet
+        self.neumann = neumann
 
 
     def InitializeSpaces(self, dbnd):
@@ -61,6 +81,9 @@ class FluidDiscretization:
 
     def OneStep(self):
         """
-        Evolves the solution by one time step.
+        Evolves the solution by one time step using a simple imex scheme
         """
-        raise NotImplementedError("OneStep not implemented")
+
+        res = self.conv.Apply(self.gfu.vec) + self.a.mat * self.gfu.vec
+        self.gfu.vec.data -= self.dt * self.inv * res
+
