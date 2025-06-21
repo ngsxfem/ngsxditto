@@ -2,7 +2,7 @@
 This file handles fluid discretizations.
 """
 from ngsolve import BilinearForm, LinearForm, Mesh
-
+from abc import ABC, abstractmethod
 from .params import FluidParameters, WallParameters
 
 
@@ -10,7 +10,7 @@ class FluidDiscretization:
     """
     Base class for a discretized fluid.
     """
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None, wall_params: WallParameters = None):
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None, wall_params: WallParameters = None, dt=1e-3):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, we simply compute the Stokes problem.
@@ -30,20 +30,21 @@ class FluidDiscretization:
         self.bf = None
         self.lf = None
         self.Dbnd = None
-        self.Dbndc = None
+        self.dt = dt
 
-    def Initialize(self, initial_velocity):
-        """
-        To be honest, i do not really know what this function should do...
-        """
-        raise NotImplementedError("Initialize not implemented")
 
     def SetLevelSet(self, levelset):
         self.lset = levelset
-        return self
 
-    def DoOneStep(self, dt=0.01):
+
+    def SetTimeStepSize(self):
         """
-        Evolutes the solution by one time step.
+        Sets dt and reassembles necessary systems.
         """
-        raise NotImplementedError("DoOneStep not implemented")
+        raise NotImplementedError("SetTimeStepSize not implemented")
+
+    def OneStep(self):
+        """
+        Evolves the solution by one time step.
+        """
+        raise NotImplementedError("OneStep not implemented")

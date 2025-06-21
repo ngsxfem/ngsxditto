@@ -7,7 +7,7 @@ from .discretization import FluidDiscretization
 from .params import FluidParameters, WallParameters
 
 
-class H1ConformingFluid(FluidDiscretization):
+class TaylorHood(FluidDiscretization):
     """
     This class represents Taylor-Hood elements.
     """
