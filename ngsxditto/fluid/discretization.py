@@ -1,8 +1,10 @@
 """
 This file handles fluid discretizations.
 """
-from ngsolve import BilinearForm, LinearForm, Mesh
+from ngsolve import *
 from .params import FluidParameters, WallParameters
+from .. import MultiStepper
+import typing
 
 
 class FluidDiscretization:
@@ -10,7 +12,8 @@ class FluidDiscretization:
     Base class for a discretized fluid.
     """
     DEFAULT_DT = 1e-3
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None, wall_params: WallParameters = None, dt=None):
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None,
+                 wall_params: WallParameters = None, dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, we simply compute the Stokes problem.
@@ -41,6 +44,9 @@ class FluidDiscretization:
         self.dbnd = None
         self.dt = dt if dt is not None else self.DEFAULT_DT
         self.nu = self.fluid_params["viscosity"]
+        self.time = time
+        self.multistepper = MultiStepper()
+        self.multistepper.SetObject(self)
 
 
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
@@ -73,7 +79,16 @@ class FluidDiscretization:
         self.lset = levelset
 
 
-    def SetTimeStepSize(self):
+    def SolveStokes(self):
+        gfu = GridFunction(self.fes)
+        cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
+        gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+
+        gfu.vec.data += self.a.mat.Inverse(freedofs=self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
+        return gfu
+
+
+    def SetTimeStepSize(self, dt):
         """
         Sets dt and reassembles necessary systems.
         """
@@ -86,4 +101,7 @@ class FluidDiscretization:
 
         res = self.conv.Apply(self.gfu.vec) + self.a.mat * self.gfu.vec
         self.gfu.vec.data -= self.dt * self.inv * res
+        if self.time is not None:
+            self.time += self.dt
+
 

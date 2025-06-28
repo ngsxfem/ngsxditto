@@ -9,10 +9,11 @@ class H1Conforming(FluidDiscretization):
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, levelset=levelset, wall_params=wall_params, dt=dt)
 
 
-    def SetInitialValues(self, initial_velocity, initial_pressure=None):
+    def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
         self.gfu = GridFunction(self.fes)
         self.gfu.components[0].Set(initial_velocity)
         self.gfu.components[1].Set(initial_pressure)
+
 
     def InitializeForms(self, rhs: CoefficientFunction = None):
         (u, p), (v, q) = self.fes.TnT()
@@ -49,10 +50,11 @@ class H1Conforming(FluidDiscretization):
         self.inv = self.m_star.mat.Inverse(freedofs=self.fes.FreeDofs(), inverse="sparsecholesky")
 
 
-    def SolveStokes(self):
-        gfu = GridFunction(self.fes)
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
-        gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+    def SetTimeStepSize(self, dt):
+        self.dt = dt
+        self.m_star = BilinearForm(self.fes)
+        self.m_star += self.mass + self.dt * self.stokes
+        self.m_star.Assemble()
 
-        gfu.vec.data += self.a.mat.Inverse(freedofs=self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
-        return gfu
+        self.inv = self.m_star.mat.Inverse(freedofs=self.fes.FreeDofs(), inverse="sparsecholesky")
+
