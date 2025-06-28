@@ -5,3 +5,4 @@ from .h1_conforming import *
 from .hdiv_conforming import *
 from .taylor_hood import *
 from .scott_vogelius import *
+from .hdg_discretization import *
