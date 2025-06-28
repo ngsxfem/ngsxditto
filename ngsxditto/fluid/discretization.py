@@ -83,16 +83,17 @@ class FluidDiscretization:
         gfu = GridFunction(self.fes)
         cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
         gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-
         gfu.vec.data += self.a.mat.Inverse(freedofs=self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
         return gfu
 
 
     def SetTimeStepSize(self, dt):
-        """
-        Sets dt and reassembles necessary systems.
-        """
-        raise NotImplementedError("SetTimeStepSize not implemented")
+        self.dt = dt
+        self.m_star = BilinearForm(self.fes)
+        self.m_star += self.mass
+        self.m_star += self.dt * self.stokes
+        self.m_star.Assemble()
+        self.inv = self.m_star.mat.Inverse(self.fes.FreeDofs(), "sparsecholesky")
 
     def OneStep(self):
         """

@@ -5,7 +5,7 @@ from .params import FluidParameters, WallParameters
 from .hdiv_conforming import *
 
 
-class HDGDiscretization(HDivConforming):
+class BDMHDG(HDivConforming):
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None, wall_params: WallParameters = None, dt=None):
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, levelset=levelset, wall_params=wall_params, dt=dt)
 
@@ -31,6 +31,8 @@ class HDGDiscretization(HDivConforming):
         tang = lambda uT: uT - (uT*n)*n
         facet_jump = lambda uT, uF: tang(uT - uF)
 
+        self.mass = uT * vT * dx
+
         self.stokes = (self.nu * InnerProduct(Grad(uT), Grad(vT)) - div(uT) * q - div(vT) * p - 1e-10 * p * q) * dx
         self.stokes += (-self.nu * Grad(uT) * n * facet_jump(vT, vF) - self.nu * Grad(vT) * n * facet_jump(uT, uF) +
                    self.lamb * self.nu/h * facet_jump(uT, uF) * facet_jump(vT, vF)) * dx(element_boundary=True)
@@ -42,20 +44,17 @@ class HDGDiscretization(HDivConforming):
         self.lf = LinearForm(self.fes)
         self.lf += rhs * vT * dx + g * q * dx
 
+        for (region, fct) in self.neumann.items():
+            self.lf += self.nu * fct * vT * dx(definedon=self.mesh.Boundaries(region))
+
         self.m_star = BilinearForm(self.fes)
-        self.m_star += uT * vT * dx
+        self.m_star += self.mass
         self.m_star += self.dt * self.stokes
         self.m_star.Assemble()
         self.inv = self.m_star.mat.Inverse(self.fes.FreeDofs(), "sparsecholesky")
+
         self.conv = BilinearForm(self.fes, nonassemble=True)
         self.conv += -(Grad(vT) *uT) * uT * dx
         self.conv += uT * n * IfPos(uT*n, uT, tang(uF)+(uT*n)*n) * vT * dx(element_boundary=True)
         self.conv += IfPos(uT * n, uT * n * tang((uF - uT)) * (tang(vF) + (vT*n)*n), 0) * dx(element_boundary=True)
 
-    def SetTimeStepSize(self, dt):
-        self.dt = dt
-        self.m_star = BilinearForm(self.fes)
-        self.m_star += self.uT * self.vT * dx
-        self.m_star += self.dt * self.stokes
-        self.m_star.Assemble()
-        self.inv = self.m_star.mat.Inverse(self.fes.FreeDofs(), "sparsecholesky")

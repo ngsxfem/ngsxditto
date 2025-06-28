@@ -49,12 +49,3 @@ class H1Conforming(FluidDiscretization):
 
         self.inv = self.m_star.mat.Inverse(freedofs=self.fes.FreeDofs(), inverse="sparsecholesky")
 
-
-    def SetTimeStepSize(self, dt):
-        self.dt = dt
-        self.m_star = BilinearForm(self.fes)
-        self.m_star += self.mass + self.dt * self.stokes
-        self.m_star.Assemble()
-
-        self.inv = self.m_star.mat.Inverse(freedofs=self.fes.FreeDofs(), inverse="sparsecholesky")
-
