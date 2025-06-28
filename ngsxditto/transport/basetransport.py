@@ -27,7 +27,7 @@ class BaseTransport:
         self.order = order
         self.source = source
         self.multistepper = MultiStepper()
-        self.multistepper.SetTransport(self)
+        self.multistepper.SetObject(self)
         self.callbacks = []
 
 

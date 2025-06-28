@@ -3,20 +3,19 @@ class MultiStepper:
     This class allows handling multiple steps at the same time and checks while automatically applying redistancing.
     """
     def __init__(self):
-        self.transport = None
-        self.fluid = None
+        self.object = None
 
-    def SetTransport(self, transport):
-        self.transport = transport
+    def SetObject(self, object):
+        self.object = object
 
     def RunFixedSteps(self, n):
         for _ in range(n):
-            self.transport.OneStep()
+            self.object.OneStep()
 
     def RunUntilTime(self, end_time):
-        if self.transport.time is not None:
-            while self.transport.time < end_time:
-                self.transport.OneStep()
+        if self.object.time is not None:
+            while self.object.time < end_time:
+                self.object.OneStep()
         else:
             raise TypeError("The transport object has no time parameter")
 
