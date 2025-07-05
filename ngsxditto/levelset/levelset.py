@@ -17,6 +17,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         """
         super().__init__()
         self.transport = transport
+        self.time = self.transport.time
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
         if redistancing is not None:
@@ -73,6 +74,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
 
     def OneStep(self):
         self.transport.OneStep()
+        self.steps_since_last_redistancing += 1
         self.ProcessCallbacks()
 
     def RunFixedSteps(self, n):

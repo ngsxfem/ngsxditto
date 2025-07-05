@@ -8,7 +8,12 @@ class KnownSolutionTransport(BaseTransport):
         self.true_solution = true_solution
         self.fes = H1(mesh, order=order)
         self.gfu = GridFunction(self.fes)
-        self.SetInitialValues(true_solution)
+        if self.time is not None:
+            self.time.Set(0)
+        self.gfu.Set(self.true_solution)
+
+    def SetInitialValues(self, initial_values: CoefficientFunction=None, initial_time: float = 0.0):
+        pass
 
 
     def SetTimeStepSize(self, dt: float):
