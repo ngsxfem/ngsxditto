@@ -6,7 +6,7 @@ class AutoRedistancing:
         pass
 
     def ShouldRedistance(self, levelset):
-        raise NotImplementedError("ShouldRedistance not implemented")
+        raise NotImplementedError("Should Redistance not implemented")
 
 
 class PeriodicRedistancing(AutoRedistancing):
@@ -26,10 +26,11 @@ class GradientRedistancing(AutoRedistancing):
     """
     Use if redistancing should be applied if the level set function is out of given gradient bounds. .
     """
-    def __init__(self, gradient_bounds):
+    def __init__(self, gradient_tester, gradient_bounds):
         super().__init__()
+        self.gradient_tester = gradient_tester
         self.gradient_bounds = gradient_bounds
 
     def ShouldRedistance(self, levelset):
-        min_grad, max_grad = levelset.MinMaxGradientNorm()
+        min_grad, max_grad = self.gradient_tester.MinMaxGradientNorm(levelset.transport.field)
         return self.gradient_bounds[0] >= min_grad and self.gradient_bounds[1] <= max_grad
