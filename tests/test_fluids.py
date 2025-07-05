@@ -10,7 +10,7 @@ fluid_params = FluidParameters(viscosity=1)
 uin = CF((4 * y * (1 - y), 0))  # parabolic inflow
 
 
-@pytest.mark.parametrize("fluid_type", [TaylorHood, ScottVogelius, BDMHDG])
+@pytest.mark.parametrize("fluid_type", [TaylorHood, ScottVogelius, BDMHDG, BDMDG])
 def test_stokes(fluid_type):
     fluid = fluid_type(mesh, order=order, fluid_params=fluid_params)
 
