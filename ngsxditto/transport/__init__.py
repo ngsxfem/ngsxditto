@@ -7,3 +7,4 @@ print("importing ngsxditto.transport")
 from .basetransport import *
 from .explicitdg import *
 from .implicitsupg import *
+from .known_solution_transport import *
