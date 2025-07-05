@@ -3,10 +3,12 @@ from ngsolve import *
 from .discretization import FluidDiscretization
 from .params import FluidParameters, WallParameters
 from .hdiv_conforming import *
+from ngsxditto.levelset import LevelSetGeometry
 
 
 class BDMHDG(HDivConforming):
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None, wall_params: WallParameters = None, dt=None):
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset:LevelSetGeometry = None,
+                 wall_params: WallParameters = None, dt=None):
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, levelset=levelset, wall_params=wall_params, dt=dt)
 
     def InitializeSpaces(self, dbnd):

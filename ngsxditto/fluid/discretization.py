@@ -3,7 +3,8 @@ This file handles fluid discretizations.
 """
 from ngsolve import *
 from .params import FluidParameters, WallParameters
-from .. import MultiStepper
+from ngsxditto.levelset import *
+from ngsxditto.multistepper import MultiStepper
 import typing
 
 
@@ -28,7 +29,10 @@ class FluidDiscretization:
         self.mesh = mesh
         self.fluid_params = fluid_params
         self.order = order
-        self.lset = levelset
+        if levelset is None:
+            self.levelset = DummyLevelSet(mesh)
+        else:
+            self.levelset = levelset
         self.wall_params = wall_params
         self.gfu = None
         self.a = None
@@ -76,7 +80,10 @@ class FluidDiscretization:
 
 
     def SetLevelSet(self, levelset):
-        self.lset = levelset
+        if levelset is None:
+            self.levelset = DummyLevelSet(self.mesh)
+        else:
+            self.levelset = levelset
 
 
     def SolveStokes(self):
