@@ -31,11 +31,6 @@ def test_without_autoredistancing():
     levelset.RunUntilTime(transport.time.Get() + T_end)
     assert Integrate((levelset.transport.field - true_circle)**2, mesh) ** (1/2) < 0.1
 
-    #min_grad_old, max_grad_old = levelset.MinMaxGradientNorm()
-    #levelset.Redistance()
-    #min_grad_new, max_grad_new = levelset.MinMaxGradientNorm()
-    #assert min_grad_new > min_grad_old and max_grad_new < max_grad_old
-
 
 def test_with_autoredistancing():
     transport = ImplicitSUPGTransport(mesh, wind, inflow_values=None, dt=dt, order=1)
@@ -57,5 +52,9 @@ def test_with_autoredistancing():
     levelset.RunUntilTime(transport.time.Get() + T_end)
     assert Integrate((levelset.transport.field - true_circle) ** 2, mesh) ** (1/2) < 0.1
 
-
-
+def test_dummy_levelset():
+    dummy_lset = DummyLevelSet(mesh)
+    dummy_lset.OneStep()
+    assert Integrate((dummy_lset.field + 1)**2, mesh)**(1/2) < 1e-10
+    dummy_lset.multistepper.RunFixedSteps(100)
+    assert Integrate((dummy_lset.field + 1)**2, mesh)**(1/2) < 1e-10
