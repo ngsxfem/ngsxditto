@@ -10,10 +10,23 @@ class H1Conforming(FluidDiscretization):
     def __init__(self, mesh, fluid_params: FluidParameters, order=4, lset:LevelSetGeometry=None, wall_params: WallParameters=None, dt=None, sigma=100, ghost_stab=20, delta=0.2):
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt)
         self.active_dofs=None
+        self.els_outer = None
+        self.facets_ring = None
         self.ghost_stab = ghost_stab
         self.sigma = sigma    # nitsche stabilization
         self.delta = delta    # extension ring
 
+        self.lset.AddCallback(self.UpdateActiveDofs)
+        self.lset.AddCallback(self.InitializeForms)
+        lsetp1_outer = GridFunction(H1(self.mesh, order=1))
+        InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
+
+        lsetp1_inner = GridFunction(H1(self.mesh, order=1))
+        InterpolateToP1(self.lset.field + self.delta, lsetp1_inner)
+
+        self.ci_main = CutInfo(self.mesh, self.lset.lsetp1)
+        self.ci_inner = CutInfo(self.mesh, lsetp1_inner)
+        self.ci_outer = CutInfo(self.mesh, lsetp1_outer)
 
     def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
         self.gfu = GridFunction(self.fes)
@@ -21,11 +34,30 @@ class H1Conforming(FluidDiscretization):
         self.gfu.components[1].Set(initial_pressure)
 
 
+    def UpdateActiveDofs(self):
+        lsetp1_outer = GridFunction(H1(self.mesh, order=1))
+        InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
+
+        lsetp1_inner = GridFunction(H1(self.mesh, order=1))
+        InterpolateToP1(self.lset.field + self.delta, lsetp1_inner)
+
+        self.ci_main.Update(self.lset.lsetp1)
+        self.ci_inner.Update(lsetp1_inner)
+        self.ci_outer.Update(lsetp1_outer)
+
+        # Element and facet markers
+        els_hasneg = self.ci_main.GetElementsOfType(HASNEG)
+        self.els_outer = self.ci_outer.GetElementsOfType(HASNEG)
+        els_inner = self.ci_inner.GetElementsOfType(NEG)
+        els_ring = self.els_outer & ~els_inner
+        self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
+        self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
+
+
     def InitializeForms(self, rhs: CoefficientFunction = None):
         (u, p), (v, q) = self.fes.TnT()
         X = self.fes
         h = specialcf.mesh_size
-
 
         if rhs is None:
             rhs = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
@@ -42,29 +74,12 @@ class H1Conforming(FluidDiscretization):
         #self.conv = BilinearForm(self.fes, nonassemble=True)
         #self.conv += (Grad(u) * u) * v * dx
 
-        lsetp1_outer = GridFunction(H1(self.mesh, order=1))
-        InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
 
-        lsetp1_inner = GridFunction(H1(self.mesh, order=1))
-        InterpolateToP1(self.lset.field + self.delta, lsetp1_inner)
-
-        ci_main = CutInfo(self.mesh, self.lset.lsetp1)
-        ci_inner = CutInfo(self.mesh, lsetp1_inner)
-        ci_outer = CutInfo(self.mesh, lsetp1_outer)
-
-        # Element and facet markers
-        els_hasneg = ci_main.GetElementsOfType(HASNEG)
-        els_outer = ci_outer.GetElementsOfType(HASNEG)
-        els_inner = ci_inner.GetElementsOfType(NEG)
-        els_ring = els_outer & ~els_inner
-        facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=els_outer, b=els_ring)
-        self.active_dofs = GetDofsOfElements(self.fes, els_outer)
-
-        self.mass = RestrictedBilinearForm(self.fes, element_restriction=els_outer, facet_restriction=facets_ring, check_unused=False)
+        self.mass = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.mass += u * v * self.lset.dx_neg
         self.mass.Assemble(reallocate=True)
 
-        dw_u = dFacetPatch(definedonelements=facets_ring, deformation=self.lset.deformation)
+        dw_u = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
         p_facets = GetFacetsWithNeighborTypes(self.mesh, a=self.lset.hasneg, b=self.lset.hasif)
         dw_p = dFacetPatch(definedonelements=p_facets, deformation=self.lset.deformation)
 
@@ -77,11 +92,11 @@ class H1Conforming(FluidDiscretization):
         s_hn = self.ghost_stab * self.nu * i_hn + self.ghost_stab * 1/self.nu * i_hn - self.ghost_stab * 1/self.nu * j_hn
 
         self.stokes =  a_hn + b_hn + s_hn
-        self.a = RestrictedBilinearForm(self.fes, element_restriction=els_outer, facet_restriction=facets_ring, check_unused=False)
+        self.a = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.a += self.stokes
         self.a.Assemble(reallocate=True)
 
-        self.m_star = RestrictedBilinearForm(self.fes, element_restriction=els_outer, facet_restriction=facets_ring, check_unused=False)
+        self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.m_star += u * v * self.lset.dx_neg + self.dt * self.stokes
         self.m_star.Assemble(reallocate=True)
 
