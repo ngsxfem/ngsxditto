@@ -7,9 +7,9 @@ from ngsxditto.levelset import LevelSetGeometry
 
 
 class BDMHDG(HDivConforming):
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset:LevelSetGeometry = None,
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset:LevelSetGeometry = None,
                  wall_params: WallParameters = None, dt=None):
-        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, levelset=levelset, wall_params=wall_params, dt=dt)
+        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt)
 
     def InitializeSpaces(self, dbnd):
         self.dbnd = dbnd

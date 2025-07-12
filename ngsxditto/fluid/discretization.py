@@ -13,7 +13,7 @@ class FluidDiscretization:
     Base class for a discretized fluid.
     """
     DEFAULT_DT = 1e-3
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None,
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
                  wall_params: WallParameters = None, dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
@@ -23,16 +23,16 @@ class FluidDiscretization:
                 mesh: mesh
                 fluid_params: parameter of fluid, like viscosity
                 order: polynomial order
-                levelset: Levelset describing some geometry
+                lset: Levelset describing some geometry
                 wall_params: wall parameters for contact problems
         """
         self.mesh = mesh
         self.fluid_params = fluid_params
         self.order = order
-        if levelset is None:
-            self.levelset = DummyLevelSet(mesh)
+        if lset is None:
+            self.lset = DummyLevelSet(mesh)
         else:
-            self.levelset = levelset
+            self.lset = lset
         self.wall_params = wall_params
         self.gfu = None
         self.a = None
@@ -79,11 +79,11 @@ class FluidDiscretization:
         raise NotImplementedError("InitializeForms not implemented.")
 
 
-    def SetLevelSet(self, levelset):
-        if levelset is None:
-            self.levelset = DummyLevelSet(self.mesh)
+    def SetLevelSet(self, lset):
+        if lset is None:
+            self.lset = DummyLevelSet(self.mesh)
         else:
-            self.levelset = levelset
+            self.lset = lset
 
 
     def SolveStokes(self):

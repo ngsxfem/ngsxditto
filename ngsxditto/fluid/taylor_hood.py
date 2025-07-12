@@ -12,18 +12,18 @@ class TaylorHood(H1Conforming):
     """
     This class represents Taylor-Hood elements.
     """
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, levelset = None, wall_params: WallParameters = None, dt=None):
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None, wall_params: WallParameters = None, dt=None):
         """
         Initializes an H1-conforming fluid represented by the Taylor-Hood element on our mesh.
         """
         if order < 4:
             print("WARNING: Taylor-Hood for order < 4 is not stable on all meshes.")
-        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, levelset=levelset, wall_params=wall_params, dt=dt)
+        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt)
 
 
     def InitializeSpaces(self, dbnd):
         self.dbnd = dbnd
-        V = VectorH1(self.mesh, order=self.order, dirichlet=dbnd)
+        V = VectorH1(self.mesh, order=self.order, dirichlet=dbnd, dgjumps=True)
         Q = H1(self.mesh, order=self.order - 1)
         self.fes = V * Q
 
