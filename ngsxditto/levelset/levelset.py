@@ -2,6 +2,7 @@ from ngsxditto.callback import OnUpdateCallbacks
 from ngsxditto.transport import *
 from ngsxditto.redistancing import *
 from xfem import *
+from xfem.lsetcurv import *
 from ngsolve import *
 #import types
 
@@ -34,6 +35,11 @@ class LevelSetGeometry(OnUpdateCallbacks):
         P1 = H1(self.mesh, order=1)
         self.lsetp1 = GridFunction(P1)
 
+        self.lsetmeshadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
+        self.deformation = self.lsetmeshadap.CalcDeformation(self.field)
+
+        self.AddCallback(self.UpdateDeformation)
+
         self.ci = None
         self.hasif = None
         self.hasneg = None
@@ -42,6 +48,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         self.dx_neg = None
         self.dx_pos = None
         self.dS = None
+        self.n = Normalize(grad(self.lsetp1))
 
         if initial_levelset is not None:
             self.Initialize(initial_levelset)
@@ -60,17 +67,23 @@ class LevelSetGeometry(OnUpdateCallbacks):
     def UpdateLinearApproximation(self):
         InterpolateToP1(self.field, self.lsetp1)
 
+    def UpdateDeformation(self):
+        self.deformation = self.lsetmeshadap.CalcDeformation(self.field)
+
+
     def UpdateCutInfo(self):
         self.ci = CutInfo(self.mesh, self.lsetp1)
         self.hasif = self.ci.GetElementsOfType(IF)
         self.hasneg = self.ci.GetElementsOfType(HASNEG)
         self.haspos = self.ci.GetElementsOfType(HASPOS)
         self.any = self.ci.GetElementsOfType(ANY)
+        self.n = Normalize(grad(self.lsetp1))
+
 
     def UpdateIntegrators(self):
-        self.dx_neg = dCut(levelset=self.lsetp1, domain_type=NEG, definedonelements=self.hasneg)
-        self.dx_pos = dCut(levelset=self.lsetp1, domain_type=POS, definedonelements=self.haspos)
-        self.dS = dCut(levelset=self.lsetp1, domain_type=IF, definedonelements=self.hasif)
+        self.dx_neg = dCut(levelset=self.lsetp1, domain_type=NEG, definedonelements=self.hasneg, deformation=self.deformation)
+        self.dx_pos = dCut(levelset=self.lsetp1, domain_type=POS, definedonelements=self.haspos, deformation=self.deformation)
+        self.dS = dCut(levelset=self.lsetp1, domain_type=IF, definedonelements=self.hasif, deformation=self.deformation)
 
     def OneStep(self):
         self.transport.OneStep()
