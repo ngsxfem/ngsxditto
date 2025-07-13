@@ -16,7 +16,10 @@ def test_stokes(fluid_type):
 
     fluid.SetBoundaryConditions(dirichlet={"left|bottom|top": uin})
     fluid.InitializeSpaces(dbnd="left|bottom|top")
-    fluid.InitializeForms(rhs=CF((1,0)))
+    if fluid_type == TaylorHood or fluid_type == ScottVogelius:
+        fluid.UpdateActiveDofs()
+    fluid.InitializeForms(rhs=CF((8, 0)))
+
 
     gfu = fluid.SolveStokes()
 
