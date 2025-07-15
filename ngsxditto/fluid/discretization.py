@@ -53,13 +53,21 @@ class FluidDiscretization:
         self.multistepper.SetObject(self)
 
 
+    def Initialize(self, dirichlet:dict=None, neumann:dict=None, rhs=None):
+        self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
+        self.InitializeSpaces()
+        self.ApplyBoundaryConditions()
+        self.UpdateActiveDofs()
+        self.InitializeForms(rhs=rhs)
+
+
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
         """
-        Set the non-zero dirichlet and neumann boundary conditions for your problem.
+        Set the dirichlet and neumann boundary conditions for your problem.
 
             parameters:
-                dirichlet: CoefficientFunction or similar, describing the values on the Dirichlet boundary.
-                neumann: str indicating the parts of Neumann boundary
+                dirichlet: dict of dirichlet boundary names (key: str) and corresponding functions (value: CoefficientFunction).
+                neumann: dict of neumann boundary names (key: str) and corresponding functions (value: CoefficientFunction)
         """
         if dirichlet is None:
             dirichlet = {}
@@ -69,21 +77,32 @@ class FluidDiscretization:
 
         self.dirichlet = dirichlet
         self.neumann = neumann
+        self.dbnd = "|".join(dirichlet.keys())
 
 
-    def InitializeSpaces(self, dbnd):
+    def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
+        raise NotImplementedError("SetInitialValues not implemented.")
+
+
+    def ApplyBoundaryConditions(self):
+        cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
+        self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+
+
+    def InitializeSpaces(self):
         raise NotImplementedError("InitializeSpaces not implemented.")
 
 
-    def InitializeForms(self):
+    def UpdateActiveDofs(self):
+        raise NotImplementedError("UpdateActiveDofs not implemented.")
+
+
+    def InitializeForms(self, rhs):
         raise NotImplementedError("InitializeForms not implemented.")
 
 
     def SetLevelSet(self, lset):
-        if lset is None:
-            self.lset = DummyLevelSet(self.mesh)
-        else:
-            self.lset = lset
+        self.lset = lset
 
 
     def SolveStokes(self):
@@ -95,21 +114,11 @@ class FluidDiscretization:
 
 
     def SetTimeStepSize(self, dt):
-        self.dt = dt
-        self.m_star = BilinearForm(self.fes)
-        self.m_star += self.mass
-        self.m_star += self.dt * self.stokes
-        self.m_star.Assemble()
-        self.inv = self.m_star.mat.Inverse(self.fes.FreeDofs(), "sparsecholesky")
+        raise NotImplementedError("SetTimeStepSize not implemented.")
+
 
     def OneStep(self):
         """
         Evolves the solution by one time step using a simple imex scheme
         """
-
-        res = self.conv.Apply(self.gfu.vec) + self.a.mat * self.gfu.vec
-        self.gfu.vec.data -= self.dt * self.inv * res
-        if self.time is not None:
-            self.time += self.dt
-
-
+        raise NotImplementedError("OneStep not implemented.")

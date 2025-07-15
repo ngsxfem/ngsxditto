@@ -15,3 +15,21 @@ class HDivConforming(FluidDiscretization):
             self.lamb = 40*order*(order + 1)
         else:
             self.lamb = lamb
+
+    def UpdateActiveDofs(self):
+        pass
+
+    def SetTimeStepSize(self, dt):
+        self.dt = dt
+        self.m_star = BilinearForm(self.fes)
+        self.m_star += self.mass
+        self.m_star += self.dt * self.stokes
+        self.m_star.Assemble()
+        self.inv = self.m_star.mat.Inverse(self.fes.FreeDofs())
+
+
+    def OneStep(self):
+        res = self.conv.Apply(self.gfu.vec) + self.a.mat * self.gfu.vec
+        self.gfu.vec.data -= self.dt * self.inv * res
+        if self.time is not None:
+            self.time += self.dt

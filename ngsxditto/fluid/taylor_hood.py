@@ -23,11 +23,14 @@ class TaylorHood(H1Conforming):
         self.Q = None
 
 
-    def InitializeSpaces(self, dbnd):
-        self.dbnd = dbnd
-        self.V = VectorH1(self.mesh, order=self.order, dirichlet=dbnd, dgjumps=True)
+    def InitializeSpaces(self):
+        if self.dbnd is None:
+            raise TypeError("self.dbnd is still None. Set Boundary conditions first.")
+        self.V = VectorH1(self.mesh, order=self.order, dirichlet=self.dbnd, dgjumps=True)
         self.Q = H1(self.mesh, order=self.order - 1)
         self.fes = self.V * self.Q
+        self.gfu = GridFunction(self.fes)
+
 
 
 

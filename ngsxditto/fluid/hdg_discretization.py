@@ -10,14 +10,19 @@ class BDMHDG(HDivConforming):
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset:LevelSetGeometry = None,
                  wall_params: WallParameters = None, dt=None):
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt)
+        self.Sigmah = None
+        self.Fh = None
+        self.Qh = None
 
-    def InitializeSpaces(self, dbnd):
-        self.dbnd = dbnd
-        Sigmah = HDiv(self.mesh, order=self.order, dirichlet=dbnd)
-        Fh = TangentialFacetFESpace(self.mesh, order=self.order, dirichlet=dbnd)
-        Qh = L2(self.mesh, order=self.order - 1)
-        Zh = FESpace([Sigmah, Fh, Qh], dgjumps=False)
+    def InitializeSpaces(self):
+        if self.dbnd is None:
+            raise TypeError("self.dbnd is still None. Set Boundary conditions first.")
+        self.Sigmah = HDiv(self.mesh, order=self.order, dirichlet=self.dbnd)
+        self.Fh = TangentialFacetFESpace(self.mesh, order=self.order, dirichlet=self.dbnd)
+        self.Qh = L2(self.mesh, order=self.order - 1)
+        Zh = FESpace([self.Sigmah, self.Fh, self.Qh], dgjumps=False)
         self.fes = Zh
+        self.gfu = GridFunction(self.fes)
 
     def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
         self.gfu = GridFunction(self.fes)

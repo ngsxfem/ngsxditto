@@ -15,9 +15,9 @@ class H1Conforming(FluidDiscretization):
         self.ghost_stab = ghost_stab
         self.sigma = sigma    # nitsche stabilization
         self.delta = delta    # extension ring
-
-        self.lset.AddCallback(self.UpdateActiveDofs)
-        self.lset.AddCallback(self.InitializeForms)
+        if lset is not None:
+            self.lset.AddCallback(self.UpdateActiveDofs)
+            self.lset.AddCallback(self.InitializeForms)
         lsetp1_outer = GridFunction(H1(self.mesh, order=1))
         InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
 
@@ -27,6 +27,14 @@ class H1Conforming(FluidDiscretization):
         self.ci_main = CutInfo(self.mesh, self.lset.lsetp1)
         self.ci_inner = CutInfo(self.mesh, lsetp1_inner)
         self.ci_outer = CutInfo(self.mesh, lsetp1_outer)
+
+    def SetLevelSet(self, lset):
+        super().SetLevelSet(lset=lset)
+        if self.UpdateActiveDofs not in lset.callbacks:
+            lset.callbacks.append(self.UpdateActiveDofs)
+        if self.InitializeForms not in lset.callbacks:
+            lset.callbacks.append(self.InitializeForms)
+
 
     def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
         self.gfu = GridFunction(self.fes)
@@ -75,9 +83,7 @@ class H1Conforming(FluidDiscretization):
         #self.conv += (Grad(u) * u) * v * dx
 
 
-        self.mass = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.mass += u * v * self.lset.dx_neg
-        self.mass.Assemble(reallocate=True)
+        self.mass = u * v * self.lset.dx_neg
 
         dw_u = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
         p_facets = GetFacetsWithNeighborTypes(self.mesh, a=self.lset.hasneg, b=self.lset.hasif)
@@ -97,10 +103,10 @@ class H1Conforming(FluidDiscretization):
         self.a.Assemble(reallocate=True)
 
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += u * v * self.lset.dx_neg + self.dt * self.stokes
+        self.m_star += self.mass + self.dt * self.stokes
         self.m_star.Assemble(reallocate=True)
 
-        self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs(), inverse="pardiso")
+        self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs())
 
 
     def SolveStokes(self):
@@ -118,4 +124,11 @@ class H1Conforming(FluidDiscretization):
         res = self.a.mat * self.gfu.vec
         self.gfu.vec.data -= self.dt * self.inv * res
 
+
+    def SetTimeStepSize(self, dt):
+        self.dt = dt
+        self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
+        self.m_star += self.mass + self.dt * self.stokes
+        self.m_star.Assemble(reallocate=True)
+        self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs())
 

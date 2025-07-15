@@ -19,11 +19,16 @@ class ScottVogelius(H1Conforming):
         if order < 4:
             print("WARNING: Scott-Vogelius for order < 4 is not stable on all meshes.")
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt)
+        self.V = None
+        self.Q = None
 
 
-    def InitializeSpaces(self, dbnd):
-        self.dbnd = dbnd
-        V = VectorH1(self.mesh, order=self.order, dirichlet=dbnd)
-        Q = L2(self.mesh, order=self.order - 1)
-        self.fes = V * Q
+    def InitializeSpaces(self):
+        if self.dbnd is None:
+            raise TypeError("self.dbnd is still None. Set Boundary conditions first.")
+        self.V = VectorH1(self.mesh, order=self.order, dirichlet=self.dbnd)
+        self.Q = L2(self.mesh, order=self.order - 1)
+        self.fes = self.V * self.Q
+        self.gfu = GridFunction(self.fes)
+
 

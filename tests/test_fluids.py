@@ -8,18 +8,13 @@ mesh = Mesh(unit_square.GenerateMesh(maxh=maxh))
 order = 4
 fluid_params = FluidParameters(viscosity=1)
 uin = CF((4 * y * (1 - y), 0))  # parabolic inflow
+dirichlet = {"left|bottom|top": uin}
 
 
 @pytest.mark.parametrize("fluid_type", [TaylorHood, ScottVogelius, BDMHDG, BDMDG])
 def test_stokes(fluid_type):
     fluid = fluid_type(mesh, order=order, fluid_params=fluid_params)
-
-    fluid.SetBoundaryConditions(dirichlet={"left|bottom|top": uin})
-    fluid.InitializeSpaces(dbnd="left|bottom|top")
-    if fluid_type == TaylorHood or fluid_type == ScottVogelius:
-        fluid.UpdateActiveDofs()
-    fluid.InitializeForms(rhs=CF((8, 0)))
-
+    fluid.Initialize(dirichlet=dirichlet, rhs=CF((8, 0)))
 
     gfu = fluid.SolveStokes()
 
