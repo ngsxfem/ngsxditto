@@ -66,6 +66,7 @@ class H1Conforming(FluidDiscretization):
         (u, p), (v, q) = self.fes.TnT()
         X = self.fes
         h = specialcf.mesh_size
+        n = self.lset.n
 
         if rhs is None:
             rhs = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
@@ -77,11 +78,12 @@ class H1Conforming(FluidDiscretization):
         for (region, fct) in self.neumann.items():
             self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
 
+        #self.lf += -(Grad(v) * n * uexact) * ds + gamma_stab / h * uexact * v * ds + q * n * uexact * ds
+
         self.lf.Assemble()
 
         #self.conv = BilinearForm(self.fes, nonassemble=True)
         #self.conv += (Grad(u) * u) * v * dx
-
 
         self.mass = u * v * self.lset.dx_neg
 
@@ -89,12 +91,12 @@ class H1Conforming(FluidDiscretization):
         p_facets = GetFacetsWithNeighborTypes(self.mesh, a=self.lset.hasneg, b=self.lset.hasif)
         dw_p = dFacetPatch(definedonelements=p_facets, deformation=self.lset.deformation)
 
-        nitsche = (-grad(u)* self.lset.n * v - grad(v)*self.lset.n * u + self.sigma/h * u * v) * self.lset.dS
+        nitsche = (-grad(u)* n * v - grad(v)*n* u + self.sigma/h * u * v) * self.lset.dS
         a_hn = self.nu * InnerProduct(grad(u), grad(v)) * self.lset.dx_neg + self.nu * nitsche
-        b_hn = (-p * div(v) - q +div(u)) * self.lset.dx_neg + (p*v*self.lset.n + q*u*self.lset.n)*self.lset.dS
+        b_hn = -(p * div(v) + q * div(u)) * self.lset.dx_neg + (p*v*n + q*u*n)*self.lset.dS
 
         i_hn = 1/(h**2) * (u - u.Other()) * (v - v.Other()) * dw_u
-        j_hn = (p - p.Other()) * (q - q.Other()) * dw_p
+        j_hn = (p - p.Other()) * (q - q.Other()) * dw_u
         s_hn = self.ghost_stab * self.nu * i_hn + self.ghost_stab * 1/self.nu * i_hn - self.ghost_stab * 1/self.nu * j_hn
 
         self.stokes =  a_hn + b_hn + s_hn
@@ -103,7 +105,7 @@ class H1Conforming(FluidDiscretization):
         self.a.Assemble(reallocate=True)
 
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += self.mass + self.dt * self.stokes
+        self.m_star += self.rho* self.mass + self.dt * self.stokes
         self.m_star.Assemble(reallocate=True)
 
         self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs())
@@ -121,7 +123,7 @@ class H1Conforming(FluidDiscretization):
         if self.time is not None:
             self.time += self.dt
 
-        res = self.a.mat * self.gfu.vec
+        res = self.lf.vec - self.a.mat * self.gfu.vec
         self.gfu.vec.data -= self.dt * self.inv * res
 
 

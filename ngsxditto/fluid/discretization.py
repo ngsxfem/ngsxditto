@@ -48,6 +48,7 @@ class FluidDiscretization:
         self.dbnd = None
         self.dt = dt if dt is not None else self.DEFAULT_DT
         self.nu = self.fluid_params["viscosity"]
+        self.rho = self.fluid_params["density"]
         self.time = time
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
