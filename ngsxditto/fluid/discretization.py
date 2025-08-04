@@ -13,8 +13,8 @@ class FluidDiscretization:
     Base class for a discretized fluid.
     """
     DEFAULT_DT = 1e-3
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
-                 wall_params: WallParameters = None, dt=None, time: typing.Optional[Parameter] = None):
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, if_dirichlet:CoefficientFunction=None,
+                 lset = None, wall_params: WallParameters = None, dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, we simply compute the Stokes problem.
@@ -29,6 +29,7 @@ class FluidDiscretization:
         self.mesh = mesh
         self.fluid_params = fluid_params
         self.order = order
+        self.if_dirichlet = if_dirichlet
         if lset is None:
             self.lset = DummyLevelSet(mesh)
         else:
@@ -54,12 +55,12 @@ class FluidDiscretization:
         self.multistepper.SetObject(self)
 
 
-    def Initialize(self, dirichlet:dict=None, neumann:dict=None, rhs=None):
+    def Initialize(self, dirichlet:dict=None, neumann:dict=None, rhs=None, mean_curv=None):
         self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
         self.InitializeSpaces()
         self.ApplyBoundaryConditions()
         self.UpdateActiveDofs()
-        self.InitializeForms(rhs=rhs)
+        self.InitializeForms(rhs=rhs, mean_curv=mean_curv)
 
 
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
@@ -98,7 +99,7 @@ class FluidDiscretization:
         raise NotImplementedError("UpdateActiveDofs not implemented.")
 
 
-    def InitializeForms(self, rhs):
+    def InitializeForms(self, rhs, mean_curv):
         raise NotImplementedError("InitializeForms not implemented.")
 
 
