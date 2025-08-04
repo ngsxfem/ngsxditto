@@ -7,29 +7,24 @@ class ImplicitSUPGTransport(BaseTransport):
     This class propagates a function along a given velocity field (wind) using the Crank-Nicolson scheme
     in time and the SUPG method as space discretization.
     """
-    def __init__(self, mesh, wind, inflow_values, dt, order=2, source=None):
+    def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order=2, source=None):
         super().__init__(mesh, wind, inflow_values, dt, source, order=order)
 
         self.fes = H1(mesh, order=order)
         self.u, self.v = self.fes.TnT()
         u, v = self.u, self.v
 
-        wind = self.wind
-
-        h = specialcf.mesh_size
-        W = L2(mesh, order=0)
-        gamma_gfu = GridFunction(W)
-        gamma_gfu.Set(h / (2 * Norm(wind) + 10**(-5)))
-        self.gamma = CoefficientFunction(gamma_gfu)
+        self.wind = wind
+        self.gamma = None
 
         self.bfa = BilinearForm(self.fes, symmetric=False)
         self.rhs = BilinearForm(self.fes, symmetric=False)
         self.inv = None
 
-        self.mass_term = u * (v + self.gamma * wind * grad(v)) * dx
-        self.conv = wind * grad(u) * (v + self.gamma * wind * grad(v)) * dx
-
-        self.SetWind(wind)
+        self.mass_term = None
+        self.conv = None
+        if wind is not None:
+            self.SetWind(wind)
 
         self.gfu = GridFunction(self.fes)
 
@@ -42,6 +37,12 @@ class ImplicitSUPGTransport(BaseTransport):
     def SetWind(self, wind: CoefficientFunction):
         self.wind = wind
         u, v = self.u, self.v
+        h = specialcf.mesh_size
+        W = L2(self.mesh, order=0)
+        gamma_gfu = GridFunction(W)
+        gamma_gfu.Set(h / (2 * Norm(wind) + 10**(-5)))
+        self.gamma = CoefficientFunction(gamma_gfu)
+
         self.mass_term = u * (v + self.gamma * wind * grad(v)) * dx
         self.conv = wind * grad(u) * (v + self.gamma * wind * grad(v)) * dx
 
