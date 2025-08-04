@@ -60,6 +60,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
     def Initialize(self, initial_lset: CoefficientFunction, initial_time: float=0.0):
         self.transport.SetInitialValues(initial_lset, initial_time)
         self.UpdateLinearApproximation()
+        self.UpdateDeformation()
         self.UpdateCutInfo()
         self.UpdateIntegrators()
 
@@ -77,7 +78,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         self.hasneg = self.ci.GetElementsOfType(HASNEG)
         self.haspos = self.ci.GetElementsOfType(HASPOS)
         self.any = self.ci.GetElementsOfType(ANY)
-        self.n = Normalize(grad(self.lsetp1))
+        self.n = Normalize(grad(self.field))
 
 
     def UpdateIntegrators(self):
