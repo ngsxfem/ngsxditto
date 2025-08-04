@@ -9,7 +9,7 @@ class FluidParameters:
     """
     This class represents the fluid parameters as a dictionary.
     """
-    def __init__(self, viscosity: float = 1e-3, density: float = 1, surface_tension_coeff: float = -1):
+    def __init__(self, viscosity: float = 1e-3, density: float = 1, surface_tension_coeff: float = 0.072):
         """
             parameters:
                 viscosity: viscosity 
