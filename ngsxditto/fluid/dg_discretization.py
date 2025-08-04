@@ -57,14 +57,13 @@ class BDMDG(HDivConforming):
 
 
         self.m_star = BilinearForm(self.fes)
-        self.m_star += self.mass
+        self.m_star += self.rho * self.mass
         self.m_star += self.dt * self.stokes
         self.m_star.Assemble()
         self.inv = self.m_star.mat.Inverse(self.fes.FreeDofs(), "sparsecholesky")
 
         self.conv = BilinearForm(self.fes, nonassemble=True)
-        self.conv += -(Grad(v) *u) * u * dx
-        self.conv += u * n * IfPos(u*n, u, u.Other()) * v * dx(element_boundary=True)
-        #self.conv += u*n * u * v *ds(skeleton=True, definedon=self.mesh.Boundaries("outlet"))
+        self.conv += -self.rho*(Grad(v) *u) * u * dx
+        self.conv += self.rho*u * n * IfPos(u*n, u, u.Other()) * v * dx(element_boundary=True)
 
 
