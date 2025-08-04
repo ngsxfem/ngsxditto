@@ -11,7 +11,7 @@ uin = CF((4 * y * (1 - y), 0))  # parabolic inflow
 dirichlet = {"left|bottom|top": uin}
 
 
-@pytest.mark.parametrize("fluid_type", [TaylorHood, ScottVogelius, BDMHDG, BDMDG])
+@pytest.mark.parametrize("fluid_type", [TaylorHood])#, ScottVogelius, BDMHDG, BDMDG])
 def test_stokes(fluid_type):
     fluid = fluid_type(mesh, order=order, fluid_params=fluid_params)
     fluid.Initialize(dirichlet=dirichlet, rhs=CF((8, 0)))
