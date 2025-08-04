@@ -1,14 +1,16 @@
 from ngsolve import *
+from sympy.logic.boolalg import Boolean
 from xfem import *
 from .params import FluidParameters, WallParameters
 from .discretization import FluidDiscretization
 from ngsxditto.levelset import LevelSetGeometry, DummyLevelSet
+from .meancurv import *
 import ngsolve.webgui as ngw
 
 
 class H1Conforming(FluidDiscretization):
-    def __init__(self, mesh, fluid_params: FluidParameters, order=4, lset:LevelSetGeometry=None, wall_params: WallParameters=None, dt=None, sigma=100, ghost_stab=20, delta=0.2):
-        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt)
+    def __init__(self, mesh, fluid_params: FluidParameters, order=4, if_dirichlet:CoefficientFunction=None, lset:LevelSetGeometry=None, wall_params: WallParameters=None, dt=None, sigma=100, ghost_stab=20, delta=0.2):
+        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt, if_dirichlet=if_dirichlet)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
@@ -17,7 +19,6 @@ class H1Conforming(FluidDiscretization):
         self.delta = delta    # extension ring
         if lset is not None:
             self.lset.AddCallback(self.UpdateActiveDofs)
-            self.lset.AddCallback(self.InitializeForms)
         lsetp1_outer = GridFunction(H1(self.mesh, order=1))
         InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
 
@@ -28,12 +29,11 @@ class H1Conforming(FluidDiscretization):
         self.ci_inner = CutInfo(self.mesh, lsetp1_inner)
         self.ci_outer = CutInfo(self.mesh, lsetp1_outer)
 
+
     def SetLevelSet(self, lset):
         super().SetLevelSet(lset=lset)
         if self.UpdateActiveDofs not in lset.callbacks:
             lset.callbacks.append(self.UpdateActiveDofs)
-        if self.InitializeForms not in lset.callbacks:
-            lset.callbacks.append(self.InitializeForms)
 
 
     def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
@@ -61,9 +61,8 @@ class H1Conforming(FluidDiscretization):
         self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
 
-
-    def InitializeForms(self, rhs: CoefficientFunction = None):
-        (u, p), (v, q) = self.fes.TnT()
+    def InitializeForms(self, rhs: CoefficientFunction = None, mean_curv=None):
+        (u, p, r), (v, q, z) = self.fes.TnT()
         X = self.fes
         h = specialcf.mesh_size
         n = self.lset.n
@@ -71,35 +70,39 @@ class H1Conforming(FluidDiscretization):
         if rhs is None:
             rhs = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
 
-        g = CF(0)  # divergence constraint: I think we never want nonzero, due to mass conservation of our fluids?
+        dx_neg = self.lset.dx_neg
+        dS = self.lset.dS
         self.lf = LinearForm(X)
-        self.lf += (rhs * v + g * q) * self.lset.dx_neg
+        self.lf += rhs * v * dx_neg
+        if mean_curv is not None:
+            self.lf += -self.fluid_params.surface_tension_coeff * mean_curv * v * dS
+        if self.if_dirichlet is not None:
+            self.lf += (-self.nu * Grad(v) * n * self.if_dirichlet + self.nu*self.sigma/h * self.if_dirichlet * v + q * n * self.if_dirichlet) * dS
 
         for (region, fct) in self.neumann.items():
             self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
 
-        #self.lf += -(Grad(v) * n * uexact) * ds + gamma_stab / h * uexact * v * ds + q * n * uexact * ds
-
         self.lf.Assemble()
 
-        #self.conv = BilinearForm(self.fes, nonassemble=True)
-        #self.conv += (Grad(u) * u) * v * dx
+        self.mass = u * v * dx_neg
 
-        self.mass = u * v * self.lset.dx_neg
+        dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
 
-        dw_u = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
-        p_facets = GetFacetsWithNeighborTypes(self.mesh, a=self.lset.hasneg, b=self.lset.hasif)
-        dw_p = dFacetPatch(definedonelements=p_facets, deformation=self.lset.deformation)
+        basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - p * div(v) - q * div(u)) * dx_neg
+        nitsche = (-grad(u)* n * v - grad(v)*n* u + self.sigma/h * u * v) * dS
 
-        nitsche = (-grad(u)* n * v - grad(v)*n* u + self.sigma/h * u * v) * self.lset.dS
-        a_hn = self.nu * InnerProduct(grad(u), grad(v)) * self.lset.dx_neg + self.nu * nitsche
-        b_hn = -(p * div(v) + q * div(u)) * self.lset.dx_neg + (p*v*n + q*u*n)*self.lset.dS
+        ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
+        ghost_p = (p - p.Other()) * (q - q.Other()) * dw
+        ghost_penalty = self.ghost_stab * self.nu * ghost_u + self.ghost_stab * 1/self.nu * ghost_u - self.ghost_stab * 1/self.nu * ghost_p
 
-        i_hn = 1/(h**2) * (u - u.Other()) * (v - v.Other()) * dw_u
-        j_hn = (p - p.Other()) * (q - q.Other()) * dw_u
-        s_hn = self.ghost_stab * self.nu * i_hn + self.ghost_stab * 1/self.nu * i_hn - self.ghost_stab * 1/self.nu * j_hn
+        self.stokes = basic_stokes + ghost_penalty
+        if self.if_dirichlet is not None:
+            self.stokes += nitsche
+            self.stokes += (p*v*n + q*u*n)*dS
 
-        self.stokes =  a_hn + b_hn + s_hn
+        if mean_curv is not None:
+            self.stokes += 1e-5 * u * v * dx_neg
+
         self.a = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.a += self.stokes
         self.a.Assemble(reallocate=True)
@@ -124,7 +127,7 @@ class H1Conforming(FluidDiscretization):
             self.time += self.dt
 
         res = self.lf.vec - self.a.mat * self.gfu.vec
-        self.gfu.vec.data -= self.dt * self.inv * res
+        self.gfu.vec.data += self.dt * self.inv * res
 
 
     def SetTimeStepSize(self, dt):
