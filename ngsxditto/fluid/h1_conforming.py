@@ -62,7 +62,7 @@ class H1Conforming(FluidDiscretization):
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
 
     def InitializeForms(self, rhs: CoefficientFunction = None, mean_curv=None):
-        (u, p, r), (v, q, z) = self.fes.TnT()
+        (u, p), (v, q) = self.fes.TnT()
         X = self.fes
         h = specialcf.mesh_size
         n = self.lset.n
@@ -72,8 +72,9 @@ class H1Conforming(FluidDiscretization):
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
+
         self.lf = LinearForm(X)
-        self.lf += rhs * v * dx_neg
+        self.lf += self.rho * rhs * v * dx_neg
         if mean_curv is not None:
             self.lf += -self.fluid_params.surface_tension_coeff * mean_curv * v * dS
         if self.if_dirichlet is not None:
@@ -81,7 +82,6 @@ class H1Conforming(FluidDiscretization):
 
         for (region, fct) in self.neumann.items():
             self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
-
         self.lf.Assemble()
 
         self.mass = u * v * dx_neg
@@ -108,7 +108,7 @@ class H1Conforming(FluidDiscretization):
         self.a.Assemble(reallocate=True)
 
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += self.rho* self.mass + self.dt * self.stokes
+        self.m_star += self.rho * self.mass + self.dt * self.stokes
         self.m_star.Assemble(reallocate=True)
 
         self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs())
