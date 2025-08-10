@@ -2,6 +2,7 @@ from ngsolve import *
 from xfem import *
 from xfem.lsetcurv import *
 from typing import Optional, Tuple, Union
+import ngsolve.webgui as ngw
 
 class MeanCurvatureSolver:
     """
@@ -64,6 +65,8 @@ class MeanCurvatureSolver:
         Solve for the mean curvature vector.
         Returns: GridFunction with vector values on the interface.
         """
+        self.lset_approx = self.lsetadap.lset_p1
+
         if self.own_lsetadap:
             self.lsetadap.CalcDeformation(levelset)
         if self.own_cutinfo:
@@ -106,8 +109,8 @@ class MeanCurvatureSolver:
 
         # solution
         self.H.vec[:] = 0.0
-        self.freedofs = self.X.FreeDofs()
-        self.freedofs &= GetDofsOfElements(self.X, self.cutinfo.GetElementsOfType(IF))
+        #self.freedofs = self.X.FreeDofs()
+        self.freedofs = GetDofsOfElements(self.X, self.cutinfo.GetElementsOfType(IF))
 
         self.H.vec.data = a.mat.Inverse(self.freedofs) * f.vec
 
