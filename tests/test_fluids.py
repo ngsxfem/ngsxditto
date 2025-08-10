@@ -3,21 +3,68 @@ from ngsolve import *
 import pytest
 
 
-maxh = 0.1
-mesh = Mesh(unit_square.GenerateMesh(maxh=maxh))
+
+domain = MoveTo(-1, -1).Rectangle(2, 2).Face()
+domain.edges.Max(X).name = "right"
+domain.edges.Min(X).name = "left"
+domain.edges.Min(Y).name = "bottom"
+domain.edges.Max(Y).name = "top"
+mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.1))
+
 order = 4
-fluid_params = FluidParameters(viscosity=1)
-uin = CF((4 * y * (1 - y), 0))  # parabolic inflow
-dirichlet = {"left|bottom|top": uin}
+nu = 1
+fluid_params = FluidParameters(viscosity=nu)
+
+true_solution_u = CF((pi * cos(pi * x) * sin(pi * y), -pi * sin(pi * x) * cos(pi * y)))
+true_solution_p = CF(cos(pi * x) * cos(pi * y))
+
+rhs = CF((pi * (2 * pi ** 2 * nu * sin(pi * y) * cos(pi * x) - sin(pi * x) * cos(pi * y)),
+          -pi * (2 * pi ** 2 * nu * sin(pi * x) * cos(pi * y) + sin(pi * y) * cos(pi * x))))
 
 
 @pytest.mark.parametrize("fluid_type", [TaylorHood])#, ScottVogelius, BDMHDG, BDMDG])
-def test_stokes(fluid_type):
+def test_fitted_stokes(fluid_type):
+    dirichlet = {"left|right|bottom|top": true_solution_u}
+
     fluid = fluid_type(mesh, order=order, fluid_params=fluid_params)
-    fluid.Initialize(dirichlet=dirichlet, rhs=CF((8, 0)))
+    fluid.Initialize(dirichlet=dirichlet, rhs=rhs)
 
-    gfu = fluid.SolveStokes()
+    sol = fluid.SolveStokes()
+    fluid.SetInitialValues(*sol.components)
 
-    l2_error = Integrate((gfu.components[0] - uin)**2, mesh)
-    print("velocity L2-error: ", l2_error)
-    assert l2_error < 1e-9
+    l2_error_u = Integrate((fluid.gfu.components[0] - true_solution_u)**2, mesh)
+    assert l2_error_u < 1e-3
+    p_error = fluid.gfu.components[1] - true_solution_p
+    vol = 4
+    average_diff = 1 / vol * Integrate(p_error, mesh)
+    corrected_p_error = fluid.gfu.components[1] - average_diff - true_solution_p
+    l2_error_p = Integrate(corrected_p_error ** 2 * fluid.lset.dx_neg, mesh) ** (1/2)
+    assert l2_error_p < 1e-3
+
+
+@pytest.mark.parametrize("fluid_type", [TaylorHood])
+def test_unfitted_stokes(fluid_type):
+    levelset_function = (x**2 + y**2) ** (1/2) - 0.5
+    transport = KnownSolutionTransport(mesh, levelset_function, order=2)
+    levelset = LevelSetGeometry(transport)
+    levelset.Initialize(levelset_function)
+
+    fluid = fluid_type(mesh, fluid_params, lset=levelset, if_dirichlet=true_solution_u, order=order,
+                       ghost_stab=1, sigma=100)
+
+
+    fluid.Initialize(rhs=rhs)
+    sol = fluid.SolveStokes()
+    fluid.SetInitialValues(*sol.components)
+
+    u_error = fluid.gfu.components[0] - true_solution_u
+    l2_error_u = Integrate(InnerProduct(u_error,u_error) * fluid.lset.dx_neg, mesh)**(1/2)
+    assert l2_error_u < 1e-3
+
+    p_error = fluid.gfu.components[1] - true_solution_p
+
+    vol = Integrate(CF(1) * fluid.lset.dx_neg, mesh)
+    average_diff = 1 / vol * Integrate(p_error * fluid.lset.dx_neg, mesh)
+    corrected_p_error = fluid.gfu.components[1] - average_diff - true_solution_p
+    l2_error_p = Integrate(corrected_p_error ** 2 * fluid.lset.dx_neg, mesh) ** (1 / 2)
+    assert l2_error_p < 1e-3
