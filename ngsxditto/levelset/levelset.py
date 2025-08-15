@@ -48,7 +48,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         self.dx_neg = None
         self.dx_pos = None
         self.dS = None
-        self.n = Normalize(grad(self.lsetp1))
+        self.n = Normalize(grad(self.field))
 
         if initial_levelset is not None:
             self.Initialize(initial_levelset)
