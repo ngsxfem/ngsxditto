@@ -1,3 +1,5 @@
+from sympy.physics.optics import deviation
+
 from ngsxditto.levelset import *
 from ngsolve import *
 from netgen.geom2d import SplineGeometry
@@ -58,3 +60,54 @@ def test_dummy_levelset():
     assert Integrate((dummy_lset.field + 1)**2, mesh)**(1/2) < 1e-10
     dummy_lset.multistepper.RunFixedSteps(100)
     assert Integrate((dummy_lset.field + 1)**2, mesh)**(1/2) < 1e-10
+
+
+domain = MoveTo(-1, -1).Rectangle(2, 2).Face()
+mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.5))
+t = Parameter(0)
+true_solution = ((x + 1/2 - t)**2 + y**2)**(1/2) - 1/2
+transport = KnownSolutionTransport(mesh, true_solution=true_solution, dt=1, order=2)
+transport.time = t
+
+
+def test_cutinfo():
+    transport.SetTime(0)
+    levelset = LevelSetGeometry(transport, initial_levelset=true_solution)
+    P1 = H1(mesh, order=1)
+    true_lsetp1 = GridFunction(P1)
+    InterpolateToP1(true_solution, true_lsetp1)
+    true_ci = CutInfo(mesh, true_lsetp1)
+    # test initial cutinfo
+    error = BitArrayCF(true_ci.GetElementsOfType(IF)) - BitArrayCF(levelset.hasif)
+    l2_error = Integrate(error**2, mesh)**(1/2)
+    assert l2_error == 0
+
+    # test correct update
+    levelset.OneStep()
+    InterpolateToP1(true_solution, true_lsetp1)
+    true_ci_new = CutInfo(mesh, true_lsetp1)
+    new_error = BitArrayCF(true_ci_new.GetElementsOfType(IF)) - BitArrayCF(levelset.hasif)
+    new_l2_error = Integrate(new_error**2, mesh)**(1/2)
+    assert new_l2_error == 0
+
+
+
+def test_integrator():
+    transport.SetTime(0)
+    levelset = LevelSetGeometry(transport, initial_levelset=true_solution)
+
+    # test without deformation
+    circumf_p1 = Integrate(CF(1) * dCut(levelset=levelset.lsetp1, domain_type=IF, definedonelements=levelset.hasif), mesh)
+    error_p1 = abs(pi - circumf_p1)
+    assert error_p1 > 0.2
+
+    # test with deformation
+    circumf_deform = Integrate(CF(1) * levelset.dS, mesh)
+    error_deform = abs(pi - circumf_deform)
+    assert error_deform < 0.1
+
+    # test correct update
+    levelset.OneStep()
+    new_circumf_deform = Integrate(CF(1) * levelset.dS, mesh)
+    error_deform = abs(pi - new_circumf_deform)
+    assert error_deform < 0.1
