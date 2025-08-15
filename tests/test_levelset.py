@@ -62,16 +62,15 @@ def test_dummy_levelset():
     assert Integrate((dummy_lset.field + 1)**2, mesh)**(1/2) < 1e-10
 
 
-domain = MoveTo(-1, -1).Rectangle(2, 2).Face()
-mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.5))
-t = Parameter(0)
-true_solution = ((x + 1/2 - t)**2 + y**2)**(1/2) - 1/2
-transport = KnownSolutionTransport(mesh, true_solution=true_solution, dt=1, order=2)
-transport.time = t
-
 
 def test_cutinfo():
-    transport.SetTime(0)
+    domain = MoveTo(-1, -1).Rectangle(2, 2).Face()
+    mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.5))
+    t = Parameter(0)
+    true_solution = ((x + 1 / 2 - t) ** 2 + y ** 2) ** (1 / 2) - 1 / 2
+    transport = KnownSolutionTransport(mesh, true_solution=true_solution, dt=1, order=2)
+    transport.time = t
+
     levelset = LevelSetGeometry(transport, initial_levelset=true_solution)
     P1 = H1(mesh, order=1)
     true_lsetp1 = GridFunction(P1)
@@ -93,7 +92,13 @@ def test_cutinfo():
 
 
 def test_integrator():
-    transport.SetTime(0)
+    domain = MoveTo(-1, -1).Rectangle(2, 2).Face()
+    mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.5))
+    t = Parameter(0)
+    true_solution = ((x + 1 / 2 - t) ** 2 + y ** 2) ** (1 / 2) - 1 / 2
+    transport = KnownSolutionTransport(mesh, true_solution=true_solution, dt=1, order=2)
+    transport.time = t
+
     levelset = LevelSetGeometry(transport, initial_levelset=true_solution)
 
     # test without deformation
