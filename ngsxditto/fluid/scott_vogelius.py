@@ -14,7 +14,7 @@ class ScottVogelius(H1Conforming):
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset=None,
                  wall_params: WallParameters = None, dt=None, sigma=100, ghost_stab=20, delta=0.2):
         """
-        Initializes an H1-conforming fluid represented by the Taylor-Hood element on our mesh.
+        Initializes the Scott-Vogelius discretization with the given parameters and levelset.
         """
         if order < 4:
             print("WARNING: Scott-Vogelius for order < 4 is not stable on all meshes.")

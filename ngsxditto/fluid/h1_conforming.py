@@ -9,7 +9,38 @@ import ngsolve.webgui as ngw
 
 
 class H1Conforming(FluidDiscretization):
-    def __init__(self, mesh, fluid_params: FluidParameters, order=4, if_dirichlet:CoefficientFunction=None, lset:LevelSetGeometry=None, wall_params: WallParameters=None, dt=None, sigma=100, ghost_stab=20, delta=0.2):
+    """
+    This class handles all H1-conforming fluid discretizations.
+    """
+    def __init__(self, mesh, fluid_params: FluidParameters, order=4, lset:LevelSetGeometry=None,
+                 wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None, dt=None, sigma:int=100,
+                 ghost_stab:int=20, delta:float=0.2):
+        """
+        Initializes the fluid discretization with the given parameters and levelset.
+        Parameters:
+        ----------
+        mesh: Mesh
+            The computational mesh
+        fluid_params: FluidParameters
+            parameter of fluid, like viscosity, density and surface tension coefficient.
+        order: int
+            the polynomial order
+        lset: LevelsetGeometry
+            The levelset that characterizes the unfitted domain.
+        wall_params: WallParameters
+            wall parameters for contact problems
+        if_dirichlet: CoefficientFunction
+            Dirichlet boundary condition of the unfitted domain.
+        dt: float
+            Time-step size
+        sigma: int
+            The stabilization parameter for the nitsche term
+        ghost_stab: int
+            The ghost stability parameter
+        delta: float
+            Radius of the zero levelset on which the domain is extended.
+
+        """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt, if_dirichlet=if_dirichlet)
         self.active_dofs=None
         self.els_outer = None
@@ -31,6 +62,9 @@ class H1Conforming(FluidDiscretization):
 
 
     def SetLevelSet(self, lset):
+        """
+        Sets the levelset.
+        """
         super().SetLevelSet(lset=lset)
         if self.UpdateActiveDofs not in lset.callbacks:
             lset.callbacks.append(self.UpdateActiveDofs)
@@ -43,6 +77,9 @@ class H1Conforming(FluidDiscretization):
 
 
     def UpdateActiveDofs(self):
+        """
+        Updates the dofs that are active, i.e. all dofs that are in the extended unfitted domain.
+        """
         lsetp1_outer = GridFunction(H1(self.mesh, order=1))
         InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
 

@@ -8,6 +8,21 @@ class ImplicitSUPGTransport(BaseTransport):
     in time and the SUPG method as space discretization.
     """
     def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order=2, source=None):
+        """
+        Initializes the transport object with the given parameters.
+        Parameters:
+        ----------
+        mesh: Mesh
+            The computational Mesh
+        wind: CoefficientFunction
+            The velocity field that transports the levelset
+        inflow_values: CoefficientFunction
+            The inflow boundary data
+        time: Parameter
+            reference to a Parameter for the time (to update depending coeffiecient function during propagate)
+        dt: float
+            The time step size for the transport.
+        """
         super().__init__(mesh, wind, inflow_values, dt, source, order=order)
 
         self.fes = H1(mesh, order=order)

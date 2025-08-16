@@ -17,14 +17,20 @@ class FluidDiscretization:
                  lset = None, wall_params: WallParameters = None, dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
-        If None is given, we simply compute the Stokes problem.
+        If None is given, create a DummyLevelSet that covers the whole domain.
 
-            parameters:
-                mesh: mesh
-                fluid_params: parameter of fluid, like viscosity
-                order: polynomial order
-                lset: Levelset describing some geometry
-                wall_params: wall parameters for contact problems
+        Parameters:
+        ----------
+        mesh: Mesh
+            The computational mesh
+        fluid_params: FluidParameters
+            parameter of fluid, like viscosity, density and surface tension coefficient.
+        order: int
+            the polynomial order
+        lset: LevelsetGeometry
+            The levelset that characterizes the unfitted domain.
+        wall_params: WallParameters
+            wall parameters for contact problems
         """
         self.mesh = mesh
         self.fluid_params = fluid_params
@@ -55,7 +61,27 @@ class FluidDiscretization:
         self.multistepper.SetObject(self)
 
 
-    def Initialize(self, dirichlet:dict=None, neumann:dict=None, rhs=None, mean_curv=None):
+    def Initialize(self, dirichlet:dict=None, neumann:dict=None, rhs:CoefficientFunction=None,
+                   mean_curv:GridFunction=None):
+        """
+        Initializes the fluid discretization, setting boundary conditions of the outer as well as
+        physical domain and initializing the finite element spaces and bilinear forms.
+        Convenience function that combines SetBoundaryConditions, InitializeSpaces,
+        ApplyBoundaryConditions, UpdateActiveDofs and InitializeForms.
+
+        Parameters:
+        ----------
+        dirichlet: dict
+            A dictionary with dirichlet boundary conditions of the form
+            {"region (str)": function (CoefficientFunction), ...}
+        neumann: dict
+            A dictionary with neumann boundary conditions of the form
+            {"region (str)": function (CoefficientFunction), ...}
+        rhs: CoefficientFunction
+            The right hand side of the fluid discretization
+        mean_curv: GridFunction
+            A vector valued function that describes the mean curvature of the geometry.
+        """
         self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
         self.InitializeSpaces()
         self.ApplyBoundaryConditions()
@@ -67,9 +93,14 @@ class FluidDiscretization:
         """
         Set the dirichlet and neumann boundary conditions for your problem.
 
-            parameters:
-                dirichlet: dict of dirichlet boundary names (key: str) and corresponding functions (value: CoefficientFunction).
-                neumann: dict of neumann boundary names (key: str) and corresponding functions (value: CoefficientFunction)
+        Parameters:
+        ----------
+        dirichlet: dict
+            A dictionary with dirichlet boundary conditions of the form
+            {"region (str)": function (CoefficientFunction), ...}
+        neumann: dict
+            A dictionary with neumann boundary conditions of the form
+            {"region (str)": function (CoefficientFunction), ...}
         """
         if dirichlet is None:
             dirichlet = {}
@@ -82,32 +113,64 @@ class FluidDiscretization:
         self.dbnd = "|".join(dirichlet.keys())
 
 
-    def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
+    def SetInitialValues(self, initial_velocity:CoefficientFunction, initial_pressure:CoefficientFunction=CF(0)):
+        """
+        Sets the initial values for velocity and pressure
+        """
         raise NotImplementedError("SetInitialValues not implemented.")
 
 
     def ApplyBoundaryConditions(self):
+        """
+        Applies the boundary conditions after they are set with SetBoundaryConditions and after the spaces
+        are defined with InitializeSpaces.
+        """
         cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
         self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
 
     def InitializeSpaces(self):
+        """
+        Initializes the Finite element spaces.
+        """
         raise NotImplementedError("InitializeSpaces not implemented.")
 
 
     def UpdateActiveDofs(self):
+        """
+        Updates the active degrees of freedom after a levelset update.
+        """
         raise NotImplementedError("UpdateActiveDofs not implemented.")
 
 
-    def InitializeForms(self, rhs, mean_curv):
+    def InitializeForms(self, rhs:CoefficientFunction, mean_curv:GridFunction):
+        """
+        Initializes the bilinear and linear forms.
+        Parameters:
+        ----------
+        rhs: CoefficientFunction
+            The right hand side of the fluid discretization
+        mean_curv: GridFunction
+            A vector valued function that describes the mean curvature of the geometry.
+        """
         raise NotImplementedError("InitializeForms not implemented.")
 
 
-    def SetLevelSet(self, lset):
+    def SetLevelSet(self, lset:LevelSetGeometry):
+        """
+        Sets the levelset that describes the unfitted domain.
+        """
         self.lset = lset
 
 
     def SolveStokes(self):
+        """
+        Solves the Stokes problem.
+        Returns:
+        ----------
+        gfu: GridFunction
+            The solution of the stokes problem.
+        """
         gfu = GridFunction(self.fes)
         cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
         gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
@@ -116,11 +179,14 @@ class FluidDiscretization:
 
 
     def SetTimeStepSize(self, dt):
+        """
+        Sets the time step size and reassembles the necessary forms.
+        """
         raise NotImplementedError("SetTimeStepSize not implemented.")
 
 
     def OneStep(self):
         """
-        Evolves the solution by one time step using a simple imex scheme
+        Evolves the solution by one time step.
         """
         raise NotImplementedError("OneStep not implemented.")

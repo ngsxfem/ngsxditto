@@ -11,12 +11,19 @@ class BaseTransport:
                  dt: typing.Optional[float] = None, time: typing.Optional[Parameter] = None,
                  source: typing.Optional[CoefficientFunction] = None, order:int = None) -> None:
         """
-            parameters:
-                mesh: computational Mesh 
-                wind: velocity field CoefficientFunction
-                inflow_values: CoefficientFunction for inflow boundary data
-                time: reference to a Parameter for the time (to update depending coeffiecient function during propagate)
-                timestepsize: time step size (if constant) that allows to do some precomputations
+        Initializes the transport object with the given parameters.
+        Parameters:
+        ----------
+        mesh: Mesh
+            The computational Mesh
+        wind: CoefficientFunction
+            The velocity field that transports the levelset
+        inflow_values: CoefficientFunction
+            The inflow boundary data
+        time: Parameter
+            reference to a Parameter for the time (to update depending coeffiecient function during propagate)
+        dt: float
+            The time step size for the transport.
         """        
 
         self.mesh = mesh
@@ -33,19 +40,29 @@ class BaseTransport:
 
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
         """
-        Set the initial values of the level-set function
+        Set the initial values of the level-set function.
+        Parameters:
+        ----------
+        initial_values: CoefficientFunction
+            The initial levelset function
+        initial_time: float
+            The initial time (default 0.0)
         """
         raise NotImplementedError("SetInitialValues not implemented")
 
 
     def SetWind(self, wind: CoefficientFunction):
         """
-        Set the wind velocity field that is responsible for (level-set) transport.
+        Set the wind velocity field that is responsible for (level-set) transport and adapt (bi-)linearform
+        if necessary.
         """
         raise NotImplementedError("SetWind not implemented")
 
 
     def SetTimeStepSize(self, dt: float):
+        """
+        Sets the time step size and adapt (bi-)linearform if necessary.
+        """
         raise NotImplementedError("SetTimeStepSize not implemented")
 
 
@@ -55,13 +72,6 @@ class BaseTransport:
         """
         raise NotImplementedError("OneStep not implemented")
 
-    # deprecated! (use OneStep instead and Wrapper-Class "MultiStepper..." instead
-    # for multiple time steps at once)
-    def Propagate(self, t_old: float, t_new: float):
-        """
-        Propagate the level-set function from t_old to t_new
-        """
-        raise NotImplementedError("Propagate not implemented")
 
     @property
     def field(self):

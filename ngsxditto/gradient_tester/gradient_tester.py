@@ -4,18 +4,40 @@ from ngsolve import *
 import numpy as np
 
 class BaseGradientTester:
-    def __init__(self, mesh):
+    """
+    A base class for methods to determine minimal and maximal gradients in given subsets of the domain.
+    """
+    def __init__(self, mesh: Mesh):
+        """
+        Initializes the gradient tester.
+        Parameters:
+        ----------
+        mesh: Mesh
+            The computational mesh.
+        """
         self.mesh = mesh
 
-    def MinMaxGradientNorm(self, phi):
+    def MinMaxGradientNorm(self, phi: CoefficientFunction):
+        """
+        Calculate the minimal and maximal gradient norm.
+        Parameters:
+        ----------
+        phi: CoefficientFunction
+            The function we want to know the gradient norms of.
+
+        Returns:
+        -------
+        tuple[float, float]
+            The minimal and maximal gradient norm.
+        """
         raise NotImplementedError("MinMaxGradientNorm not implemented")
 
 
 class NaiveGradientTester(BaseGradientTester):
-    def __init__(self, mesh):
+    def __init__(self, mesh: Mesh):
         super().__init__(mesh)
 
-    def MinMaxGradientNorm(self, phi):
+    def MinMaxGradientNorm(self, phi: CoefficientFunction):
         norm_grad = Norm(grad(phi))
         V = H1(self.mesh, order=1)
         gfu = GridFunction(V)
@@ -28,10 +50,22 @@ class NaiveGradientTester(BaseGradientTester):
 
 
 class ElementBand(BaseGradientTester):
-    def __init__(self, mesh):
+    """
+    Tests the gradient in an element band around the levelset.
+    """
+    def __init__(self, mesh: Mesh):
         super().__init__(mesh)
 
-    def MinMaxGradientNorm(self, phi, iterations=1):
+    def MinMaxGradientNorm(self, phi: CoefficientFunction, iterations: int = 1):
+        """
+        Calculate the minimal and maximal gradient norm in the band.
+        Parameters:
+        ----------
+        phi: CoefficientFunction
+            The function we want to know the gradient norms of.
+        iterations: int
+            The thickness of the element band.
+        """
         P1 = H1(self.mesh, order=1)
         phi_p1 = GridFunction(P1)
         phi_p1.Set(phi)
@@ -54,7 +88,26 @@ class ElementBand(BaseGradientTester):
             min_grad = np.min(np.array(gfu.vec.data)[active_dofs])
         else:
             min_grad, max_grad = None, None
-        print(min_grad, max_grad)
         return min_grad, max_grad
+
+
+class FixedDistanceBand(BaseGradientTester):
+    """
+    Tests the gradient in a band around the levelset with a fixed radius.
+    """
+    def __init__(self, mesh):
+        super().__init__(mesh)
+
+    def MinMaxGradientNorm(self, phi, bandwidth=None):
+        P1 = H1(self.mesh, order=1)
+        phi_p1 = GridFunction(P1)
+        phi_p1.Set(phi)
+
+        ci = CutInfo(self.mesh, phi_p1)
+        levelset_elements = ci.GetElementsOfType(IF)
+        active_dofs = GetDofsOfElements(P1, levelset_elements)
+
+        raise NotImplementedError("MinMaxGradientNorm not yet implemented")
+
 
 

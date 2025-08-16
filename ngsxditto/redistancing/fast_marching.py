@@ -10,6 +10,15 @@ class FastMarching(BaseRedistancing):
     Approximately restores the signed distance property globally or in a bandwidth around the level set.
     """
     def __init__(self, bandwidth: float=None, order: int=None):
+        """
+        Initializes the redistancing algorithm by checking the order.
+        Parameters:
+        ----------
+        bandwidth: float
+            The bandwith around the levelset where redistancing should be applied.
+        order: int
+            The order of the redistancing algorithm.
+        """
         super().__init__(bandwidth)
         self.order = order
         if self.order is not None:

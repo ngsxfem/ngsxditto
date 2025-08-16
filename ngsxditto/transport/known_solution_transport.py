@@ -3,7 +3,25 @@ from ngsolve import *
 
 
 class KnownSolutionTransport(BaseTransport):
-    def __init__(self, mesh, true_solution:CoefficientFunction, time:Parameter=None, dt=None, order=2):
+    """
+    This class handles transport for problem where the solution is known.
+    """
+    def __init__(self, mesh: Mesh, true_solution:CoefficientFunction, time:Parameter=None, dt:float=None, order:int=2):
+        """
+        Initializes the transport object with the given parameters.
+        Parameters:
+        ----------
+        mesh: Mesh
+            The computational mesh.
+        true_solution: CoefficientFunction
+            The true solution dependant on time.
+        time: Parameter
+            The time parameter of the true solution.
+        dt: float
+            The time-step size
+        order: int
+            The polynomial order of the space the solution is projected to.
+        """
         super().__init__(mesh=mesh, wind=None, inflow_values=None, dt=dt, time=time, order=order)
         self.true_solution = true_solution
         self.fes = H1(mesh, order=order)

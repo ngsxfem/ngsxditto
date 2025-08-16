@@ -3,8 +3,26 @@ from ngsxditto.levelset import *
 from xfem import *
 
 
-class VelocityExtension:
-    def __init__(self, lset:LevelSetGeometry, gamma:float=0.1, order:int=2, ghost_stab:float=2., dirichlet=".*"):
+class DiffusionBasedVelocityExtension:
+    """
+    Extends a velocity field from an interface to the whole domain using a diffusion based algorithm.
+    """
+    def __init__(self, lset:LevelSetGeometry, gamma:float=0.1, order:int=2, ghost_stab:int=2, dirichlet:str=".*"):
+        """
+        Initialise the diffusion based velocity extension with the given parameters.
+        Parameters:
+        ----------
+        lset: LevelSetGeometry
+            The levelset where the velocity field is given.
+        gamma: float
+            The diffusion coefficient.
+        order: int
+            The polynomial order
+        ghost_stab: int
+            The ghost stabilitization coefficient.
+        dirichlet: str
+            The dirichlet boundary condition of the extension problem.
+        """
         self.lset = lset
         self.mesh = self.lset.mesh
         self.gamma = gamma
@@ -13,7 +31,19 @@ class VelocityExtension:
         self.dirichlet = dirichlet
         self.V = VectorH1(self.mesh, order=self.order, dirichlet=dirichlet, dgjumps=True)
 
-    def SolveVelocity(self, u_field):
+    def SolveVelocity(self, u_field: GridFunction):
+        """
+        Solves for the velocity field on the whole domain.
+        Parameters:
+        ----------
+        u_field: GridFunction
+            The velocity field defined on the interface.
+
+        Returns:
+        -------
+        w_field: GridFunction
+            The velocity field on the whole domain.
+        """
         n = self.lset.n
         h = specialcf.mesh_size
 

@@ -9,7 +9,24 @@ class ExplicitDGTransport(BaseTransport):
     This class propagates a function along a given velocity field (wind) using the Runge-Kutta-2 discretization
     in time and the DG or HDG method as space discretization.
     """
-    def __init__(self, mesh, wind, inflow_values, dt, order=2, source=None, usetrace=True, compile=True):
+    def __init__(self, mesh, wind, inflow_values, dt, order: int=2, source=None, usetrace: bool=True, compile=True):
+        """
+        Initializes the transport object with the given parameters.
+        Parameters:
+        ----------
+        mesh: Mesh
+            The computational Mesh
+        wind: CoefficientFunction
+            The velocity field that transports the levelset
+        inflow_values: CoefficientFunction
+            The inflow boundary data
+        dt: float
+            The time step size for the transport.
+        order: int
+            The order of the discretization.
+        usetrace: bool
+            If True use a HDG discretization in space. If false use a DG discretization.
+        """
         super().__init__(mesh, wind, inflow_values, dt, source, order=order)
 
         self.usetrace = usetrace
