@@ -1,5 +1,3 @@
-from sympy.physics.quantum import L2
-
 from ngsxditto.redistancing import *
 from ngsolve import *
 from netgen.geom2d import SplineGeometry

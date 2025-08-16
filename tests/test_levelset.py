@@ -1,5 +1,3 @@
-from sympy.physics.optics import deviation
-
 from ngsxditto.levelset import *
 from ngsolve import *
 from netgen.geom2d import SplineGeometry

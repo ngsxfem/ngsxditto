@@ -2,7 +2,6 @@ from ngsxditto.transport import *
 from ngsolve import *
 from netgen.geom2d import SplineGeometry
 from xfem.lsetcurv import *
-import pytest
 
 
 # Example: Rotating circle
