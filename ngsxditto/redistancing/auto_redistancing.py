@@ -1,5 +1,3 @@
-from ngsxditto import BaseGradientTester
-from ngsxditto.levelset import LevelSetGeometry
 
 
 class AutoRedistancing:
@@ -9,7 +7,7 @@ class AutoRedistancing:
     def __init__(self):
         pass
 
-    def ShouldRedistance(self, levelset:LevelSetGeometry):
+    def ShouldRedistance(self, levelset):
         """
         Checks if the levelset should be redistanced based on the auto-redistancing scheme.
         """
@@ -33,7 +31,7 @@ class GradientRedistancing(AutoRedistancing):
     """
     Use if redistancing should be applied if the level set function is out of given gradient bounds. .
     """
-    def __init__(self, gradient_tester: BaseGradientTester, gradient_bounds: tuple[float, float]):
+    def __init__(self, gradient_tester, gradient_bounds: tuple[float, float]):
         """
         Initializes the gradient based redistancing algorithm by defining the gradient testing method
         and the gradient bounds.
