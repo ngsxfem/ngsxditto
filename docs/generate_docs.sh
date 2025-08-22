@@ -1,5 +1,8 @@
 # This file is located in docs/ and generates the pages as long as all needed packages are already installed.
 
+# fail script if subcommand fails
+set -e
+
 mkdir -p build
 
 cp ../examples/*.ipynb source/
