@@ -35,8 +35,9 @@ class GradientRedistancing(AutoRedistancing):
         """
         Initializes the gradient based redistancing algorithm by defining the gradient testing method
         and the gradient bounds.
+
         Parameters:
-        ----------
+        -----------
         gradient_tester: BaseGradientTester
             The method to obtain the gradients
         gradient_bounds: tuple[float, float]

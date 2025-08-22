@@ -41,8 +41,9 @@ class BaseTransport:
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
         """
         Set the initial values of the level-set function.
+
         Parameters:
-        ----------
+        -----------
         initial_values: CoefficientFunction
             The initial levelset function
         initial_time: float

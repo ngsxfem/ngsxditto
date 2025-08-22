@@ -22,8 +22,9 @@ class BaseRedistancing(ABC):
     def Redistance(self, phi: GridFunction):
         """
         Applies redistancing to the given function phi.
+
         Parameters:
-        ----------
+        -----------
         phi: GridFunction
             The function to be redistanced.
 
