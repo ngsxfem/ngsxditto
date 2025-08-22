@@ -65,4 +65,6 @@ class DiffusionBasedVelocityExtension:
         w_field = GridFunction(self.V)
         w_field.vec.data = a.mat.Inverse(self.V.FreeDofs()) * f.vec
 
+        self.lset.transport.SetWind(CF(w_field))
+
         return w_field
