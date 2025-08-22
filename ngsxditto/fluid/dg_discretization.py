@@ -27,7 +27,10 @@ class BDMDG(HDivConforming):
         self.gfu.components[0].Set(initial_velocity)
         self.gfu.components[1].Set(initial_pressure)
 
-    def InitializeForms(self, rhs: CoefficientFunction = None):
+    def InitializeForms(self, rhs: CoefficientFunction = None, mean_curv = None):
+        if mean_curv != None:
+            raise Exception("BDM DG fluid got some mean curvature, this behaviour is not implemented!")
+
         n = specialcf.normal(self.mesh.dim)
         h = specialcf.mesh_size
         (self.u,  self.p), (self.v, self.q) = self.fes.TnT()
