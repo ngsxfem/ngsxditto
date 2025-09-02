@@ -6,12 +6,12 @@ from matplotlib import pyplot as plt
 
 
 class Solver:
-    def __init__(self, lset, fluid, time=None):
+    def __init__(self, fluid, time=None):
         self.function_dict = {}
         self.variable_dict = {}
         self.time = time
-        self.lset = lset
         self.fluid = fluid
+        self.lset = self.fluid.lset
         self.mesh = self.fluid.mesh
 
 
