@@ -18,16 +18,16 @@ fluid_params = FluidParameters(viscosity=nu)
 true_solution_u = CF((pi * cos(pi * x) * sin(pi * y), -pi * sin(pi * x) * cos(pi * y)))
 true_solution_p = CF(cos(pi * x) * cos(pi * y))
 
-rhs = CF((pi * (2 * pi ** 2 * nu * sin(pi * y) * cos(pi * x) - sin(pi * x) * cos(pi * y)),
+f = CF((pi * (2 * pi ** 2 * nu * sin(pi * y) * cos(pi * x) - sin(pi * x) * cos(pi * y)),
           -pi * (2 * pi ** 2 * nu * sin(pi * x) * cos(pi * y) + sin(pi * y) * cos(pi * x))))
 
 
-@pytest.mark.parametrize("fluid_type", [TaylorHood])#, ScottVogelius, BDMHDG, BDMDG])
+@pytest.mark.parametrize("fluid_type", [TaylorHood])
 def test_fitted_stokes(fluid_type):
     dirichlet = {"left|right|bottom|top": true_solution_u}
 
-    fluid = fluid_type(mesh, order=order, fluid_params=fluid_params)
-    fluid.Initialize(dirichlet=dirichlet, rhs=rhs)
+    fluid = fluid_type(mesh, order=order, fluid_params=fluid_params, f=f)
+    fluid.Initialize(dirichlet=dirichlet)
 
     sol = fluid.SolveStokes()
     fluid.SetInitialValues(*sol.components)
@@ -49,11 +49,11 @@ def test_unfitted_stokes(fluid_type):
     levelset = LevelSetGeometry(transport)
     levelset.Initialize(levelset_function)
 
-    fluid = fluid_type(mesh, fluid_params, lset=levelset, if_dirichlet=true_solution_u, order=order,
-                       ghost_stab=1, sigma=100)
+    fluid = fluid_type(mesh, fluid_params, f=f, lset=levelset, if_dirichlet=true_solution_u, order=order,
+                       ghost_stab=1, nitsche_stab=100)
 
 
-    fluid.Initialize(rhs=rhs)
+    fluid.Initialize()
     sol = fluid.SolveStokes()
     fluid.SetInitialValues(*sol.components)
 
