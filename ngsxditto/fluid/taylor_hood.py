@@ -13,8 +13,9 @@ class TaylorHood(H1Conforming):
     This class represents Taylor-Hood elements.
     """
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
-                 wall_params: WallParameters = None, if_dirichlet=None, dt=None, sigma:int=100,
-                 ghost_stab:int=20, delta:float=0.2):
+                 wall_params: WallParameters = None, if_dirichlet=None, f: CoefficientFunction = CF((0, 0)),
+                 surface_tension: CoefficientFunction = CF((0, 0)), dt=None, nitsche_stab:int=100,
+                 ghost_stab:int=20, extension_radius:float=0.2):
         """
         Initializes the Taylor-Hood discretization with the given parameters and levelset.
         """
@@ -22,7 +23,7 @@ class TaylorHood(H1Conforming):
         if order < 4:
             print("WARNING: Taylor-Hood for order < 4 is not stable on all meshes.")
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, if_dirichlet=if_dirichlet, lset=lset,
-                         wall_params=wall_params, dt=dt, sigma=sigma, ghost_stab=ghost_stab, delta=delta)
+                         wall_params=wall_params, f=f, surface_tension=surface_tension, dt=dt, nitsche_stab=nitsche_stab, ghost_stab=ghost_stab, extension_radius=extension_radius)
         self.V = None
         self.Q = None
 
