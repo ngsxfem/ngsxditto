@@ -21,7 +21,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         Parameters:
         ----------
         transport : BaseTransport
-            The method for tranprtorting the levelset.
+            The method for transporting the levelset.
         redistancing : BaseRedistancing
             The redistancing method.
         autoredistancing : AutoRedistancing
@@ -167,6 +167,14 @@ class LevelSetGeometry(OnUpdateCallbacks):
         """
         if self.ShouldRedistance():
             self.Redistance()
+
+    @property
+    def surface_area(self):
+        return Integrate(CF(1) * self.dS, self.mesh)
+
+    @property
+    def volume(self):
+        return Integrate(CF(1) * self.dx_neg, self.mesh)
 
     @property
     def field(self):
