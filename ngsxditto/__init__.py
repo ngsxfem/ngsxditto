@@ -7,3 +7,4 @@ from .redistancing import *
 from .multistepper import *
 from .gradient_tester import *
 from .callback import *
+from .solver import *
