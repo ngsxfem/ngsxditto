@@ -49,12 +49,12 @@ class LevelSetGeometry(OnUpdateCallbacks):
         P1 = H1(self.mesh, order=1)
         self.lsetp1 = GridFunction(P1)
 
-        self.lsetmeshadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
-        self.deformation = self.lsetmeshadap.CalcDeformation(self.field)
+        self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
+        self.deformation = self.lsetadap.CalcDeformation(self.field)
 
         self.AddCallback(self.UpdateDeformation)
 
-        self.ci = None
+        self.cutinfo = CutInfo(self.mesh)
         self.hasif = None
         self.hasneg = None
         self.haspos = None
@@ -103,18 +103,18 @@ class LevelSetGeometry(OnUpdateCallbacks):
         """
         Updates the deformation of the level set.
         """
-        self.deformation = self.lsetmeshadap.CalcDeformation(self.field)
+        self.deformation = self.lsetadap.CalcDeformation(self.field)
 
 
     def UpdateCutInfo(self):
         """
         Updates the cut info of the level set.
         """
-        self.ci = CutInfo(self.mesh, self.lsetp1)
-        self.hasif = self.ci.GetElementsOfType(IF)
-        self.hasneg = self.ci.GetElementsOfType(HASNEG)
-        self.haspos = self.ci.GetElementsOfType(HASPOS)
-        self.any = self.ci.GetElementsOfType(ANY)
+        self.cutinfo.Update(self.lsetp1)
+        self.hasif = self.cutinfo.GetElementsOfType(IF)
+        self.hasneg = self.cutinfo.GetElementsOfType(HASNEG)
+        self.haspos = self.cutinfo.GetElementsOfType(HASPOS)
+        self.any = self.cutinfo.GetElementsOfType(ANY)
         self.n = Normalize(grad(self.field))
 
 
