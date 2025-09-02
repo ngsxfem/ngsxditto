@@ -13,8 +13,9 @@ class FluidDiscretization:
     Base class for a discretized fluid.
     """
     DEFAULT_DT = 1e-3
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, if_dirichlet:CoefficientFunction=None,
-                 lset = None, wall_params: WallParameters = None, dt=None, time: typing.Optional[Parameter] = None):
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
+                 if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None, f:CoefficientFunction=CF((0, 0)),
+                 surface_tension:CoefficientFunction=CF((0, 0)), dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, create a DummyLevelSet that covers the whole domain.
@@ -29,8 +30,18 @@ class FluidDiscretization:
             the polynomial order
         lset: LevelsetGeometry
             The levelset that characterizes the unfitted domain.
+        if_dirichlet: CoefficientFunction
+            Dirichlet boundary condition of the unfitted domain.
         wall_params: WallParameters
             wall parameters for contact problems
+        f: CoefficientFunction
+            The force term
+        surface_tension: CoefficientFunction
+            The surface tension force.
+        dt: float
+            Time-step size
+        time: Parameter
+            The time parameter.
         """
         self.mesh = mesh
         self.fluid_params = fluid_params
@@ -40,7 +51,11 @@ class FluidDiscretization:
             self.lset = DummyLevelSet(mesh)
         else:
             self.lset = lset
+            self.lset.AddCallback(self.UpdateActiveDofs)
+            self.lset.AddCallback(self.InitializeForms)
         self.wall_params = wall_params
+        self.f = f
+        self.surface_tension = surface_tension
         self.gfu = None
         self.a = None
         self.lf = None
@@ -61,8 +76,7 @@ class FluidDiscretization:
         self.multistepper.SetObject(self)
 
 
-    def Initialize(self, dirichlet:dict=None, neumann:dict=None, rhs:CoefficientFunction=None,
-                   mean_curv:GridFunction=None):
+    def Initialize(self, dirichlet:dict=None, neumann:dict=None, initial_velocity:CoefficientFunction=None, initial_pressure:CoefficientFunction=CF(0)):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
         physical domain and initializing the finite element spaces and bilinear forms.
@@ -77,16 +91,14 @@ class FluidDiscretization:
         neumann: dict
             A dictionary with neumann boundary conditions of the form
             {"region (str)": function (CoefficientFunction), ...}
-        rhs: CoefficientFunction
-            The right hand side of the fluid discretization
-        mean_curv: GridFunction
-            A vector valued function that describes the mean curvature of the geometry.
         """
         self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
         self.InitializeSpaces()
         self.ApplyBoundaryConditions()
         self.UpdateActiveDofs()
-        self.InitializeForms(rhs=rhs, mean_curv=mean_curv)
+        self.InitializeForms()
+        if initial_velocity is not None:
+            self.SetInitialValues(initial_velocity, initial_pressure)
 
 
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
@@ -143,15 +155,9 @@ class FluidDiscretization:
         raise NotImplementedError("UpdateActiveDofs not implemented.")
 
 
-    def InitializeForms(self, rhs:CoefficientFunction, mean_curv:GridFunction):
+    def InitializeForms(self):
         """
         Initializes the bilinear and linear forms.
-        Parameters:
-        ----------
-        rhs: CoefficientFunction
-            The right hand side of the fluid discretization
-        mean_curv: GridFunction
-            A vector valued function that describes the mean curvature of the geometry.
         """
         raise NotImplementedError("InitializeForms not implemented.")
 
@@ -161,6 +167,10 @@ class FluidDiscretization:
         Sets the levelset that describes the unfitted domain.
         """
         self.lset = lset
+        if self.UpdateActiveDofs not in lset.callbacks:
+            lset.callbacks.append(self.UpdateActiveDofs)
+        if self.InitializeForms not in lset.callbacks:
+            lset.callbacks.append(self.InitializeForms)
 
 
     def SolveStokes(self):

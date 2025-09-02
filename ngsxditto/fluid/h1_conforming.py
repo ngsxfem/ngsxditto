@@ -1,5 +1,4 @@
 from ngsolve import *
-from sympy.logic.boolalg import Boolean
 from xfem import *
 from .params import FluidParameters, WallParameters
 from .discretization import FluidDiscretization
@@ -13,8 +12,9 @@ class H1Conforming(FluidDiscretization):
     This class handles all H1-conforming fluid discretizations.
     """
     def __init__(self, mesh, fluid_params: FluidParameters, order=4, lset:LevelSetGeometry=None,
-                 wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None, dt=None, sigma:int=100,
-                 ghost_stab:int=20, delta:float=0.2):
+                 wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None,
+                 f: CoefficientFunction = CF((0, 0)), surface_tension: CoefficientFunction = CF((0, 0)), dt=None,
+                 nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -31,25 +31,27 @@ class H1Conforming(FluidDiscretization):
             wall parameters for contact problems
         if_dirichlet: CoefficientFunction
             Dirichlet boundary condition of the unfitted domain.
+        f: CoefficientFunction
+            The force term
+        surface_tension: CoefficientFunction
+            The surface tension force.
         dt: float
             Time-step size
-        sigma: int
+        nitsche_stab: int
             The stabilization parameter for the nitsche term
         ghost_stab: int
             The ghost stability parameter
-        delta: float
+        extension_radius: float
             Radius of the zero levelset on which the domain is extended.
-
         """
-        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, dt=dt, if_dirichlet=if_dirichlet)
+        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f,
+                         surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
         self.ghost_stab = ghost_stab
-        self.sigma = sigma    # nitsche stabilization
-        self.delta = delta    # extension ring
-        if lset is not None:
-            self.lset.AddCallback(self.UpdateActiveDofs)
+        self.sigma = nitsche_stab    # nitsche stabilization
+        self.delta = extension_radius    # extension ring
         lsetp1_outer = GridFunction(H1(self.mesh, order=1))
         InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
 
@@ -98,22 +100,19 @@ class H1Conforming(FluidDiscretization):
         self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
 
-    def InitializeForms(self, rhs: CoefficientFunction = None, mean_curv=None):
+    def InitializeForms(self):
         (u, p), (v, q) = self.fes.TnT()
         X = self.fes
         h = specialcf.mesh_size
         n = self.lset.n
 
-        if rhs is None:
-            rhs = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
-
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
 
         self.lf = LinearForm(X)
-        self.lf += self.rho * rhs * v * dx_neg
-        if mean_curv is not None:
-            self.lf += -self.fluid_params.surface_tension_coeff * mean_curv * v * dS
+        self.lf += self.rho * self.f * v * dx_neg
+        if self.surface_tension is not None:
+            self.lf += -self.fluid_params.surface_tension_coeff * self.surface_tension * v * dS
         if self.if_dirichlet is not None:
             self.lf += (-self.nu * Grad(v) * n * self.if_dirichlet + self.nu*self.sigma/h * self.if_dirichlet * v + q * n * self.if_dirichlet) * dS
 
@@ -136,9 +135,6 @@ class H1Conforming(FluidDiscretization):
         if self.if_dirichlet is not None:
             self.stokes += nitsche
             self.stokes += (p*v*n + q*u*n)*dS
-
-        if mean_curv is not None:
-            self.stokes += 1e-5 * u * v * dx_neg
 
         self.a = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.a += self.stokes
