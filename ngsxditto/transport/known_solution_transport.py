@@ -9,8 +9,9 @@ class KnownSolutionTransport(BaseTransport):
     def __init__(self, mesh: Mesh, true_solution:CoefficientFunction, time:Parameter=None, dt:float=None, order:int=2):
         """
         Initializes the transport object with the given parameters.
+
         Parameters:
-        ----------
+        -----------
         mesh: Mesh
             The computational mesh.
         true_solution: CoefficientFunction

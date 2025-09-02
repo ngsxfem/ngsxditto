@@ -18,8 +18,9 @@ class LevelSetGeometry(OnUpdateCallbacks):
         Initializes the level set object with a transport method, a redistancing method and optionally an
         autoredistancing scheme. Automatically adds callbacks that update cut info and integrators every
         levelset update.
+
         Parameters:
-        ----------
+        -----------
         transport : BaseTransport
             The method for transporting the levelset.
         redistancing : BaseRedistancing
@@ -77,8 +78,9 @@ class LevelSetGeometry(OnUpdateCallbacks):
         """
         Initializes the level set object.
         Convenience function that sets linear approximation, the deformation, the cut info and the integrators.
+
         Parameters:
-        ----------
+        -----------
         initial_lset : CoefficientFunction
             The initial levelset function.
         initial_time : float

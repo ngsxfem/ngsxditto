@@ -10,8 +10,9 @@ class ImplicitSUPGTransport(BaseTransport):
     def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order=2, source=None):
         """
         Initializes the transport object with the given parameters.
+
         Parameters:
-        ----------
+        -----------
         mesh: Mesh
             The computational Mesh
         wind: CoefficientFunction

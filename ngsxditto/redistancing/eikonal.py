@@ -34,6 +34,9 @@ class EikonalRedistancing(BaseRedistancing):
         print("WARNING: EikonalRedistancing is very experimental - not meant for use in 'production' yet.")
 
     def Redistance(self, phi: GridFunction):
+        """
+        WIP: Redistance based on Eikonal solver. We do not recommend its use.
+        """
         print("WARNING: EikonalRedistancing is very experimental - not meant for use in 'production' yet.")
         if self.deformation is not None:
             self.gfphi.space.mesh.SetDeformation(self.deformation)

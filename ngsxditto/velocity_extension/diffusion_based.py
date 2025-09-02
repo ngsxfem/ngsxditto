@@ -10,8 +10,9 @@ class DiffusionBasedVelocityExtension:
     def __init__(self, lset:LevelSetGeometry, gamma:float=0.1, order:int=2, ghost_stab:int=2, dirichlet:str=".*"):
         """
         Initialise the diffusion based velocity extension with the given parameters.
+
         Parameters:
-        ----------
+        -----------
         lset: LevelSetGeometry
             The levelset where the velocity field is given.
         gamma: float
@@ -34,13 +35,14 @@ class DiffusionBasedVelocityExtension:
     def SolveVelocity(self, u_field: GridFunction):
         """
         Solves for the velocity field on the whole domain.
+
         Parameters:
-        ----------
+        -----------
         u_field: GridFunction
             The velocity field defined on the interface.
 
         Returns:
-        -------
+        --------
         w_field: GridFunction
             The velocity field on the whole domain.
         """
@@ -64,5 +66,7 @@ class DiffusionBasedVelocityExtension:
 
         w_field = GridFunction(self.V)
         w_field.vec.data = a.mat.Inverse(self.V.FreeDofs()) * f.vec
+
+        self.lset.transport.SetWind(CF(w_field))
 
         return w_field

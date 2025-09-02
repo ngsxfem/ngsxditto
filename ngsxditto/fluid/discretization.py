@@ -21,7 +21,7 @@ class FluidDiscretization:
         If None is given, create a DummyLevelSet that covers the whole domain.
 
         Parameters:
-        ----------
+        -----------
         mesh: Mesh
             The computational mesh
         fluid_params: FluidParameters
@@ -84,7 +84,7 @@ class FluidDiscretization:
         ApplyBoundaryConditions, UpdateActiveDofs and InitializeForms.
 
         Parameters:
-        ----------
+        -----------
         dirichlet: dict
             A dictionary with dirichlet boundary conditions of the form
             {"region (str)": function (CoefficientFunction), ...}
@@ -106,7 +106,7 @@ class FluidDiscretization:
         Set the dirichlet and neumann boundary conditions for your problem.
 
         Parameters:
-        ----------
+        -----------
         dirichlet: dict
             A dictionary with dirichlet boundary conditions of the form
             {"region (str)": function (CoefficientFunction), ...}
@@ -176,6 +176,7 @@ class FluidDiscretization:
     def SolveStokes(self):
         """
         Solves the Stokes problem.
+
         Returns:
         ----------
         gfu: GridFunction

@@ -15,3 +15,9 @@ In the following we collect examples that were computed with `ngsxditto`.
 
    mean_curv_ditto.ipynb
 
+   oscillating_droplet.ipynb
+
+   moving_stokes.ipynb
+
+   schaefer_turek.ipynb
+

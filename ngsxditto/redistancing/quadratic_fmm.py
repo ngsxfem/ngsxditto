@@ -11,6 +11,9 @@ class QuadraticFastMarching(BaseRedistancing):
         self.order = 2
 
     def Redistance(self, phi: GridFunction):
+        """
+        Redistance based on the quadratic fast marching algorithm.
+        """
         phi_copy = GridFunction(phi.space)
         phi_copy.Set(phi)
         l2_function = False

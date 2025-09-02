@@ -12,8 +12,9 @@ class ExplicitDGTransport(BaseTransport):
     def __init__(self, mesh, wind, inflow_values, dt, order: int=2, source=None, usetrace: bool=True, compile=True):
         """
         Initializes the transport object with the given parameters.
+
         Parameters:
-        ----------
+        -----------
         mesh: Mesh
             The computational Mesh
         wind: CoefficientFunction

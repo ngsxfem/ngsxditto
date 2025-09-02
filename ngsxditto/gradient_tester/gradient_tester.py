@@ -10,8 +10,9 @@ class BaseGradientTester:
     def __init__(self, mesh: Mesh):
         """
         Initializes the gradient tester.
+
         Parameters:
-        ----------
+        -----------
         mesh: Mesh
             The computational mesh.
         """
@@ -20,13 +21,14 @@ class BaseGradientTester:
     def MinMaxGradientNorm(self, phi: CoefficientFunction):
         """
         Calculate the minimal and maximal gradient norm.
+
         Parameters:
-        ----------
+        -----------
         phi: CoefficientFunction
             The function we want to know the gradient norms of.
 
         Returns:
-        -------
+        --------
         tuple[float, float]
             The minimal and maximal gradient norm.
         """
@@ -59,8 +61,9 @@ class ElementBand(BaseGradientTester):
     def MinMaxGradientNorm(self, phi: CoefficientFunction, iterations: int = 1):
         """
         Calculate the minimal and maximal gradient norm in the band.
+
         Parameters:
-        ----------
+        -----------
         phi: CoefficientFunction
             The function we want to know the gradient norms of.
         iterations: int

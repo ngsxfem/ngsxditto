@@ -12,8 +12,9 @@ class FastMarching(BaseRedistancing):
     def __init__(self, bandwidth: float=None, order: int=None):
         """
         Initializes the redistancing algorithm by checking the order.
+
         Parameters:
-        ----------
+        -----------
         bandwidth: float
             The bandwith around the levelset where redistancing should be applied.
         order: int
