@@ -19,9 +19,6 @@ class TaylorHood(H1Conforming):
         """
         Initializes the Taylor-Hood discretization with the given parameters and levelset.
         """
-
-        if order < 4:
-            print("WARNING: Taylor-Hood for order < 4 is not stable on all meshes.")
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, if_dirichlet=if_dirichlet, lset=lset,
                          wall_params=wall_params, f=f, surface_tension=surface_tension, dt=dt, nitsche_stab=nitsche_stab, ghost_stab=ghost_stab, extension_radius=extension_radius)
         self.V = None
