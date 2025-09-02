@@ -4,14 +4,15 @@ from xfem.lsetcurv import *
 from typing import Optional, Tuple, Union
 import ngsolve.webgui as ngw
 
+
+
 class MeanCurvatureSolver:
     """
     Class to compute the mean curvature vector from a level set function
     """
 
-    def __init__(self, mesh: Mesh, order: int = 1, 
-                 cutinfo: Optional[CutInfo] = None,
-                 lsetadap: Optional[LevelSetMeshAdaptation] = None,
+    def __init__(self, mesh: Mesh, order: int = 1,
+                 lset=None, own_cutinfo=False, own_lsetadap=False,
                  gp_param: Union[None, float, CoefficientFunction] = specialcf.mesh_size):
         """
         Initialize the mean curvature solver with a mesh discretization parameters, 
@@ -23,52 +24,70 @@ class MeanCurvatureSolver:
             The computational mesh
         order : int
             The polynomial order of the sought for mean curvature vector
-        cutinfo : CutInfo or None
-            The cut information of the level set function (if provided)
-        lsetadap : LevelSetMeshAdaptation or None
-            The level set mesh adaptation (if provided)
+        lset: LevelSetGeometry
+            The levelset we want to know the mean curvature of
+        own_cutinfo: bool
+            If a new CutInfo object should be created
+        own_lsetadap: bool
+            If a new LSetAdap object should be created
         gp_param : float or CoefficientFunction or None
             The parameter for the generalized Poisson problem
         """
 
         self.mesh = mesh
         self.order = order
+        self.lset = lset
         self.gp_param = gp_param
 
         # Level-Set Adaptation
-        if lsetadap is None:
+        self.own_lsetadap = own_lsetadap
+
+        if own_lsetadap:
             self.own_lsetadap = True
             self.lsetadap = LevelSetMeshAdaptation (mesh, order=order, threshold=0.5,
                                                     discontinuous_qn=True)
         else:
-            self.own_lsetadap = False
-            self.lsetadap = lsetadap
-        
-        self.lset_approx = self.lsetadap.lset_p1 
+            if lset is not None:
+                self.lsetadap = self.lset.lsetadap
+            else:
+                self.lsetadap = None
+
+        if lset is not None:
+            self.lset_approx = self.lsetadap.lset_p1
+        else:
+            self.lset_approx = None
         
         # cut info and XFEM context
-        if cutinfo is not None:
-            self.own_cutinfo = False
-            self.cutinfo = cutinfo
-        else:
-            self.own_cutinfo = True
+        self.own_cutinfo = own_cutinfo
+
+        if own_cutinfo:
             self.cutinfo = CutInfo(mesh)
-        
+        else:
+            if self.lset is not None:
+                self.cutinfo = self.lset.cutinfo
+            else:
+                self.cutinfo = None
 
         self.X = VectorH1(mesh, order=order, dgjumps=(gp_param!=None))
 
         self.H = GridFunction(self.X)
 
 
-    def compute(self, levelset : CoefficientFunction) -> GridFunction:
+    def SetLset(self, lset):
+        self.lset = lset
+
+        self.cutinfo = self.lset.cutinfo
+        self.lsetadap = self.lset.lsetadap
+        self.lset_approx = self.lsetadap.lset_p1
+
+    def Compute(self):
         """
-        Solve for the mean curvature vector.
-        Returns: GridFunction with vector values on the interface.
+        Solve for and update the mean curvature vector.
         """
         self.lset_approx = self.lsetadap.lset_p1
 
         if self.own_lsetadap:
-            self.lsetadap.CalcDeformation(levelset)
+            self.lsetadap.CalcDeformation(self.lset.field)
         if self.own_cutinfo:
             self.cutinfo.Update(self.lsetadap.lset_p1)
 
@@ -93,7 +112,7 @@ class MeanCurvatureSolver:
         if self.gp_param is None:
             facets[:] = False
         else:
-            dw = dFacetPatch(definedonelements=facets, deformation=self.lsetadap.deform)         
+            dw = dFacetPatch(definedonelements=facets, deformation=self.lsetadap.deform)
         # bilinear form
         a = RestrictedBilinearForm(self.X, element_restriction=ifels, 
                                    facet_restriction=facets, check_unused=False)
@@ -114,8 +133,10 @@ class MeanCurvatureSolver:
 
         self.H.vec.data = a.mat.Inverse(self.freedofs) * f.vec
 
+
     def compute_l2_error(self, H):
-        return sqrt(Integrate( InnerProduct(H-self.H,H-self.H) * self.ds, mesh=self.mesh))
+        return sqrt(Integrate(InnerProduct(H-self.H,H-self.H) * self.ds, mesh=self.mesh))
+
 
 if __name__ == "__main__":
     from netgen.geom2d import SplineGeometry
