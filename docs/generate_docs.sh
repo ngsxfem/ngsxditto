@@ -6,6 +6,7 @@ set -e
 mkdir -p build
 
 cp ../examples/*.ipynb source/
+rm source/mean_curv_ditto.ipynb
 cp ../examples/ditto.png source/ditto.png
 
 SPHINX_APIDOC_OPTIONS=members,show-inheritance sphinx-apidoc --templatedir source/_templates/ -o source/ ../ngsxditto
