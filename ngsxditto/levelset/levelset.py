@@ -43,6 +43,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         self.steps_since_last_redistancing = 0
         self.AddCallback(self.RedistanceIfNecessary)
         self.AddCallback(self.UpdateLinearApproximation)
+        self.AddCallback(self.UpdateDeformation)
         self.AddCallback(self.UpdateCutInfo)
         self.AddCallback(self.UpdateIntegrators)
 
@@ -51,8 +52,6 @@ class LevelSetGeometry(OnUpdateCallbacks):
 
         self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
         self.deformation = self.lsetadap.CalcDeformation(self.field)
-
-        self.AddCallback(self.UpdateDeformation)
 
         self.cutinfo = CutInfo(self.mesh)
         self.hasif = None

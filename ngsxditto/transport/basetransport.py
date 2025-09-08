@@ -32,6 +32,7 @@ class BaseTransport:
         self.time = time
         self.dt = dt
         self.order = order
+        self.fes = None
         self.source = source
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
