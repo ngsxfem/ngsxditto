@@ -1,7 +1,7 @@
 from ngsolve import *
 from ngsxditto.levelset import *
 from xfem import *
-
+import ngsolve.webgui as ngw
 
 class DiffusionBasedVelocityExtension:
     """
@@ -67,6 +67,8 @@ class DiffusionBasedVelocityExtension:
         w_field = GridFunction(self.V)
         w_field.vec.data = a.mat.Inverse(self.V.FreeDofs()) * f.vec
 
-        self.lset.transport.SetWind(CF(w_field))
+        undeformed_wind = GridFunction(VectorH1(self.mesh, order=self.order, dirichlet=self.dirichlet, dgjumps=True))
+        undeformed_wind.Set(shifted_eval(w_field, back=self.lset.deformation, forth=None))
+        self.lset.transport.SetWind(undeformed_wind)
 
-        return w_field
+        return undeformed_wind
