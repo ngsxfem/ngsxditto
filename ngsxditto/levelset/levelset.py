@@ -67,6 +67,14 @@ class LevelSetGeometry(OnUpdateCallbacks):
         if initial_levelset is not None:
             self.Initialize(initial_levelset)
 
+    @classmethod
+    def from_cf(cls, cf : CoefficientFunction, mesh : Mesh, order : int = 1 ):
+        """
+            Initializes a LevelSetGeometry from a CoefficientFunction using a NoTransport 
+            object for the transport
+        """
+        return cls(transport=NoTransport(mesh, order=order), initial_levelset=cf)
+
 
     def SetRedistancing(self, redistancing: BaseRedistancing):
         """
