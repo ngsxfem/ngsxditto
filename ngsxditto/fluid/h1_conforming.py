@@ -50,13 +50,14 @@ class H1Conforming(FluidDiscretization):
         self.els_outer = None
         self.facets_ring = None
         self.ghost_stab = ghost_stab
-        self.sigma = nitsche_stab    # nitsche stabilization
-        self.delta = extension_radius    # extension ring
+        self.nitsche_stab = nitsche_stab    # nitsche stabilization
+        self.extension_radius = extension_radius    # extension ring
+
         lsetp1_outer = GridFunction(H1(self.mesh, order=1))
-        InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
+        InterpolateToP1(self.lset.field - self.extension_radius, lsetp1_outer)
 
         lsetp1_inner = GridFunction(H1(self.mesh, order=1))
-        InterpolateToP1(self.lset.field + self.delta, lsetp1_inner)
+        InterpolateToP1(self.lset.field + self.extension_radius, lsetp1_inner)
 
         self.ci_main = CutInfo(self.mesh, self.lset.lsetp1)
         self.ci_inner = CutInfo(self.mesh, lsetp1_inner)
@@ -68,8 +69,6 @@ class H1Conforming(FluidDiscretization):
         Sets the levelset.
         """
         super().SetLevelSet(lset=lset)
-        if self.UpdateActiveDofs not in lset.callbacks:
-            lset.callbacks.append(self.UpdateActiveDofs)
 
 
     def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
@@ -83,10 +82,10 @@ class H1Conforming(FluidDiscretization):
         Updates the dofs that are active, i.e. all dofs that are in the extended unfitted domain.
         """
         lsetp1_outer = GridFunction(H1(self.mesh, order=1))
-        InterpolateToP1(self.lset.field - self.delta, lsetp1_outer)
+        InterpolateToP1(self.lset.field - self.extension_radius, lsetp1_outer)
 
         lsetp1_inner = GridFunction(H1(self.mesh, order=1))
-        InterpolateToP1(self.lset.field + self.delta, lsetp1_inner)
+        InterpolateToP1(self.lset.field + self.extension_radius, lsetp1_inner)
 
         self.ci_main.Update(self.lset.lsetp1)
         self.ci_inner.Update(lsetp1_inner)
@@ -114,7 +113,7 @@ class H1Conforming(FluidDiscretization):
         if self.surface_tension is not None:
             self.lf += -self.fluid_params.surface_tension_coeff * self.surface_tension * v * dS
         if self.if_dirichlet is not None:
-            self.lf += (-self.nu * Grad(v) * n * self.if_dirichlet + self.nu*self.sigma/h * self.if_dirichlet * v + q * n * self.if_dirichlet) * dS
+            self.lf += (-self.nu * Grad(v) * n * self.if_dirichlet + self.nu * self.nitsche_stab / h * self.if_dirichlet * v + q * n * self.if_dirichlet) * dS
 
         for (region, fct) in self.neumann.items():
             self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
@@ -125,11 +124,11 @@ class H1Conforming(FluidDiscretization):
         dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
 
         basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - p * div(v) - q * div(u)) * dx_neg
-        nitsche = (-grad(u)* n * v - grad(v)*n* u + self.sigma/h * u * v) * dS
+        nitsche = (-grad(u) * n * v - grad(v) * n * u + self.nitsche_stab / h * u * v) * dS
 
         ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
         ghost_p = (p - p.Other()) * (q - q.Other()) * dw
-        ghost_penalty = self.ghost_stab * self.nu * ghost_u + self.ghost_stab * 1/self.nu * ghost_u - self.ghost_stab * 1/self.nu * ghost_p
+        ghost_penalty = self.ghost_stab * self.nu * ghost_u - self.ghost_stab * 1/self.nu * ghost_p #+ self.ghost_stab * 1/self.nu * ghost_u
 
         self.stokes = basic_stokes + ghost_penalty
         if self.if_dirichlet is not None:
