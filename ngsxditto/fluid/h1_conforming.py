@@ -128,7 +128,7 @@ class H1Conforming(FluidDiscretization):
 
         ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
         ghost_p = (p - p.Other()) * (q - q.Other()) * dw
-        ghost_penalty = self.ghost_stab * self.nu * ghost_u - self.ghost_stab * 1/self.nu * ghost_p #+ self.ghost_stab * 1/self.nu * ghost_u
+        ghost_penalty = self.ghost_stab * self.nu * ghost_u - self.ghost_stab * 1/self.nu * ghost_p + self.ghost_stab * 1/self.nu * ghost_u
 
         self.stokes = basic_stokes + ghost_penalty
         if self.if_dirichlet is not None:
