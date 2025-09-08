@@ -1,3 +1,5 @@
+from alive_progress import alive_bar
+
 class MultiStepper:
     """
     This class allows handling multiple steps at the same time and checks while automatically applying redistancing.
@@ -18,16 +20,22 @@ class MultiStepper:
         """
         Applies the OneStep function of the object a given number of times..
         """
-        for _ in range(n):
-            self.object.OneStep()
+        with alive_bar(n, force_tty=True, title="Time stepping: ", bar='smooth') as bar:
+            for _ in range(n):
+                self.object.OneStep()
+                bar()
 
     def RunUntilTime(self, end_time):
         """
         Applies the OneStep function of the object until the given time is reached.
         """
         if self.object.time is not None:
-            while self.object.time < end_time:
-                self.object.OneStep()
+            start_time = self.object.time.Get()
+            with alive_bar(manual=True, force_tty=True, title="Time stepping: ", bar='smooth') as bar:
+                while self.object.time.Get() < end_time:
+                    self.object.OneStep()
+                    bar((self.object.time.Get()-start_time)/(end_time-start_time))
+
         else:
             raise TypeError("The transport object has no time parameter")
 
