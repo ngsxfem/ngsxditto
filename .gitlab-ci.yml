@@ -26,7 +26,9 @@ test_src:
         paths:
             - coverage.xml  # Coverage Report als Artifact speichern
         reports:
-            cobertura: coverage.xml  # Optional: für GitLab Coverage Visualization
+            coverage_report:
+                coverage_format: cobertura
+                path: coverage.xml
     dependencies:
         - build_src
     needs: [build_src]
