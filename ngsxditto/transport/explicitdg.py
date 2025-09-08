@@ -9,7 +9,7 @@ class ExplicitDGTransport(BaseTransport):
     This class propagates a function along a given velocity field (wind) using the Runge-Kutta-2 discretization
     in time and the DG or HDG method as space discretization.
     """
-    def __init__(self, mesh, wind, inflow_values, dt, order: int=2, source=None, usetrace: bool=True, compile=True):
+    def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order: int=2, source=None, usetrace: bool=True, compile=True):
         """
         Initializes the transport object with the given parameters.
 
@@ -38,7 +38,9 @@ class ExplicitDGTransport(BaseTransport):
         self.bfa = BilinearForm(self.fes, nonassemble=True)
         self.invmass = self.fes.Mass(rho=1).Inverse()
         self.invMA = None
-        self.SetWind(wind)
+        self.wind = wind
+        if wind is not None:
+            self.SetWind(wind)
 
         self.gfu = GridFunction(self.fes)
         self.gfu_cont = GridFunction(self.fes_cont)
@@ -108,4 +110,4 @@ class ExplicitDGTransport(BaseTransport):
 
     @property
     def field(self):
-        return self.gfu
+        return self.gfu_cont
