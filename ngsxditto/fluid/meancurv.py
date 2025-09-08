@@ -79,13 +79,13 @@ class MeanCurvatureSolver:
         self.cutinfo = self.lset.cutinfo
         self.lsetadap = self.lset.lsetadap
         self.lset_approx = self.lsetadap.lset_p1
+        self.own_cutinfo = False
+        self.own_lsetadap = False
 
     def Compute(self):
         """
         Solve for and update the mean curvature vector.
         """
-        self.lset_approx = self.lsetadap.lset_p1
-
         if self.own_lsetadap:
             self.lsetadap.CalcDeformation(self.lset.field)
         if self.own_cutinfo:
@@ -95,7 +95,7 @@ class MeanCurvatureSolver:
         h = specialcf.mesh_size
 
         # normal vector from level set
-        grad_phi = grad(self.lset_approx)
+        grad_phi = grad(self.lsetadap.lset_p1)
         n = Normalize(grad_phi)
         # norm_grad_phi = sqrt(InnerProduct(grad_phi, grad_phi)) + 1e-10
         # n = grad_phi / norm_grad_phi
