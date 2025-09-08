@@ -9,13 +9,16 @@ In the following we collect examples that were computed with `ngsxditto`.
 
    ditto_lset.ipynb
 
+   mean_curv_ditto.ipynb
+
    transport_and_redistancing.ipynb
 
    basic_stokes.ipynb
 
-   oscillating_droplet.ipynb
+   schaefer_turek.ipynb
 
    moving_stokes.ipynb
 
-   schaefer_turek.ipynb
+   oscillating_droplet.ipynb
+
 
