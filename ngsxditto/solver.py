@@ -54,7 +54,7 @@ class Solver:
             surface_volume_ratio = [self.lset.surface_area/self.lset.volume]
 
 
-        with alive_bar(manual=True, force_tty=True) as bar:
+        with alive_bar(manual=True, force_tty=True, title="Time stepping: ", bar='smooth') as bar:
           while self.time < end_time:
             timeold = self.time.Get()
             for func, info in self.function_dict.items():
