@@ -3,8 +3,8 @@ from ngsxditto.levelset import LevelSetGeometry
 from ngsolve import *
 import ngsolve.webgui as ngw
 from matplotlib import pyplot as plt
-
 from alive_progress import alive_bar
+
 
 class Solver:
     def __init__(self, fluid, time=None):
@@ -55,39 +55,47 @@ class Solver:
 
 
         with alive_bar(manual=True, force_tty=True) as bar:
-          while self.time < end_time:
-            timeold = self.time.Get()
-            for func, info in self.function_dict.items():
-                bartxt = "Current step:" 
-                if info["name"] is not None:
-                    bartxt += info["name"]
-                bar.text = bartxt 
-                args = info["args"]
-                name = info["name"]
+            i = 0
+            while self.time < end_time:
+                timeold = self.time.Get()
+                for func, info in self.function_dict.items():
+                    #bartxt = "Current step:"
+                    #if info["name"] is not None:
+                    #    bartxt += info["name"]
+                    #bar.text = bartxt
+                    args = info["args"]
+                    name = info["name"]
 
-                resolved_args = resolve_args(args)
+                    resolved_args = resolve_args(args)
 
-                result = func(*resolved_args)
+                    result = func(*resolved_args)
 
-                if name is not None:
-                    self.variable_dict[name] = result
+                    if name is not None:
+                      self.variable_dict[name] = result
 
+                #if i%50==0:
+                #    ngw.Draw(self.lset.transport.wind, self.mesh)
+                #    ngw.Draw(self.lset.field)
+                #    ngw.Draw(self.surface_tension.H)
+                #    self.DrawSolution()
 
-            if round(self.time.Get(), 5) in draw_at_times:
-                self.DrawSolution()
+                if round(self.time.Get(), 5) in draw_at_times:
+                    self.DrawSolution()
 
-            if animate:
-                if self.time.Get() >= vis_last_time + vis_time_increment:
-                    vis_last_time = self.time.Get()
-                    #gfu_u_tmp.Set(IfPos(self.lset.field, CF((0, 0)), self.fluid.gfu.components[0]))
-                    gf_vis_tmp.Set(CF((self.lset.field, Norm(CF((self.fluid.gfu.components[0],self.fluid.gfu.components[1]))),-1,0)))
-                    #gfu_u.AddMultiDimComponent(gfu_u_tmp.vec)
-                    gf_vis.AddMultiDimComponent(gf_vis_tmp.vec)
+                if animate:
+                    if self.time.Get() >= vis_last_time + vis_time_increment:
+                        vis_last_time = self.time.Get()
+                        #gfu_u_tmp.Set(IfPos(self.lset.field, CF((0, 0)), self.fluid.gfu.components[0]))
+                        gf_vis_tmp.Set(CF((self.lset.field, Norm(CF((self.fluid.gfu.components[0],self.fluid.gfu.components[1]))),-1,0)))
+                        #gfu_u.AddMultiDimComponent(gfu_u_tmp.vec)
+                        gf_vis.AddMultiDimComponent(gf_vis_tmp.vec)
 
-            if sphericity_diagram:
-                time_list.append(self.time.Get())
-                surface_volume_ratio.append(self.lset.surface_area / self.lset.volume)
-            bar(self.time.Get()/end_time)
+                if sphericity_diagram:
+                    time_list.append(self.time.Get())
+                    surface_volume_ratio.append(self.lset.surface_area / self.lset.volume)
+                bar(self.time.Get()/end_time)
+                i += 1
+
         if animate:
             #ngw.Draw(gfu_u, self.mesh, interpolate_multidim=True, animate=True, min=0, autoscale=False)
             ngw.Draw(gf_vis, self.mesh, "uhnorm",eval_function="value.x>0.0?value.z:value.y",autoscale=False, min=-0.075,max=0.225, interpolate_multidim=True, animate=True)
