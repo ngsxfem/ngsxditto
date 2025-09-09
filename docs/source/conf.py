@@ -40,6 +40,9 @@ master_doc = "contents"
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
+_static_path = os.path.join(os.path.dirname(__file__), "_static")
+if not os.path.exists(_static_path):
+    os.makedirs(_static_path)
 
 # Quelle: Coverage-HTML (vom pytest --cov-report=html erzeugt)
 htmlcov_dir = os.path.abspath(os.path.join("..", "htmlcov"))
@@ -51,4 +54,3 @@ if os.path.exists(htmlcov_dir):
     shutil.rmtree(coverage_target, ignore_errors=True)
     shutil.copytree(htmlcov_dir, coverage_target)
 
-    
