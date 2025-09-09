@@ -38,5 +38,4 @@
    :caption: Documentation
 
    modules
-
    coverage
