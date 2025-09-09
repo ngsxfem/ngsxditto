@@ -39,7 +39,4 @@
 
    modules
 
-Coverage Report
-===============
-
-`Coverage Report <_static/coverage/index.html>`_
+   coverage

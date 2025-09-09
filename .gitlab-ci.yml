@@ -23,7 +23,6 @@ test_src:
         - pip3 install pytest pytest-cov
         - pip3 install -r docs/requirements.txt
         - pip3 install -e . 
-        - python -c "import ngsxditto, sys; print(ngsxditto.__file__, sys.executable)"
         - pytest --cov=ngsxditto --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=html tests/test_*.py
     artifacts:
         paths:
