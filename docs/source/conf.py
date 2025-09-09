@@ -26,6 +26,7 @@ extensions = [
 # make source code visible to sphinx.ext.autodoc
 import os
 import sys
+import shutil
 sys.path.insert(0, os.path.abspath('../..'))
 
 templates_path = ['_templates']
@@ -38,3 +39,16 @@ master_doc = "contents"
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+
+# Quelle: Coverage-HTML (vom pytest --cov-report=html erzeugt)
+htmlcov_dir = os.path.abspath(os.path.join("..", "htmlcov"))
+
+# Ziel: in deine Doku (static files)
+coverage_target = os.path.join(os.path.dirname(__file__), "_static", "coverage")
+
+if os.path.exists(htmlcov_dir):
+    shutil.rmtree(coverage_target, ignore_errors=True)
+    shutil.copytree(htmlcov_dir, coverage_target)
+
+    

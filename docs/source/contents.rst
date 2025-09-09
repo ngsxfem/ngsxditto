@@ -1,5 +1,4 @@
-.. ngsxfem documentation master file, created by
-   copy+paste and changes from ngsxtrefftz.
+.. ngsxditto documentation master file
 
 .. raw:: html
 
@@ -39,3 +38,8 @@
    :caption: Documentation
 
    modules
+
+Coverage Report
+===============
+
+`Coverage Report <_static/coverage/index.html>`_
