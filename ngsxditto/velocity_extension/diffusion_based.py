@@ -70,5 +70,3 @@ class DiffusionBasedVelocityExtension:
         undeformed_wind = GridFunction(VectorH1(self.mesh, order=self.order, dirichlet=self.dirichlet, dgjumps=True))
         undeformed_wind.Set(shifted_eval(w_field, back=self.lset.deformation, forth=None))
         self.lset.transport.SetWind(undeformed_wind)
-
-        return undeformed_wind
