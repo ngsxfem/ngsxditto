@@ -86,8 +86,8 @@ class ExplicitDGTransport(BaseTransport):
 
     def OneStep(self):
         self.tempu.data = self.gfu.vec - 0.5 * self.dt * self.invMA * self.gfu.vec
-        if self.time is not None:
-            self.time.Set(self.time.Get() + self.dt)
+        #if self.time is not None:
+        #    self.time.Set(self.time.Get() + self.dt)
         self.gfu.vec.data -= self.dt * self.invMA * self.tempu
         self.gfu_cont.Set (self.gfu)
 
