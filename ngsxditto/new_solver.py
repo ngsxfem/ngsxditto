@@ -13,6 +13,10 @@ class Solver:
         self.function_names = []        
         self.stopping_rule = stopping_rule
         self.progress_info = progress_info
+        self.visualizations = []
+
+    def AddVisualization(self, visualization):
+        self.visualizations.append(visualization)
 
     def Register(self, func, *args, name=None):
 
@@ -30,6 +34,9 @@ class Solver:
 
     def __call__(self):
         self.BeforeLoop()
+        for vis in self.visualizations:
+            vis.Initialize()
+
         with alive_bar(manual=True, force_tty=True, title=self.name+": ", 
                        bar='smooth') as bar:
             while True:
@@ -38,10 +45,14 @@ class Solver:
                     func, args = self.function_dict[function_name]
 
                     func(*args)
+                for vis in self.visualizations:
+                    vis.AddData()
                 bar(self.progress_info())
 
                 if self.stopping_rule():
                     break
+            for vis in self.visualizations:
+                vis.Draw()
 
 
 class TimeLoop(Solver):

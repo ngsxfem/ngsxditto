@@ -8,3 +8,5 @@ from .multistepper import *
 from .gradient_tester import *
 from .callback import *
 from .solver import *
+from .new_solver import *
+from .visualization import *
