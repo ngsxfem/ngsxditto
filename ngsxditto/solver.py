@@ -1,104 +1,127 @@
-from ngsxditto.fluid import FluidDiscretization
-from ngsxditto.levelset import LevelSetGeometry
-from ngsolve import *
-import ngsolve.webgui as ngw
-from matplotlib import pyplot as plt
+from ngsolve import CoefficientFunction, Parameter
 from alive_progress import alive_bar
 
+import typing 
+
+def dummy_progress_info():
+    return 0
 
 class Solver:
-    def __init__(self, fluid, time=None):
+    def __init__(self, stopping_rule = None, progress_info=dummy_progress_info):
+        self.name = "Solver"
         self.function_dict = {}
-        self.variable_dict = {}
-        self.time = time
-        self.fluid = fluid
-        self.lset = self.fluid.lset
-        self.mesh = self.fluid.mesh
+        self.function_names = []        
+        self.stopping_rule = stopping_rule
+        self.progress_info = progress_info
+        self.visualizations = []
+
+    def AddVisualization(self, visualization):
+        self.visualizations.append(visualization)
+
+    def Register(self, func, *args, name=None):
+
+        if name is None:
+            name = "unnamed_call_" + str(len(self.function_names))
+
+        if name in self.function_names:
+            raise ValueError(f"Function name {name} already exists.")
+
+        self.function_dict[name] = (func,args)
+        self.function_names.append(name)
+
+    def BeforeLoop(self):
+        pass
+
+    def __call__(self):
+        self.BeforeLoop()
+        for vis in self.visualizations:
+            vis.Initialize()
+
+        with alive_bar(manual=True, force_tty=True, title=self.name+": ", 
+                       bar='smooth') as bar:
+            while True:
+                for function_name in self.function_names:
+                    bar.text = "Current step: " + function_name
+                    func, args = self.function_dict[function_name]
+
+                    func(*args)
+                for vis in self.visualizations:
+                    vis.AddData()
+                bar(self.progress_info())
+
+                if self.stopping_rule():
+                    break
+            for vis in self.visualizations:
+                vis.Draw()
 
 
-    def AddObject(self, name, obj):
-        setattr(self, name, obj)
+class TimeLoop(Solver):
+    def __init__(self, time : typing.Optional[CoefficientFunction] = None, 
+                 dt : float = 0.1,
+                 end_time : float = 1.0):
+        super().__init__()
+        self.name = "Time Loop"
+        if time is None:
+            self.time = Parameter(0)
+        else:
+            self.time = time 
+        self.end_time = end_time
+        self.start_time = self.time.Get()
+
+        self.dt = dt
+
+        def reached_final_time():
+            return self.time.Get() >= self.end_time - 0.1*self.dt
+
+        def relative_time():
+            return (self.time.Get()-self.start_time)/(self.end_time-self.start_time)
+
+        self.stopping_rule = reached_final_time
+        self.progress_info = relative_time
+
+    def BeforeLoop(self):
+        time_increase = lambda: self.time.Set(self.time.Get() + self.dt)
+        self.Register(time_increase, name="increase time value")
+
+from time import sleep
+if __name__ == "__main__":
+
+    list_i = [3]
+
+    def increase(list_i):
+        list_i[0] += 1
+    
+    def print_i():
+        print(list_i[0])
 
 
-    def Add(self, func, *args, name=None):
-        self.function_dict[func] = {"name": name, "args": args}
+    def i_too_large():
+        return list_i[0] >= 10
 
-        if name is not None:
-            self.variable_dict[name] = func(*args)
+    def sleep1():
+        sleep(0.1)
 
+    def progress_i():
+        return list_i[0]/10
 
-    def Do(self, end_time, draw_at_times=[], animate=True, sphericity_diagram=False):
-        def resolve_args(args):
-            resolved = []
-            for arg in args:
-                if isinstance(arg, str) and arg in self.variable_dict:
-                    resolved.append(self.variable_dict[arg])
-                else:
-                    resolved.append(arg)
-            return tuple(resolved)
+    solver = Solver(stopping_rule=i_too_large, progress_info=progress_i)
+    solver.Register(increase,list_i, name="increase list_i")
+    solver.Register(print_i, name="print list_i")
+    solver.Register(sleep1, name="sleep 1")
 
-        draw_at_times = [round(time_point, 5) for time_point in draw_at_times]
-        if animate:
-            #gfu_u = GridFunction(self.fluid.V, multidim=0)
-            #gfu_u_tmp = GridFunction(self.fluid.V)
-            gf_vis = GridFunction(L2(mesh=self.mesh,order=self.fluid.V.globalorder+1,dim=4), multidim=0)
-            gf_vis_tmp = GridFunction(L2(mesh=self.mesh,order=self.fluid.V.globalorder+1,dim=4))
-            vis_last_time = self.time.Get()
-            vis_time_increment = (end_time - vis_last_time)/16
+    solver()
 
-        if round(self.time.Get(), 5) in draw_at_times:
-            self.DrawSolution()
+    t = Parameter(0)
+    tl = TimeLoop(time=t, end_time=10)
+    def print_time():
+        print("time is: " + str(tl.time.Get()))
+    tl.Register(print_time, name="print time")
+    tl.Register(sleep1, name="sleep 1")
 
-        if sphericity_diagram:
-            time_list = [self.time.Get()]
-            surface_volume_ratio = [self.lset.surface_area/self.lset.volume]
+    def increase_dt():
+        tl.dt = tl.dt * 1.1
 
+    tl.Register(increase_dt, name="increase dt")
 
-        with alive_bar(manual=True, force_tty=True, title="Time stepping: ", bar='smooth') as bar:
-            while self.time < end_time:
-                timeold = self.time.Get()
-                for func, info in self.function_dict.items():
-                    bartxt = "Current step:"
-                    if info["name"] is not None:
-                        bartxt += info["name"]
-                    bar.text = bartxt
-                    args = info["args"]
-                    name = info["name"]
-
-                    resolved_args = resolve_args(args)
-
-                    result = func(*resolved_args)
-
-                    if name is not None:
-                        self.variable_dict[name] = result
-
-
-                if round(self.time.Get(), 5) in draw_at_times:
-                    self.DrawSolution()
-
-                if animate:
-                    if self.time.Get() >= vis_last_time + vis_time_increment:
-                        vis_last_time = self.time.Get()
-                        #gfu_u_tmp.Set(IfPos(self.lset.field, CF((0, 0)), self.fluid.gfu.components[0]))
-                        gf_vis_tmp.Set(CF((self.lset.field, Norm(CF((self.fluid.gfu.components[0],self.fluid.gfu.components[1]))),-1,0)))
-                        #gfu_u.AddMultiDimComponent(gfu_u_tmp.vec)
-                        gf_vis.AddMultiDimComponent(gf_vis_tmp.vec)
-
-                if sphericity_diagram:
-                    time_list.append(self.time.Get())
-                    surface_volume_ratio.append(self.lset.surface_area / self.lset.volume)
-                bar(self.time.Get()/end_time)
-        if animate:
-            #ngw.Draw(gfu_u, self.mesh, interpolate_multidim=True, animate=True, min=0, autoscale=False)
-            ngw.Draw(gf_vis, self.mesh, "uhnorm",eval_function="value.x>0.0?value.z:value.y",autoscale=False, min=-0.075,max=0.225, interpolate_multidim=True, animate=True)
-
-        if sphericity_diagram:
-            plt.plot(time_list, surface_volume_ratio)
-            plt.show()
-
-    def DrawSolution(self):
-        ngw.Draw(IfPos(self.lset.field, CF((0, 0)), self.fluid.gfu.components[0]), self.mesh)
-
-
-
-
+    tl.dt = 0.5
+    tl()
