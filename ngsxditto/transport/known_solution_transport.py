@@ -27,8 +27,8 @@ class KnownSolutionTransport(BaseTransport):
         self.true_solution = true_solution
         self.fes = H1(mesh, order=order)
         self.gfu = GridFunction(self.fes)
-        #if self.time is not None:
-        #    self.time.Set(0)
+        if self.time is not None:
+            self.time.Set(0)
         self.gfu.Set(self.true_solution)
 
     def SetInitialValues(self, initial_values: CoefficientFunction=None, initial_time: float = 0.0):
@@ -44,8 +44,8 @@ class KnownSolutionTransport(BaseTransport):
         self.gfu.Set(self.true_solution)
 
     def OneStep(self):
-        #if self.time is not None:
-        #    self.time += self.dt
+        if self.time is not None:
+            self.time += self.dt
         self.gfu.Set(self.true_solution)
 
     @property

@@ -20,7 +20,6 @@ dt = 0.02
 def test_propagation():
     transport = ImplicitSUPGTransport(mesh, wind, inflow_values=None, dt=dt, order=2)
     transport.time = t
-    t.Set(0)
     transport.SetInitialValues(true_circle)
 
     while transport.time < T_end:

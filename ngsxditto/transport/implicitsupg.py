@@ -88,8 +88,8 @@ class ImplicitSUPGTransport(BaseTransport):
 
 
     def OneStep(self):
-        #if self.time is not None:
-        #    self.time.Set(self.time.Get() + self.dt)
+        if self.time is not None:
+            self.time.Set(self.time.Get() + self.dt)
         self.gfu.vec.data = self.inv @ self.rhs.mat * self.gfu.vec
 
     @property
