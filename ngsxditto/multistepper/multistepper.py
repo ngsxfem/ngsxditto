@@ -37,5 +37,5 @@ class MultiStepper:
                     bar((self.object.time.Get()-start_time)/(end_time-start_time))
 
         else:
-            raise TypeError("The transport object has no time parameter")
+            raise TypeError("The object has no time parameter")
 
