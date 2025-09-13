@@ -18,7 +18,7 @@ class Solver:
     def AddVisualization(self, visualization):
         self.visualizations.append(visualization)
 
-    def Register(self, func, *args, name=None):
+    def Register(self, func, *args, name=None, step_frequency=None, time_frequency=None):
 
         if name is None:
             name = "unnamed_call_" + str(len(self.function_names))
@@ -26,33 +26,59 @@ class Solver:
         if name in self.function_names:
             raise ValueError(f"Function name {name} already exists.")
 
-        self.function_dict[name] = (func,args)
+        self.function_dict[name] = {"call": (func,args),
+                                    "step_frequency": step_frequency,
+                                    "time_frequency": time_frequency,
+                                    "last_time": 0}
         self.function_names.append(name)
 
+
     def BeforeLoop(self):
-        pass
+        for vis in self.visualizations:
+            vis.Initialize()
+            self.Register(vis.AddData, name=vis.name, step_frequency=vis.step_frequency, time_frequency=vis.time_frequency)
+
+
+    def AfterLoop(self):
+        for vis in self.visualizations:
+            vis.Draw()
 
     def __call__(self):
         self.BeforeLoop()
-        for vis in self.visualizations:
-            vis.Initialize()
 
         with alive_bar(manual=True, force_tty=True, title=self.name+": ", 
                        bar='smooth') as bar:
+            i = 1
             while True:
                 for function_name in self.function_names:
                     bar.text = "Current step: " + function_name
-                    func, args = self.function_dict[function_name]
 
-                    func(*args)
-                for vis in self.visualizations:
-                    vis.AddData()
+                    entry = self.function_dict[function_name]
+                    func, args = entry["call"]
+                    step_frequency = entry["step_frequency"]
+                    time_frequency = entry["time_frequency"]
+                    should_run = False
+
+                    if step_frequency is not None:
+                        should_run = (i % step_frequency == 0)
+
+                    elif time_frequency is not None and hasattr(self, "time"):
+                        last_time = entry["last_time"]
+                        if int(self.time.Get() // time_frequency) > int(last_time // time_frequency):
+                            entry["last_time"] = self.time.Get()
+                            should_run = True
+                    else:
+                        should_run = True
+
+                    if should_run:
+                        func(*args)
+
                 bar(self.progress_info())
 
                 if self.stopping_rule():
                     break
-            for vis in self.visualizations:
-                vis.Draw()
+                i += 1
+            self.AfterLoop()
 
 
 class TimeLoop(Solver):
@@ -79,9 +105,12 @@ class TimeLoop(Solver):
         self.stopping_rule = reached_final_time
         self.progress_info = relative_time
 
+
     def BeforeLoop(self):
+        super().BeforeLoop()
         time_increase = lambda: self.time.Set(self.time.Get() + self.dt)
         self.Register(time_increase, name="increase time value")
+
 
 from time import sleep
 if __name__ == "__main__":

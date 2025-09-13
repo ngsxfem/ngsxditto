@@ -4,28 +4,44 @@ from ngsolve import *
 
 
 class Visualization:
-    def __init__(self):
-        pass
+    def __init__(self, name=None, step_frequency=None, time_frequency=None):
+        self.initialize_funcs = []
+        self.adddata_funcs = []
+        self.draw_funcs = []
+        self.name = name
+        self.step_frequency = step_frequency
+        self.time_frequency = time_frequency
+
+    def RegisterInitialize(self, func, *args):
+        self.initialize_funcs.append((func, args))
+
+    def RegisterAddData(self, func, *args):
+        self.adddata_funcs.append((func, args))
+
+    def RegisterDraw(self, func, *args):
+        self.draw_funcs.append((func, args))
 
     def Initialize(self):
-        pass
+        for func, args in self.initialize_funcs:
+            func(*args)
 
     def AddData(self):
-        pass
+        for func, args in self.adddata_funcs:
+            func(*args)
 
-    def Visualize(self):
-        pass
+    def Draw(self):
+        for func, args in self.draw_funcs:
+            func(*args)
 
 
 
 class SphericityDiagram(Visualization):
-    def __init__(self, lset, time):
-        super().__init__()
+    def __init__(self, lset, time, name=None, step_frequency=None, time_frequency=None):
+        super().__init__(name, step_frequency, time_frequency)
         self.lset = lset
         self.time = time
         self.time_list = []
         self.surface_volume_ratio = []
-
 
     def Initialize(self):
         self.time_list = [self.time.Get()]
@@ -41,8 +57,8 @@ class SphericityDiagram(Visualization):
 
 
 class Animation(Visualization):
-    def __init__(self, lset, fluid, time, end_time):
-        super().__init__()
+    def __init__(self, lset, fluid, time, end_time, name=None, step_frequency=None, time_frequency=None):
+        super().__init__(name, step_frequency, time_frequency)
         self.lset = lset
         self.fluid = fluid
         self.time = time
