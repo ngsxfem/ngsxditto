@@ -2,7 +2,9 @@
 #  This file will be responsible for (level-set) transport.
 ###
 
-print("importing ngsxditto.transport")
+import logging
+logger = logging.getLogger(__name__)
+logger.debug("importing ngsxditto.transport")
 
 from .basetransport import *
 from .explicitdg import *

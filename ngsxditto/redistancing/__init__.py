@@ -1,4 +1,6 @@
-print("importing ngsxditto.redistancing")
+import logging
+logger = logging.getLogger(__name__)
+logger.debug("importing ngsxditto.redistancing")
 
 from .redistancing import *
 from .linear_fmm import *
