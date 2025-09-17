@@ -1,13 +1,30 @@
 from ngsolve import CoefficientFunction, Parameter
 from alive_progress import alive_bar
+from ngsxditto import Visualization
 
-import typing 
+import typing
+
+
 
 def dummy_progress_info():
     return 0
 
 class Solver:
-    def __init__(self, stopping_rule = None, progress_info=dummy_progress_info):
+    """
+    A solver class that registers functions and loops over them when called.
+    """
+    def __init__(self, stopping_rule: typing.Callable[[], bool] = None,
+                 progress_info: typing.Callable[[], float] = dummy_progress_info):
+        """
+        Initialize the solver with empty function dictionary.
+
+        Parameters:
+        -----------
+        stopping_rule: typing.Callable[[], bool]
+            Determines when to stop the loop.
+        progress_info: typing.Callable[[], float]
+            Determines what the progress bar shows
+        """
         self.name = "Solver"
         self.function_dict = {}
         self.function_names = []        
@@ -15,11 +32,28 @@ class Solver:
         self.progress_info = progress_info
         self.visualizations = []
 
-    def AddVisualization(self, visualization):
+    def AddVisualization(self, visualization: Visualization):
+        """
+        Adds a Visualization object to the list of visualizations.
+        """
         self.visualizations.append(visualization)
 
-    def Register(self, func, *args, name=None, step_frequency=None, time_frequency=None):
-
+    def Register(self, func: typing.Callable[..., typing.Any], *args: typing.Any, name: str=None, step_frequency: int=None, time_frequency: float=None):
+        """
+        Registers a function with arguments that wil be called in the loop.
+        Parameters:
+        -----------
+        func: function
+            The function that will be called
+        args: tuple
+            The arguments of the function
+        name: str
+            The name of the call that will be saved in the function name list.
+        step_frequency: int
+            The function will be called every `step_frequency` steps.
+        time_frequency: float
+            The function will always be called the first time a new multiple of `time_frequency` is exceeded.
+        """
         if name is None:
             name = "unnamed_call_" + str(len(self.function_names))
 
@@ -34,16 +68,25 @@ class Solver:
 
 
     def BeforeLoop(self):
+        """
+        Will be called before the loop.
+        """
         for vis in self.visualizations:
             vis.Initialize()
             self.Register(vis.AddData, name=vis.name, step_frequency=vis.step_frequency, time_frequency=vis.time_frequency)
 
 
     def AfterLoop(self):
+        """
+        Will be called after the loop.
+        """
         for vis in self.visualizations:
             vis.Draw()
 
     def __call__(self):
+        """
+        Executes all function calls that were registered.
+        """
         self.BeforeLoop()
 
         with alive_bar(manual=True, force_tty=True, title=self.name+": ", 
@@ -82,9 +125,23 @@ class Solver:
 
 
 class TimeLoop(Solver):
+    """
+    A Solver subclass that tracks progress with a time parameter.
+    """
     def __init__(self, time : typing.Optional[CoefficientFunction] = None, 
                  dt : float = 0.1,
                  end_time : float = 1.0):
+        """
+        Initialize the timeloop with a time parameter, step-size and end time.
+        Parameters:
+        -----------
+        time: CoefficientFunction
+            The time object that is increased every step.
+        dt: float
+            The time-step size
+        end_time: float
+            Time when the loop is stopped.
+        """
         super().__init__()
         self.name = "Time Loop"
         if time is None:
