@@ -28,7 +28,6 @@ class ImplicitSUPGTransport(BaseTransport):
 
         self.fes = H1(mesh, order=order)
         self.u, self.v = self.fes.TnT()
-        u, v = self.u, self.v
 
         self.wind = wind
         self.gamma = None
