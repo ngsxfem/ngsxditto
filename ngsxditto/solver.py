@@ -1,6 +1,5 @@
 from ngsolve import CoefficientFunction, Parameter
 from alive_progress import alive_bar
-from ngsxditto import Visualization
 
 import typing
 
@@ -32,7 +31,7 @@ class Solver:
         self.progress_info = progress_info
         self.visualizations = []
 
-    def AddVisualization(self, visualization: Visualization):
+    def AddVisualization(self, visualization):
         """
         Adds a Visualization object to the list of visualizations.
         """
