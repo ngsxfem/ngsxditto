@@ -13,7 +13,8 @@ class H1Conforming(FluidDiscretization):
     """
     def __init__(self, mesh, fluid_params: FluidParameters, order=4, lset:LevelSetGeometry=None,
                  wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None,
-                 f: CoefficientFunction = CF((0, 0)), surface_tension: CoefficientFunction = CF((0, 0)), dt=None,
+                 f: CoefficientFunction = CF((0, 0)), g: CoefficientFunction = CF(0),
+                 surface_tension: CoefficientFunction = CF((0, 0)), dt=None,
                  nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2):
         """
         Initializes the fluid discretization with the given parameters and levelset.
@@ -33,6 +34,8 @@ class H1Conforming(FluidDiscretization):
             Dirichlet boundary condition of the unfitted domain.
         f: CoefficientFunction
             The force term
+        g: CoefficientFunction
+            The divergence constraint
         surface_tension: CoefficientFunction
             The surface tension force.
         dt: float
@@ -44,7 +47,7 @@ class H1Conforming(FluidDiscretization):
         extension_radius: float
             Radius of the zero levelset on which the domain is extended.
         """
-        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f,
+        super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
                          surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet)
         self.active_dofs=None
         self.els_outer = None
@@ -110,6 +113,7 @@ class H1Conforming(FluidDiscretization):
 
         self.lf = LinearForm(X)
         self.lf += self.rho * self.f * v * dx_neg
+        self.lf += self.g * q * dx_neg
         if self.surface_tension is not None:
             self.lf += -self.fluid_params.surface_tension_coeff * self.surface_tension * v * dS
         if self.if_dirichlet is not None:

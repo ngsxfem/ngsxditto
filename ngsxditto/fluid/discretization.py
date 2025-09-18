@@ -14,7 +14,8 @@ class FluidDiscretization:
     """
     DEFAULT_DT = 1e-3
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
-                 if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None, f:CoefficientFunction=CF((0, 0)),
+                 if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None,
+                 f:CoefficientFunction=CF((0, 0)), g: CoefficientFunction=CF(0),
                  surface_tension:CoefficientFunction=CF((0, 0)), dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
@@ -36,6 +37,8 @@ class FluidDiscretization:
             wall parameters for contact problems
         f: CoefficientFunction
             The force term
+        g: CoefficientFunction
+            The divergence constraint
         surface_tension: CoefficientFunction
             The surface tension force.
         dt: float
@@ -55,6 +58,7 @@ class FluidDiscretization:
             self.lset.AddCallback(self.InitializeForms)
         self.wall_params = wall_params
         self.f = f
+        self.g = g
         self.surface_tension = surface_tension
         self.gfu = None
         self.a = None

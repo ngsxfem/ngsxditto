@@ -32,7 +32,7 @@ class DiffusionBasedVelocityExtension:
         self.dirichlet = dirichlet
         self.V = VectorH1(self.mesh, order=self.order, dirichlet=dirichlet, dgjumps=True)
 
-    def SolveVelocity(self, u_field: GridFunction):
+    def SolveVelocity(self, u_field: CoefficientFunction, q:CoefficientFunction=CF(0)):
         """
         Solves for the velocity field on the whole domain.
 
@@ -57,11 +57,11 @@ class DiffusionBasedVelocityExtension:
         a = BilinearForm(self.V)
         a += self.gamma * h * InnerProduct((Grad(w) * n), (Grad(z) * n)) * dx_neg
         a += InnerProduct(w, n) * InnerProduct(z, n) * dS
-        a += self.ghost_stab/ h * (w - w.Other()) * (z - z.Other()) * dFacetPatch(deformation=self.lset.deformation)
+        a += self.ghost_stab/h * (w - w.Other()) * (z - z.Other()) * dFacetPatch(deformation=self.lset.deformation)
         a.Assemble()
 
         f = LinearForm(self.V)
-        f += u_field * self.lset.n * InnerProduct(z, n) * dS
+        f += (u_field * self.lset.n + q) * InnerProduct(z, n) * dS
         f.Assemble()
 
         w_field = GridFunction(self.V)
