@@ -167,8 +167,11 @@ class H1Conforming(FluidDiscretization):
         res = self.lf.vec - self.a.mat * self.gfu.vec
         self.gfu.vec.data += self.dt * self.inv * res
 
+        #if self.intermediate_valid:
+            #self.intermediate_difference = self.ComputeDifference2Intermediate()
+        #self.StoreIntermediate()
         if finalize:
-            self.StoreVelocity()
+            self.StoreState()
 
     def OneStepNoFinalize(self):
         self.OneStep(finalize=False)
@@ -183,3 +186,4 @@ class H1Conforming(FluidDiscretization):
 
     def StoreState(self):
         self.past[:] = self.gfu.vec
+        #self.intermediate_valid = False
