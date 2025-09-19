@@ -52,7 +52,7 @@ class SphericityDiagram(Visualization):
         self.surface_volume_ratio.append(self.lset.surface_area/self.lset.volume)
 
     def Draw(self):
-        plt.plot(self.time_list, self.surface_volume_ratio)
+        plt.plot(self.time_list, self.surface_volume_ratio, ".")
         plt.show()
 
 

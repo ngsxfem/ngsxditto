@@ -26,6 +26,7 @@ class Solver:
         """
         self.name = "Solver"
         self.function_dict = {}
+        self.function_fin_dict = {}
         self.function_names = []        
         self.stopping_rule = stopping_rule
         self.progress_info = progress_info
@@ -37,7 +38,7 @@ class Solver:
         """
         self.visualizations.append(visualization)
 
-    def Register(self, func: typing.Callable[..., typing.Any], *args: typing.Any, name: str=None, step_frequency: int=None, time_frequency: float=None):
+    def Register(self, func, *args: typing.Any, name: str=None, step_frequency: int=None, time_frequency: float=None):
         """
         Registers a function with arguments that wil be called in the loop.
         Parameters:
@@ -59,10 +60,20 @@ class Solver:
         if name in self.function_names:
             raise ValueError(f"Function name {name} already exists.")
 
-        self.function_dict[name] = {"call": (func,args),
+        if type(func) == tuple:
+            func_call, func_fin = func
+        else:
+            func_call, func_fin = func, None
+
+        #if not callable(func_call):
+        #    raise ValueError(f"Function {name} is not callable.")
+
+        self.function_dict[name] = {"call": (func_call,args),
                                     "step_frequency": step_frequency,
                                     "time_frequency": time_frequency,
                                     "last_time": 0}
+        if func_fin is not None:
+            self.function_fin_dict[name] = func_fin
         self.function_names.append(name)
 
 
@@ -164,8 +175,56 @@ class TimeLoop(Solver):
 
     def BeforeLoop(self):
         super().BeforeLoop()
+        def finalizestates():
+            for function_name in self.function_names:
+                if function_name in self.function_fin_dict:
+                    self.function_fin_dict[function_name]()
+        self.Register(finalizestates, name="finalize states")
+
         time_increase = lambda: self.time.Set(self.time.Get() + self.dt)
         self.Register(time_increase, name="increase time value")
+
+
+
+class TimeLoop2(TimeLoop):
+    """
+    A Solver subclass that tracks progress with a time parameter.
+    """
+    def __init__(self, time : typing.Optional[CoefficientFunction] = None, 
+                 dt : float = 0.1,
+                 end_time : float = 1.0):
+        """
+        Initialize the timeloop with a time parameter, step-size and end time.
+        Parameters:
+        -----------
+        time: CoefficientFunction
+            The time object that is increased every step.
+        dt: float
+            The time-step size
+        end_time: float
+            Time when the loop is stopped.
+        """
+        super().__init__(time,dt,end_time)
+        self.countits = 0
+
+    def CheckIteration(self):
+        self.countits += 1
+        if self.countits == 10:
+            for function_name in self.function_names:
+                if function_name in self.function_fin_dict:
+                    self.function_fin_dict[function_name]()
+
+            time_increase = lambda: self.time.Set(self.time.Get() + self.dt)
+            time_increase()
+            print("time increased: ", self.time.Get())
+            self.countits = 0
+
+
+    def BeforeLoop(self):
+        super(TimeLoop,self).BeforeLoop()
+        self.Register(self.CheckIteration, name="CheckIteration")
+
+
 
 
 from time import sleep
