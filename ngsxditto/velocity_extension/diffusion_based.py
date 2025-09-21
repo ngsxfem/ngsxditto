@@ -31,6 +31,7 @@ class DiffusionBasedVelocityExtension:
         self.ghost_stab = ghost_stab
         self.dirichlet = dirichlet
         self.V = VectorH1(self.mesh, order=self.order, dirichlet=dirichlet, dgjumps=True)
+        self.field = GridFunction(self.V)
 
     def SolveVelocity(self, u_field: CoefficientFunction, q:CoefficientFunction=CF(0)):
         """
@@ -40,11 +41,6 @@ class DiffusionBasedVelocityExtension:
         -----------
         u_field: GridFunction
             The velocity field defined on the interface.
-
-        Returns:
-        --------
-        w_field: GridFunction
-            The velocity field on the whole domain.
         """
         n = self.lset.n
         h = specialcf.mesh_size
@@ -64,9 +60,7 @@ class DiffusionBasedVelocityExtension:
         f += (u_field * self.lset.n + q) * InnerProduct(z, n) * dS
         f.Assemble()
 
-        w_field = GridFunction(self.V)
-        w_field.vec.data = a.mat.Inverse(self.V.FreeDofs()) * f.vec
+        underformed_field = GridFunction(self.V)
+        underformed_field.vec.data = a.mat.Inverse(self.V.FreeDofs()) * f.vec
 
-        undeformed_wind = GridFunction(VectorH1(self.mesh, order=self.order, dirichlet=self.dirichlet, dgjumps=True))
-        undeformed_wind.Set(shifted_eval(w_field, back=self.lset.deformation, forth=None))
-        self.lset.transport.SetWind(undeformed_wind)
+        self.field.Set(shifted_eval(underformed_field, back=self.lset.deformation, forth=None))
