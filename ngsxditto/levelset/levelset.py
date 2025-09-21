@@ -45,19 +45,19 @@ class LevelSetGeometry(OnUpdateCallbacks):
         self.AddCallback(self.UpdateLinearApproximation)
         self.AddCallback(self.UpdateDeformation)
         self.AddCallback(self.UpdateCutInfo)
-        self.AddCallback(self.UpdateIntegrators)
 
         P1 = H1(self.mesh, order=1)
         self.lsetp1 = GridFunction(P1)
 
         self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
-        self.deformation = self.lsetadap.CalcDeformation(self.field)
+        self.deformation = self.lsetadap.deform
 
         self.cutinfo = CutInfo(self.mesh)
-        self.hasif = None
-        self.hasneg = None
-        self.haspos = None
-        self.any = None
+        self.hasif = self.cutinfo.GetElementsOfType(IF)
+        self.hasneg = self.cutinfo.GetElementsOfType(HASNEG)
+        self.haspos = self.cutinfo.GetElementsOfType(HASPOS)
+        self.any = self.cutinfo.GetElementsOfType(ANY)
+
         self.dx_neg = None
         self.dx_pos = None
         self.dS = None
@@ -81,6 +81,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         """
         self.redistancing = redistancing
 
+
     def Initialize(self, initial_lset: CoefficientFunction, initial_time: float=0.0):
         """
         Initializes the level set object.
@@ -97,7 +98,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         self.UpdateLinearApproximation()
         self.UpdateDeformation()
         self.UpdateCutInfo()
-        self.UpdateIntegrators()
+        self.DefineIntegrators()
 
 
     def UpdateLinearApproximation(self):
@@ -110,7 +111,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         """
         Updates the deformation of the level set.
         """
-        self.deformation = self.lsetadap.CalcDeformation(self.field)
+        self.lsetadap.CalcDeformation(self.field)
 
 
     def UpdateCutInfo(self):
@@ -118,14 +119,10 @@ class LevelSetGeometry(OnUpdateCallbacks):
         Updates the cut info of the level set.
         """
         self.cutinfo.Update(self.lsetp1)
-        self.hasif = self.cutinfo.GetElementsOfType(IF)
-        self.hasneg = self.cutinfo.GetElementsOfType(HASNEG)
-        self.haspos = self.cutinfo.GetElementsOfType(HASPOS)
-        self.any = self.cutinfo.GetElementsOfType(ANY)
-        self.n = Normalize(grad(self.field))
+        #self.n = Normalize(grad(self.field))
 
 
-    def UpdateIntegrators(self):
+    def DefineIntegrators(self):
         """
         Updates the integrators of the level set.
         """
