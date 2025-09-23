@@ -1,6 +1,6 @@
 from ngsolve import CoefficientFunction, Parameter
 from alive_progress import alive_bar
-
+from ngsxditto.stateholder import *
 import typing
 
 
@@ -26,6 +26,7 @@ class Solver:
         """
         self.name = "Solver"
         self.function_dict = {}
+        self.function_fin_dict = {}
         self.function_names = []        
         self.stopping_rule = stopping_rule
         self.progress_info = progress_info
@@ -37,7 +38,7 @@ class Solver:
         """
         self.visualizations.append(visualization)
 
-    def Register(self, func: typing.Callable[..., typing.Any], *args: typing.Any, name: str=None, step_frequency: int=None, time_frequency: float=None):
+    def Register(self, func, *args: typing.Any, name: str=None, step_frequency: int=None, time_frequency: float=None):
         """
         Registers a function with arguments that wil be called in the loop.
         Parameters:
@@ -53,11 +54,21 @@ class Solver:
         time_frequency: float
             The function will always be called the first time a new multiple of `time_frequency` is exceeded.
         """
+
         if name is None:
             name = "unnamed_call_" + str(len(self.function_names))
 
         if name in self.function_names:
             raise ValueError(f"Function name {name} already exists.")
+
+        func_of_class = getattr(func, "__func__", func)  # func is a bound method, func_of_class is a plain function
+
+        base_func = getattr(Stateholder, "Step", None)
+
+        if func_of_class is base_func:
+            self.function_fin_dict[name] = func.__self__.StoreState
+        #if not callable(func_call):
+        #    raise ValueError(f"Function {name} is not callable.")
 
         self.function_dict[name] = {"call": (func,args),
                                     "step_frequency": step_frequency,
@@ -87,8 +98,7 @@ class Solver:
         Executes all function calls that were registered.
         """
         self.BeforeLoop()
-
-        with alive_bar(manual=True, force_tty=True, title=self.name+": ", 
+        with alive_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
             i = 1
             while True:
@@ -164,8 +174,62 @@ class TimeLoop(Solver):
 
     def BeforeLoop(self):
         super().BeforeLoop()
+        def finalizestates():
+            for function_name in self.function_names:
+                if function_name in self.function_fin_dict:
+                    self.function_fin_dict[function_name]()
+        self.Register(finalizestates, name="finalize states")
+
         time_increase = lambda: self.time.Set(self.time.Get() + self.dt)
         self.Register(time_increase, name="increase time value")
+
+
+
+class TimeLoop2(TimeLoop):
+    """
+    A Solver subclass that tracks progress with a time parameter.
+    """
+    def __init__(self, time : typing.Optional[CoefficientFunction] = None, 
+                 dt : float = 0.1,
+                 end_time : float = 1.0,
+                 should_finalize: typing.Callable[[], bool]=None):
+        """
+        Initialize the timeloop with a time parameter, step-size and end time.
+        Parameters:
+        -----------
+        time: CoefficientFunction
+            The time object that is increased every step.
+        dt: float
+            The time-step size
+        end_time: float
+            Time when the loop is stopped.
+        """
+        super().__init__(time,dt,end_time)
+        if should_finalize is None:
+            def should_finalize():
+                return self.countits == 10
+        self.should_finalize = should_finalize
+        self.countits = 0
+
+
+    def CheckIteration(self):
+        self.countits += 1
+        if self.should_finalize():
+            for function_name in self.function_names:
+                if function_name in self.function_fin_dict:
+                    self.function_fin_dict[function_name]()
+
+            time_increase = lambda: self.time.Set(self.time.Get() + self.dt)
+            time_increase()
+            print("time increased: ", self.time.Get())
+            self.countits = 0
+
+
+    def BeforeLoop(self):
+        super(TimeLoop,self).BeforeLoop()
+        self.Register(self.CheckIteration, name="CheckIteration")
+
+
 
 
 from time import sleep

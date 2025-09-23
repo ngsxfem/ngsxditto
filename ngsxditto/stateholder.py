@@ -2,18 +2,18 @@
 
 class Stateholder:
     def __init__(self):
-        pass
+        self.past = None
 
-    def BeforeLoop(self):
-        pass
-
-    def AfterLoop(self):
-        pass
-
-    def Advance(self):
-        pass
 
     def StoreState(self):
-        pass
+        self.past[:] = self.current.vec.data
 
-    
+
+    def Step(self):
+        self.current.vec.data = self.past[:]
+        self.UpdateStates()
+
+
+
+    def UpdateStates(self):
+        raise NotImplementedError("UpdateStates must be implemented by subclasses.")

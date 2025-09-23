@@ -4,11 +4,12 @@ from ngsxditto.redistancing import *
 from xfem import *
 from xfem.lsetcurv import *
 from ngsolve import *
+from ngsxditto.stateholder import *
 
 #import types
 
 
-class LevelSetGeometry(OnUpdateCallbacks):
+class LevelSetGeometry(OnUpdateCallbacks, Stateholder):
     """
     This class handles the level set geometry.
     """
@@ -30,7 +31,8 @@ class LevelSetGeometry(OnUpdateCallbacks):
         initial_levelset: CoefficientFunction
             The initial levelset function.
         """
-        super().__init__()
+        OnUpdateCallbacks.__init__(self)
+        Stateholder.__init__(self)
         self.transport = transport
         self.time = self.transport.time
         self.multistepper = MultiStepper()
@@ -48,6 +50,8 @@ class LevelSetGeometry(OnUpdateCallbacks):
 
         P1 = H1(self.mesh, order=1)
         self.lsetp1 = GridFunction(P1)
+        self.past = self.current.vec.CreateVector()
+        self.past[:] = self.current.vec.data
 
         self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
         self.deformation = self.lsetadap.deform
@@ -99,6 +103,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
         self.UpdateDeformation()
         self.UpdateCutInfo()
         self.DefineIntegrators()
+        self.StoreState()
 
 
     def UpdateLinearApproximation(self):
@@ -130,13 +135,16 @@ class LevelSetGeometry(OnUpdateCallbacks):
         self.dx_pos = dCut(levelset=self.lsetp1, domain_type=POS, definedonelements=self.haspos, deformation=self.deformation)
         self.dS = dCut(levelset=self.lsetp1, domain_type=IF, definedonelements=self.hasif, deformation=self.deformation)
 
-    def OneStep(self):
+    def UpdateStates(self):
         """
         Evolves the level set one step with the transport scheme. Automatically updates cut info and integrators.
         """
         self.transport.OneStep()
         self.steps_since_last_redistancing += 1
         self.ProcessCallbacks()
+
+    #def OneStepNoFinalize(self):
+    #    self.UpdateStates(finalize=False)
 
     def RunFixedSteps(self, n):
         """
@@ -185,3 +193,7 @@ class LevelSetGeometry(OnUpdateCallbacks):
     @property
     def field(self):
         return self.transport.field
+
+    @property
+    def current(self):
+        return self.field

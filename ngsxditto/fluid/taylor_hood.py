@@ -33,6 +33,8 @@ class TaylorHood(H1Conforming):
         self.Q = H1(self.mesh, order=self.order - 1)
         self.fes = self.V * self.Q
         self.gfu = GridFunction(self.fes)
+        self.past = self.current.vec.CreateVector()
+        self.past[:] = self.current.vec.data
 
 
 

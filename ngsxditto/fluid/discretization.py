@@ -5,10 +5,11 @@ from ngsolve import *
 from .params import FluidParameters, WallParameters
 from ngsxditto.levelset import *
 from ngsxditto.multistepper import MultiStepper
+from ngsxditto.stateholder import *
 import typing
 
 
-class FluidDiscretization:
+class FluidDiscretization(Stateholder):
     """
     Base class for a discretized fluid.
     """
@@ -46,6 +47,7 @@ class FluidDiscretization:
         time: Parameter
             The time parameter.
         """
+        super().__init__()
         self.mesh = mesh
         self.fluid_params = fluid_params
         self.order = order
@@ -199,9 +201,6 @@ class FluidDiscretization:
         """
         raise NotImplementedError("SetTimeStepSize not implemented.")
 
-
-    def OneStep(self):
-        """
-        Evolves the solution by one time step.
-        """
-        raise NotImplementedError("OneStep not implemented.")
+    @property
+    def current(self):
+        return self.gfu
