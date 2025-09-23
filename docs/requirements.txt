@@ -14,3 +14,4 @@ sympy
 pandoc
 webgui_jupyter_widgets
 pyvista
+trame[all]
