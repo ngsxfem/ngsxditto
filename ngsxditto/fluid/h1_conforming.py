@@ -159,22 +159,17 @@ class H1Conforming(FluidDiscretization):
         return gfu
 
 
-    def OneStep(self, finalize=True):
+    def UpdateStates(self):
         if self.time is not None:
             self.time += self.dt
 
-        self.gfu.vec.data = self.past
         res = self.lf.vec - self.a.mat * self.gfu.vec
         self.gfu.vec.data += self.dt * self.inv * res
 
         #if self.intermediate_valid:
             #self.intermediate_difference = self.ComputeDifference2Intermediate()
         #self.StoreIntermediate()
-        if finalize:
-            self.StoreState()
 
-    def OneStepNoFinalize(self):
-        self.OneStep(finalize=False)
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
@@ -183,7 +178,3 @@ class H1Conforming(FluidDiscretization):
         self.m_star.Assemble(reallocate=True)
         self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs())
 
-
-    def StoreState(self):
-        self.past[:] = self.gfu.vec
-        #self.intermediate_valid = False

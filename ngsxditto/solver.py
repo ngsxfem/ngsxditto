@@ -1,6 +1,6 @@
 from ngsolve import CoefficientFunction, Parameter
 from alive_progress import alive_bar
-
+from ngsxditto.stateholder import *
 import typing
 
 
@@ -54,26 +54,26 @@ class Solver:
         time_frequency: float
             The function will always be called the first time a new multiple of `time_frequency` is exceeded.
         """
+
         if name is None:
             name = "unnamed_call_" + str(len(self.function_names))
 
         if name in self.function_names:
             raise ValueError(f"Function name {name} already exists.")
 
-        if type(func) == tuple:
-            func_call, func_fin = func
-        else:
-            func_call, func_fin = func, None
+        func_of_class = getattr(func, "__func__", func)  # func is a bound method, func_of_class is a plain function
 
+        base_func = getattr(Stateholder, "Step", None)
+
+        if func_of_class is base_func:
+            self.function_fin_dict[name] = func.__self__.StoreState
         #if not callable(func_call):
         #    raise ValueError(f"Function {name} is not callable.")
 
-        self.function_dict[name] = {"call": (func_call,args),
+        self.function_dict[name] = {"call": (func,args),
                                     "step_frequency": step_frequency,
                                     "time_frequency": time_frequency,
                                     "last_time": 0}
-        if func_fin is not None:
-            self.function_fin_dict[name] = func_fin
         self.function_names.append(name)
 
 
@@ -98,8 +98,7 @@ class Solver:
         Executes all function calls that were registered.
         """
         self.BeforeLoop()
-
-        with alive_bar(manual=True, force_tty=True, title=self.name+": ", 
+        with alive_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
             i = 1
             while True:
@@ -192,7 +191,8 @@ class TimeLoop2(TimeLoop):
     """
     def __init__(self, time : typing.Optional[CoefficientFunction] = None, 
                  dt : float = 0.1,
-                 end_time : float = 1.0):
+                 end_time : float = 1.0,
+                 should_finalize: typing.Callable[[], bool]=None):
         """
         Initialize the timeloop with a time parameter, step-size and end time.
         Parameters:
@@ -205,11 +205,16 @@ class TimeLoop2(TimeLoop):
             Time when the loop is stopped.
         """
         super().__init__(time,dt,end_time)
+        if should_finalize is None:
+            def should_finalize():
+                return self.countits == 10
+        self.should_finalize = should_finalize
         self.countits = 0
+
 
     def CheckIteration(self):
         self.countits += 1
-        if self.countits == 10:
+        if self.should_finalize():
             for function_name in self.function_names:
                 if function_name in self.function_fin_dict:
                     self.function_fin_dict[function_name]()
