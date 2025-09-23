@@ -13,3 +13,5 @@ scikit-image
 sympy
 pandoc
 webgui_jupyter_widgets
+pyvista
+trame[all]<3.0
