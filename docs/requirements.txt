@@ -14,5 +14,3 @@ sympy
 pandoc
 webgui_jupyter_widgets
 pyvista
-vtk-osmesa
-trame[all]
