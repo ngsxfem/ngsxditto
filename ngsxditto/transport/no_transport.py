@@ -16,7 +16,7 @@ class NoTransport(BaseTransport):
         raise NotImplementedError("SetTime not implemented for NoTransport.")
 
     def UpdateStates(self):
-        raise NotImplementedError("OneStep not implemented for NoTransport.")
+        raise NotImplementedError("UpdateStates not implemented for NoTransport.")
 
     @property
     def field(self):

@@ -72,7 +72,7 @@ class BaseTransport:
         """
         Propagate the level-set function one step with self.dt
         """
-        raise NotImplementedError("OneStep not implemented")
+        raise NotImplementedError("UpdateStates not implemented")
 
 
     @property
