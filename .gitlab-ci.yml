@@ -50,10 +50,10 @@ build_pages:
         - pip3 install .
         - cd docs
         - mkdir -p htmlcov
-        - cp -r ../htmlcov/* htmlcov/
+        - cp -r ../htmlcov/* htmlcov/ || true
         - export PYVISTA_OFF_SCREEN=true
-        - export PYVISTA_USE_OSMESA=true
         - export VTK_DEFAULT_RENDER_WINDOW_OFFSCREEN=true
+        - export DISPLAY=:99.0
         - ./generate_docs.sh
         - cd ..
         - mv docs/build/html public
