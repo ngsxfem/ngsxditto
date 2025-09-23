@@ -20,7 +20,7 @@ def test_propagation():
     transport.time = t
     t.Set(0)
 
-    transport.OneStep()
+    transport.UpdateStates()
     assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-3    # only interpolation error
     transport.multistepper.RunFixedSteps(10)
     assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-3

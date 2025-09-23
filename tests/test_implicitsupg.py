@@ -23,7 +23,7 @@ def test_propagation():
     transport.SetInitialValues(true_circle)
 
     while transport.time < T_end:
-        transport.OneStep()
+        transport.UpdateStates()
 
     assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-2
 
@@ -34,14 +34,14 @@ def test_change_parameters():
     transport.SetInitialValues(true_circle)
 
     for _ in range(10):
-        transport.OneStep()
+        transport.UpdateStates()
 
     assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-2
 
     transport.SetTimeStepSize(0.01)
 
     for _ in range(10):
-        transport.OneStep()
+        transport.UpdateStates()
 
     assert pytest.approx(transport.time.Get()) == 0.3
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1/2) < 1e-2
@@ -49,7 +49,7 @@ def test_change_parameters():
     transport.SetWind(-wind)
 
     for _ in range(30):
-        transport.OneStep()
+        transport.UpdateStates()
 
     t.Set(0)
     assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-2

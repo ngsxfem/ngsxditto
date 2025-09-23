@@ -139,7 +139,7 @@ class LevelSetGeometry(OnUpdateCallbacks, Stateholder):
         """
         Evolves the level set one step with the transport scheme. Automatically updates cut info and integrators.
         """
-        self.transport.OneStep()
+        self.transport.UpdateStates()
         self.steps_since_last_redistancing += 1
         self.ProcessCallbacks()
 

@@ -43,7 +43,7 @@ class KnownSolutionTransport(BaseTransport):
         self.time.Set(time)
         self.gfu.Set(self.true_solution)
 
-    def OneStep(self):
+    def UpdateStates(self):
         if self.time is not None:
             self.time += self.dt
         self.gfu.Set(self.true_solution)
