@@ -102,6 +102,8 @@ try:
     from ngsolve import VTKOutput  # Assuming NGSolve is installed
     from typing import Sequence, Union, Optional
 
+    from IPython.display import HTML
+
     class PyVistaVisualizer:
         """
         Convenience class for NGSolve -> PyVista visualization
@@ -240,7 +242,13 @@ try:
             if screenshot:
                 plot.show(screenshot=screenshot)
             else:
-                plot.show()
+                    # Export als interaktive HTML-Datei
+                html_file = "plot.html"
+                plot.export_html(html_file)
+                #plot.show()
+                with open("plot.html", "r") as f:
+                    html_content = f.read()
+                display(HTML(html_content))
 
         def cleanup(self) -> None:
             """Remove temporary files."""
