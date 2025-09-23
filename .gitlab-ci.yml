@@ -44,12 +44,16 @@ build_pages:
     needs: [test_src]
     script:
         - apt-get update
+        - apt-get install -y libosmesa6-dev libgl1-mesa-glx
         - apt-get install -y make pandoc
         - pip3 install -r docs/requirements.txt
         - pip3 install .
         - cd docs
         - mkdir -p htmlcov
         - cp -r ../htmlcov/* htmlcov/
+        - export PYVISTA_OFF_SCREEN=true
+        - export PYVISTA_USE_OSMESA=true
+        - export VTK_DEFAULT_RENDER_WINDOW_OFFSCREEN=true
         - ./generate_docs.sh
         - cd ..
         - mv docs/build/html public
