@@ -243,7 +243,7 @@ try:
             if screenshot:
                 plot.show(screenshot=screenshot)
             else:
-                if not pyvista.OFF_SCREEN:
+                if not pv.OFF_SCREEN:
                     plot.show()
                 else:
                     # Export als interaktive HTML-Datei
