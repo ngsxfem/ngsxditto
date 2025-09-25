@@ -23,7 +23,7 @@ def test_propagation_with_trace():
     t.Set(0)
     transport.SetInitialValues(true_circle)
     while transport.time < T_end:
-        transport.UpdateStates()
+        transport.Step()
 
     assert Integrate((transport.gfu - true_circle)**2, mesh)**(1/2) < 1e-2
 
@@ -34,7 +34,7 @@ def test_propagation_without_trace():
     transport.SetInitialValues(true_circle)
 
     while transport.time < T_end:
-        transport.UpdateStates()
+        transport.Step()
 
     assert Integrate((transport.gfu - true_circle)**2, mesh)**(1/2) < 1e-2
 
@@ -46,14 +46,14 @@ def test_change_parameters():
     transport.SetInitialValues(true_circle)
 
     for _ in range(10):
-        transport.UpdateStates()
+        transport.Step()
 
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
 
     transport.SetTimeStepSize(0.01)
 
     for _ in range(10):
-        transport.UpdateStates()
+        transport.Step()
 
     assert pytest.approx(transport.time.Get()) == 0.3
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
@@ -61,7 +61,7 @@ def test_change_parameters():
     transport.SetWind(-wind)
 
     for _ in range(30):
-        transport.UpdateStates()
+        transport.Step()
 
     t.Set(0)
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2

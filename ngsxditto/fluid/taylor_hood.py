@@ -34,7 +34,8 @@ class TaylorHood(H1Conforming):
         self.fes = self.V * self.Q
         self.gfu = GridFunction(self.fes)
         self.past = self.current.vec.CreateVector()
-        self.past[:] = self.current.vec.data
+        self.intermediate = self.current.vec.CreateVector()
+
 
 
 

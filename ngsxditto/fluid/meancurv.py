@@ -2,11 +2,12 @@ from ngsolve import *
 from xfem import *
 from xfem.lsetcurv import *
 from typing import Optional, Tuple, Union
+from ngsxditto.stepper import *
 import ngsolve.webgui as ngw
 
 
 
-class MeanCurvatureSolver:
+class MeanCurvatureSolver(Stepper):
     """
     Class to compute the mean curvature vector from a level set function
     """
@@ -33,6 +34,7 @@ class MeanCurvatureSolver:
         gp_param : float or CoefficientFunction or None
             The parameter for the generalized Poisson problem
         """
+        super().__init__()
 
         self.mesh = mesh
         self.order = order
@@ -82,7 +84,8 @@ class MeanCurvatureSolver:
         self.own_cutinfo = False
         self.own_lsetadap = False
 
-    def Compute(self):
+
+    def Step(self):
         """
         Solve for and update the mean curvature vector.
         """
@@ -132,6 +135,22 @@ class MeanCurvatureSolver:
         self.freedofs = GetDofsOfElements(self.X, self.cutinfo.GetElementsOfType(IF))
 
         self.H.vec.data = a.mat.Inverse(self.freedofs) * f.vec
+
+
+    def ValidateState(self):
+        pass
+        #self.past[:] = self.current.vec.data
+        #self.intermediate[:] = self.current.vec.data
+
+
+    def RevertState(self):
+        pass
+        #self.intermediate[:] = self.current.vec.data
+        #self.current.vec.data = self.past[:]
+
+
+    def ComputeDifference2Intermediate(self):
+        pass
 
 
     def compute_l2_error(self, H):

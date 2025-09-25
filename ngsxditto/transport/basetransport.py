@@ -68,7 +68,7 @@ class BaseTransport:
         raise NotImplementedError("SetTimeStepSize not implemented")
 
 
-    def UpdateStates(self):
+    def Step(self):
         """
         Propagate the level-set function one step with self.dt
         """

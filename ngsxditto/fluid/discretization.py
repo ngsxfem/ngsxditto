@@ -5,11 +5,11 @@ from ngsolve import *
 from .params import FluidParameters, WallParameters
 from ngsxditto.levelset import *
 from ngsxditto.multistepper import MultiStepper
-from ngsxditto.stateholder import *
+from ngsxditto.stepper import *
 import typing
 
 
-class FluidDiscretization(Stateholder):
+class FluidDiscretization(Stepper):
     """
     Base class for a discretized fluid.
     """
@@ -204,3 +204,24 @@ class FluidDiscretization(Stateholder):
     @property
     def current(self):
         return self.gfu
+
+    def ComputeDifference2Intermediate(self):
+        intermediate_gfu =GridFunction(self.current.space)
+        intermediate_gfu.vec.data = self.intermediate
+        return Integrate((self.current.components[0] - intermediate_gfu.components[0])**2 * dx,
+                         self.mesh)**(1/2)
+
+
+    def ValidateState(self):
+        self.past[:] = self.current.vec.data
+        self.intermediate[:] = self.current.vec.data
+
+
+    def RevertState(self):
+        self.intermediate[:] = self.current.vec.data
+        self.current.vec.data = self.past[:]
+
+
+    def Step(self):
+        raise NotImplementedError("Step only implemented in subclass.")
+

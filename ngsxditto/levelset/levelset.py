@@ -4,12 +4,12 @@ from ngsxditto.redistancing import *
 from xfem import *
 from xfem.lsetcurv import *
 from ngsolve import *
-from ngsxditto.stateholder import *
+from ngsxditto.stepper import *
 
 #import types
 
 
-class LevelSetGeometry(OnUpdateCallbacks, Stateholder):
+class LevelSetGeometry(OnUpdateCallbacks, Stepper):
     """
     This class handles the level set geometry.
     """
@@ -32,7 +32,7 @@ class LevelSetGeometry(OnUpdateCallbacks, Stateholder):
             The initial levelset function.
         """
         OnUpdateCallbacks.__init__(self)
-        Stateholder.__init__(self)
+        Stepper.__init__(self)
         self.transport = transport
         self.time = self.transport.time
         self.multistepper = MultiStepper()
@@ -50,8 +50,9 @@ class LevelSetGeometry(OnUpdateCallbacks, Stateholder):
 
         P1 = H1(self.mesh, order=1)
         self.lsetp1 = GridFunction(P1)
+
         self.past = self.current.vec.CreateVector()
-        self.past[:] = self.current.vec.data
+        self.intermediate = self.current.vec.CreateVector()
 
         self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
         self.deformation = self.lsetadap.deform
@@ -103,7 +104,7 @@ class LevelSetGeometry(OnUpdateCallbacks, Stateholder):
         self.UpdateDeformation()
         self.UpdateCutInfo()
         self.DefineIntegrators()
-        self.StoreState()
+        self.ValidateState()
 
 
     def UpdateLinearApproximation(self):
@@ -135,16 +136,14 @@ class LevelSetGeometry(OnUpdateCallbacks, Stateholder):
         self.dx_pos = dCut(levelset=self.lsetp1, domain_type=POS, definedonelements=self.haspos, deformation=self.deformation)
         self.dS = dCut(levelset=self.lsetp1, domain_type=IF, definedonelements=self.hasif, deformation=self.deformation)
 
-    def UpdateStates(self):
+    def Step(self):
         """
         Evolves the level set one step with the transport scheme. Automatically updates cut info and integrators.
         """
-        self.transport.UpdateStates()
+        self.transport.Step()
         self.steps_since_last_redistancing += 1
         self.ProcessCallbacks()
 
-    #def OneStepNoFinalize(self):
-    #    self.UpdateStates(finalize=False)
 
     def RunFixedSteps(self, n):
         """
@@ -197,3 +196,21 @@ class LevelSetGeometry(OnUpdateCallbacks, Stateholder):
     @property
     def current(self):
         return self.field
+
+    def ComputeDifference2Intermediate(self):
+        intermediate_gfu =GridFunction(self.current.space)
+        intermediate_gfu.vec.data = self.intermediate
+
+        error = self.current - intermediate_gfu
+
+        interface_error = Integrate(error * error * self.dS, mesh=self.mesh) ** (1/2)
+        return interface_error
+
+    def ValidateState(self):
+        self.past[:] = self.current.vec.data
+        self.intermediate[:] = self.current.vec.data
+
+
+    def RevertState(self):
+        self.intermediate[:] = self.current.vec.data
+        self.current.vec.data = self.past[:]

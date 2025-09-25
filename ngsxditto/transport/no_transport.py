@@ -15,7 +15,7 @@ class NoTransport(BaseTransport):
     def SetTime(self, time):
         raise NotImplementedError("SetTime not implemented for NoTransport.")
 
-    def UpdateStates(self):
+    def Step(self):
         raise NotImplementedError("UpdateStates not implemented for NoTransport.")
 
     @property

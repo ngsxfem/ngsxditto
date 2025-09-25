@@ -1,13 +1,15 @@
 from ngsolve import *
 from ngsxditto.levelset import *
+from ngsxditto.stepper import *
 from xfem import *
 import ngsolve.webgui as ngw
 
-class DiffusionBasedVelocityExtension:
+class DiffusionBasedVelocityExtension(Stepper):
     """
     Extends a velocity field from an interface to the whole domain using a diffusion based algorithm.
     """
-    def __init__(self, lset:LevelSetGeometry, gamma:float=0.1, order:int=2, ghost_stab:int=2, dirichlet:str=".*"):
+    def __init__(self, lset:LevelSetGeometry, rhs=None, gamma:float=0.1, order:int=2, ghost_stab:int=2, dirichlet:str=".*",
+                 q: CoefficientFunction=CF(0)):
         """
         Initialise the diffusion based velocity extension with the given parameters.
 
@@ -24,6 +26,7 @@ class DiffusionBasedVelocityExtension:
         dirichlet: str
             The dirichlet boundary condition of the extension problem.
         """
+        super().__init__()
         self.lset = lset
         self.mesh = self.lset.mesh
         self.gamma = gamma
@@ -32,8 +35,14 @@ class DiffusionBasedVelocityExtension:
         self.dirichlet = dirichlet
         self.V = VectorH1(self.mesh, order=self.order, dirichlet=dirichlet, dgjumps=True)
         self.field = GridFunction(self.V)
+        self.rhs = rhs
+        self.q = q
 
-    def SolveVelocity(self, u_field: CoefficientFunction, q:CoefficientFunction=CF(0)):
+
+    def SetRhs(self, rhs):
+        self.rhs = rhs
+
+    def Step(self):
         """
         Solves for the velocity field on the whole domain.
 
@@ -57,10 +66,32 @@ class DiffusionBasedVelocityExtension:
         a.Assemble()
 
         f = LinearForm(self.V)
-        f += (u_field * self.lset.n + q) * InnerProduct(z, n) * dS
+        f += (self.rhs * self.lset.n + self.q) * InnerProduct(z, n) * dS
         f.Assemble()
 
         underformed_field = GridFunction(self.V)
         underformed_field.vec.data = a.mat.Inverse(self.V.FreeDofs()) * f.vec
 
         self.field.Set(shifted_eval(underformed_field, back=self.lset.deformation, forth=None))
+
+
+    def ValidateState(self):
+        pass
+        #self.past[:] = self.current.vec.data
+        #self.intermediate[:] = self.current.vec.data
+
+
+    def RevertState(self):
+        pass
+        #self.intermediate[:] = self.current.vec.data
+        #self.current.vec.data = self.past[:]
+
+
+    def ComputeDifference2Intermediate(self):
+        pass
+
+
+    @property
+    def current(self):
+        return self.field
+

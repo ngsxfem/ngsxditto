@@ -86,7 +86,7 @@ class ImplicitSUPGTransport(BaseTransport):
         self.rhs.Assemble()
 
 
-    def UpdateStates(self):
+    def Step(self):
         if self.time is not None:
             self.time.Set(self.time.Get() + self.dt)
         self.gfu.vec.data = self.inv @ self.rhs.mat * self.gfu.vec

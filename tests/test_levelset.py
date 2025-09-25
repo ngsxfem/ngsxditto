@@ -22,7 +22,7 @@ def test_without_autoredistancing():
     redistancing = FastMarching()
     levelset = LevelSetGeometry(transport, redistancing)
     while transport.time < T_end:
-        levelset.UpdateStates()
+        levelset.Step()
     assert Integrate((levelset.transport.field - true_circle)**2, mesh)**(1/2) < 0.1
 
     levelset.RunFixedSteps(50)
@@ -44,7 +44,7 @@ def test_with_autoredistancing():
 
     levelset.multistepper.RunFixedSteps(99)
     assert levelset.steps_since_last_redistancing == 99
-    levelset.UpdateStates()
+    levelset.Step()
     assert levelset.steps_since_last_redistancing == 0
 
     assert Integrate((levelset.transport.field - true_circle)**2, mesh)**(1/2) < 0.1
@@ -54,7 +54,7 @@ def test_with_autoredistancing():
 
 def test_dummy_levelset():
     dummy_lset = DummyLevelSet(mesh)
-    dummy_lset.UpdateStates()
+    dummy_lset.Step()
     assert Integrate((dummy_lset.field + 1)**2, mesh)**(1/2) < 1e-10
     dummy_lset.multistepper.RunFixedSteps(100)
     assert Integrate((dummy_lset.field + 1)**2, mesh)**(1/2) < 1e-10
@@ -80,7 +80,7 @@ def test_cutinfo():
     assert l2_error == 0
 
     # test correct update
-    levelset.UpdateStates()
+    levelset.Step()
     InterpolateToP1(true_solution, true_lsetp1)
     true_ci_new = CutInfo(mesh, true_lsetp1)
     new_error = BitArrayCF(true_ci_new.GetElementsOfType(IF)) - BitArrayCF(levelset.hasif)
@@ -110,7 +110,7 @@ def test_integrator():
     assert error_deform < 0.1
 
     # test correct update
-    levelset.UpdateStates()
+    levelset.Step()
     new_circumf_deform = Integrate(CF(1) * levelset.dS, mesh)
     error_deform = abs(pi - new_circumf_deform)
     assert error_deform < 0.1

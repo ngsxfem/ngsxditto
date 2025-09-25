@@ -1,10 +1,12 @@
 from matplotlib import pyplot as plt
 import ngsolve.webgui as ngw
 from ngsolve import *
+from ngsxditto.stepper import *
 
 
-class Visualization:
+class Visualization(Stepper):
     def __init__(self, name=None, step_frequency=None, time_frequency=None):
+        super().__init__()
         self.initialize_funcs = []
         self.adddata_funcs = []
         self.draw_funcs = []
@@ -21,17 +23,28 @@ class Visualization:
     def RegisterDraw(self, func, *args):
         self.draw_funcs.append((func, args))
 
-    def Initialize(self):
+    def BeforeLoop(self):
         for func, args in self.initialize_funcs:
             func(*args)
 
-    def AddData(self):
+    def ValidateState(self):
         for func, args in self.adddata_funcs:
             func(*args)
 
-    def Draw(self):
+    def AfterLoop(self):
         for func, args in self.draw_funcs:
             func(*args)
+
+    def Step(self):
+        pass
+
+
+    def RevertState(self):
+        pass
+
+
+    def ComputeDifference2Intermediate(self):
+        pass
 
 
 
@@ -43,15 +56,15 @@ class SphericityDiagram(Visualization):
         self.time_list = []
         self.surface_volume_ratio = []
 
-    def Initialize(self):
+    def BeforeLoop(self):
         self.time_list = [self.time.Get()]
         self.surface_volume_ratio = [self.lset.surface_area / self.lset.volume]
 
-    def AddData(self):
+    def ValidateState(self):
         self.time_list.append(self.time.Get())
         self.surface_volume_ratio.append(self.lset.surface_area/self.lset.volume)
 
-    def Draw(self):
+    def AfterLoop(self):
         plt.plot(self.time_list, self.surface_volume_ratio, ".")
         plt.show()
 
@@ -74,23 +87,45 @@ class UnfittedNGSWebguiPlot(Visualization):
         self.max = max
         self.autoscale = autoscale
 
-    def Initialize(self):
+    def BeforeLoop(self):
         self.gf_vis = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=4), multidim=0)
         self.gf_vis_tmp = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=4))
         self.vis_last_time = self.time.Get()
         self.vis_time_increment = (self.end_time - self.vis_last_time) / 16
 
-    def AddData(self):
+    def ValidateState(self):
         if self.time.Get() >= self.vis_last_time + self.vis_time_increment:
             self.vis_last_time = self.time.Get()
             self.gf_vis_tmp.Set(
                 CF((self.lset.field, self.cf_neg, self.cf_pos, 0)))
             self.gf_vis.AddMultiDimComponent(self.gf_vis_tmp.vec)
 
-    def Draw(self):
+    def AfterLoop(self):
         ngw.Draw(self.gf_vis, self.lset.mesh, "uhnorm", eval_function="value.x>0.0?value.z:value.y",
                  autoscale=self.autoscale, min=self.min, max=self.max, interpolate_multidim=True, animate=True)
 
+
+class UnfittedNGSWebguiScene(Visualization):
+    def __init__(self, lset, cf_neg, cf_pos, name=None, step_frequency=None, time_frequency=None,
+                 min=0, max=1, autoscale=True):
+        super().__init__(name, step_frequency, time_frequency)
+        self.lset = lset
+        self.cf_neg = cf_neg
+        self.cf_pos = cf_pos
+        self.min = min
+        self.max = max
+        self.autoscale = autoscale
+        self.scene = None
+
+    def BeforeLoop(self):
+        self.scene = ngw.Draw(IfPos(self.lset.field, self.cf_pos, self.cf_neg), self.lset.mesh,
+                              autoscale=self.autoscale, min=self.min, max=self.max, deformaion=self.lset.deformation)
+
+    def ValidateState(self):
+        self.scene.Redraw()
+
+    def AfterLoop(self):
+        pass
 
 ### pyvista stuff
 

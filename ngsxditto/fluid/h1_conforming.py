@@ -78,7 +78,7 @@ class H1Conforming(FluidDiscretization):
         self.gfu = GridFunction(self.fes)
         self.gfu.components[0].Set(initial_velocity)
         self.gfu.components[1].Set(initial_pressure)
-        self.StoreState()
+        self.ValidateState()
 
 
     def UpdateActiveDofs(self):
@@ -159,16 +159,12 @@ class H1Conforming(FluidDiscretization):
         return gfu
 
 
-    def UpdateStates(self):
+    def Step(self):
         if self.time is not None:
             self.time += self.dt
 
         res = self.lf.vec - self.a.mat * self.gfu.vec
         self.gfu.vec.data += self.dt * self.inv * res
-
-        #if self.intermediate_valid:
-            #self.intermediate_difference = self.ComputeDifference2Intermediate()
-        #self.StoreIntermediate()
 
 
     def SetTimeStepSize(self, dt):

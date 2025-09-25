@@ -1,37 +1,44 @@
 from ngsolve import *
 
 
-class Stateholder:
-    def __init__(self, store_intermediate=True):
+class Stepper:
+    def __init__(self):
         self.past = None
         self.intermediate = None
-        self.store_intermediate = store_intermediate
 
 
-    def StoreState(self):
-        self.past[:] = self.current.vec.data
-        self.intermediate[:] = self.current.vec.data
+    def BeforeLoop(self):
+        pass
 
-    def StoreIntermediate(self):
-        self.intermediate[:] = self.current.vec.data
+    def AfterLoop(self):
+        pass
+
+    def ValidateState(self):
+        """
+        Sets 'past' and 'intermediate' to the current State
+        """
+        raise NotImplementedError("ValidateState only implemented in subclass")
+
+    def RevertState(self):
+        """
+        Saves the current State in 'intermediate'. Resets the current State to 'past'.
+        """
+        raise NotImplementedError("ResetState only implemented in subclass")
 
 
     def ComputeDifference2Intermediate(self):
-        raise NotImplementedError("ComputeDifference2Intermediate must be implemented by subclass")
+        """
+        Computes the difference between current state and intermediate state in a norm defined by the subclasses.
+        """
+        raise NotImplementedError("ComputeDifference2Intermediate only implemented in subclass.")
 
 
     def Step(self):
-        self.current.vec.data = self.past[:]
-        self.UpdateStates()
+        """
+        Advances the current State by one step.
+        """
+        raise NotImplementedError("Step only implemented in subclass.")
 
-
-
-        if self.store_intermediate:
-            self.StoreIntermediate()
-
-
-    def UpdateStates(self):
-        raise NotImplementedError("UpdateStates must be implemented by subclasses.")
 
     @property
     def current(self):
