@@ -129,6 +129,13 @@ class UnfittedNGSWebguiScene(Visualization):
 
 ### pyvista stuff
 
+### this is just a technical playground for now... 
+# I think finally, finally, the pyvista visualizer should be able to draw
+# CutFEM scenes based on a level set and two coefficient functions (neg/pos) (+ mesh deformation)
+# and/or surface quantities based on level set and one coefficient function (+ mesh deformation)
+# probably the two cases could be two separate classes inheriting from a pyvista base class
+
+
 import logging
 
 try:
@@ -138,6 +145,7 @@ try:
     from typing import Sequence, Union, Optional
 
     from IPython.display import HTML
+    from IPython.display import IFrame
 
     class PyVistaVisualizer:
         """
@@ -277,13 +285,16 @@ try:
             if screenshot:
                 plot.show(screenshot=screenshot)
             else:
+                if not pv.OFF_SCREEN:
+                    plot.show()
+                else:
                     # Export als interaktive HTML-Datei
-                html_file = "plot.html"
-                plot.export_html(html_file)
-                #plot.show()
-                with open("plot.html", "r") as f:
-                    html_content = f.read()
-                display(HTML(html_content))
+                    html_file = "plot.html"
+                    plot.export_html(html_file)
+                    with open("plot.html", "r") as f:
+                        html_content = f.read()
+                    display(HTML(html_content))
+                    IFrame(src='./plot.html', width=700, height=600)
 
         def cleanup(self) -> None:
             """Remove temporary files."""
