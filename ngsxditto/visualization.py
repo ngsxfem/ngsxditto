@@ -94,6 +94,13 @@ class UnfittedNGSWebguiPlot(Visualization):
 
 ### pyvista stuff
 
+### this is just a technical playground for now... 
+# I think finally, finally, the pyvista visualizer should be able to draw
+# CutFEM scenes based on a level set and two coefficient functions (neg/pos) (+ mesh deformation)
+# and/or surface quantities based on level set and one coefficient function (+ mesh deformation)
+# probably the two cases could be two separate classes inheriting from a pyvista base class
+
+
 import logging
 
 try:
