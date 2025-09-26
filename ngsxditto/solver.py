@@ -5,16 +5,22 @@ import typing
 
 
 class ProgressInfo:
+    """
+    This class keeps track of the progress.
+    """
     def __init__(self):
         pass
 
     def GetProgressInfo(self):
-        raise NotImplementedError()
+        raise NotImplementedError("GetProgressInfo not implemented in base class")
 
     def Increment(self):
-        raise NotImplementedError()
+        raise NotImplementedError("Increment not implemented in base class")
 
 class DummyProgressInfo(ProgressInfo):
+    """
+    Always returns 0 and can not be incremented.
+    """
     def __init__(self):
         super().__init__()
         pass
@@ -26,7 +32,21 @@ class DummyProgressInfo(ProgressInfo):
         pass
 
 class TimeProgressInfo(ProgressInfo):
+    """
+    In this class the progress is defined by elapsed time.
+    """
     def __init__(self, time:Parameter, end_time: float, dt:float):
+        """
+        Initialize the time progress info.
+        Parameters:
+        -----------
+        time : Parameter
+            The parameter that keeps track of the time.
+        end_time : float
+            The time when the progress is 1 (100%).
+        dt : float
+            The time-step size
+        """
         super().__init__()
         self.time = time
         self.start_time = self.time.Get()
@@ -34,9 +54,18 @@ class TimeProgressInfo(ProgressInfo):
         self.dt = dt
 
     def GetProgressInfo(self):
+        """
+        Returns:
+        --------
+        float:
+            The progress info defined by where the time parameter lies between start and end time.
+        """
         return (self.time.Get() - self.start_time) / (self.end_time - self.start_time)
 
     def Increment(self):
+        """
+        Increase the time parameter by dt.
+        """
         self.time.Set(self.time.Get() + self.dt)
 
 
@@ -49,14 +78,16 @@ class Solver:
                  should_finalize: typing.Callable[[], bool] = None
                  ):
         """
-        Initialize the solver with empty function dictionary.
+        Initialize the solver with empty dictionary that can be filled with Stepper objects.
 
         Parameters:
         -----------
         stopping_rule: typing.Callable[[], bool]
             Determines when to stop the loop.
-        progress_info: typing.Callable[[], float]
+        progress_info: ProgressInfo
             Determines what the progress bar shows
+        should_finalize: typing.Callable[[], bool]
+            The criteria to determine if the solver should finalize the step.
         """
         self.name = "Solver"
         self.stepper_dict = {}
@@ -80,10 +111,8 @@ class Solver:
         Registers a function with arguments that wil be called in the loop.
         Parameters:
         -----------
-        func: function
-            The function that will be called
-        args: tuple
-            The arguments of the function
+        stepper_object: Stepper
+            Determines what function will be called in the loop.
         name: str
             The name of the call that will be saved in the function name list.
         step_frequency: int
@@ -105,21 +134,9 @@ class Solver:
         self.stepper_names.append(name)
 
 
-    def BeforeLoop(self):
-        """
-        Will be called before the loop.
-        """
-        pass
-
-    def AfterLoop(self):
-        """
-        Will be called after the loop.
-        """
-        pass
-
     def __call__(self):
         """
-        Executes all function calls that were registered.
+        Executes all 'Step' functions of the objects that were registered.
         """
         for stepper_name in self.stepper_names:
             stepper_object = self.stepper_dict[stepper_name]["object"]
@@ -192,6 +209,9 @@ class TimeLoop(Solver):
             The time-step size
         end_time: float
             Time when the loop is stopped.
+        should_finalize: typing.Callable[[], bool]
+            The criteria to determine if the solver should finalize the step.
+
         """
         self.name = "Time Loop"
         if time is None:

@@ -2,16 +2,29 @@ from ngsolve import *
 
 
 class Stepper:
+    """
+    The stepper class keeps track of the past, intermediate and current state.
+    """
     def __init__(self):
+        """
+        Initialize the stepper object by creating dummy past and intermediate states.
+        """
         self.past = None
         self.intermediate = None
 
 
     def BeforeLoop(self):
+        """
+        This function will be called before the solver loop for each object.
+        """
         pass
 
     def AfterLoop(self):
+        """
+        This function will be called after the solver loop for each object.
+        """
         pass
+
 
     def ValidateState(self):
         """
@@ -42,4 +55,7 @@ class Stepper:
 
     @property
     def current(self):
+        """
+        The current state of the solver defined by the respective subclass.
+        """
         return None
