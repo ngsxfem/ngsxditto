@@ -9,7 +9,7 @@ from ngsxditto.stepper import *
 import typing
 
 
-class FluidDiscretization(Stepper):
+class FluidDiscretization(GFStepper):
     """
     Base class for a discretized fluid.
     """
@@ -201,25 +201,18 @@ class FluidDiscretization(Stepper):
         """
         raise NotImplementedError("SetTimeStepSize not implemented.")
 
-    @property
-    def current(self):
-        return self.gfu
+    # asign self._current = self.gfu now 
+    #@property
+    #def current(self):
+    #    return self.gfu
 
     def ComputeDifference2Intermediate(self):
-        intermediate_gfu =GridFunction(self.current.space)
-        intermediate_gfu.vec.data = self.intermediate
-        return Integrate((self.current.components[0] - intermediate_gfu.components[0])**2 * dx,
+        """
+        return difference in velocity L2(Omega_tilde) norm where
+        Omega_tilde is the background mesh
+        """
+        return Integrate((self.current.components[0] - self.intermediate.components[0])**2 * dx,
                          self.mesh)**(1/2)
-
-
-    def ValidateState(self):
-        self.past[:] = self.current.vec.data
-        self.intermediate[:] = self.current.vec.data
-
-
-    def RevertState(self):
-        self.intermediate[:] = self.current.vec.data
-        self.current.vec.data = self.past[:]
 
 
     def Step(self):
