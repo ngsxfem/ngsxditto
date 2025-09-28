@@ -134,3 +134,53 @@ class FunctionCallStepper(Stepper):
         self.RevertState = lambda: None
         self.ComputeDifference2Intermediate = lambda: 0.0
 
+
+from ngsolve import GridFunction
+class GFStepper(Stepper):
+    """
+    A Stepper whose states (past, intermediate, current) are of type ngsolve.GridFunction.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+        # States are GridFunctions (initialized later)
+        self._current: Optional[GridFunction] = None
+        self._intermediate: Optional[GridFunction] = None
+        self._past: Optional[GridFunction] = None
+
+    # --- Abstract methods ---------------------------------------------------
+    def ValidateState(self):
+        """
+        Copy current -> past and intermediate (only vector entries)
+        """
+        if self._current is None:
+            raise ValueError("current state not set")
+
+        if self._past is None or self._intermediate is None:
+            raise ValueError("past or intermediate state not initialized")
+
+        self._past.vec.data = self._current.vec
+        self._intermediate.vec.data = self._current.vec
+
+    def RevertState(self):
+        """
+        Copy current -> intermediate, past stays unchanged
+        """
+        if self._current is None:
+            raise ValueError("current state not set")
+        if self._intermediate is None:
+            raise ValueError("intermediate state not initialized")
+
+        self._intermediate.vec.data = self._current.vec
+
+    def ComputeDifference2Intermediate(self) -> float:
+        """
+        Computes difference between current and intermediate vectors
+        Uses simple l2-Norm of vectors (should be overwritten)
+        """
+        if self._current is None or self._intermediate is None:
+            return 0.0
+        diff = self._current.vec.CreateVector()
+        diff.data = self._current.vec - self._intermediate.vec
+        return diff.Norm()
