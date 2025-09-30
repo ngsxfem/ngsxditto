@@ -4,7 +4,7 @@ from ngsxditto.stepper import *
 from xfem import *
 import ngsolve.webgui as ngw
 
-class DiffusionBasedVelocityExtension(Stepper):
+class DiffusionBasedVelocityExtension(StatelessStepper):
     """
     Extends a velocity field from an interface to the whole domain using a diffusion based algorithm.
     """
@@ -35,6 +35,7 @@ class DiffusionBasedVelocityExtension(Stepper):
         self.dirichlet = dirichlet
         self.V = VectorH1(self.mesh, order=self.order, dirichlet=dirichlet, dgjumps=True)
         self.field = GridFunction(self.V)
+        self.current = self.field
         self.rhs = rhs
         self.q = q
 
@@ -74,24 +75,4 @@ class DiffusionBasedVelocityExtension(Stepper):
 
         self.field.Set(shifted_eval(underformed_field, back=self.lset.deformation, forth=None))
 
-
-    def ValidateState(self):
-        pass
-        #self.past[:] = self.current.vec.data
-        #self.intermediate[:] = self.current.vec.data
-
-
-    def RevertState(self):
-        pass
-        #self.intermediate[:] = self.current.vec.data
-        #self.current.vec.data = self.past[:]
-
-
-    def ComputeDifference2Intermediate(self):
-        pass
-
-
-    @property
-    def current(self):
-        return self.field
 

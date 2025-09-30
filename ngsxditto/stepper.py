@@ -34,15 +34,13 @@ class Stepper(ABC):
         """
         Initialize the stepper object by creating dummy past and intermediate states.
         """
-        self._past = None
-        self._intermediate = None
-        self._current = None
+        pass
 
     # --- Lifecycle hooks --------------------------------------------------------
     def BeforeLoop(self):
         """
         This function will be called before the solver's (outer) loop.
-        Typically used to initialize objects, handle memory, etc.. 
+        Typically used to initialize objects, handle memory, etc.
         Base class implementation: do nothing
         """
         pass
@@ -50,16 +48,17 @@ class Stepper(ABC):
     def AfterLoop(self):
         """
         This function will be called after the solver's (outer) loop.
-        Typically used to write output, postprocess results, handle memory, etc.. 
+        Typically used to write output, postprocess results, handle memory, etc.
         Base class implementation: do nothing
         """
         pass
+
 
     # --- Abstract methods that subclasses MUST implement ---------------------
     @abstractmethod
     def ValidateState(self):
         """
-        Is called at the end of each outer loop step. 
+        Is called at the end of each outer loop step.
         The 'current' state is validated and copied to 'past' and 'intermediate'
         states.
         """
@@ -68,27 +67,58 @@ class Stepper(ABC):
     @abstractmethod
     def RevertState(self):
         """
-        Is called at the end of each inner loop step if the inner loop continues. 
+        Is called at the end of each inner loop step if the inner loop continues.
         The 'current' state is copied to the 'intermediate' state.
         The 'past' state stays unaffected.
         """
         pass
 
-
     @abstractmethod
     def ComputeDifference2Intermediate(self) -> float:
         """
-        Computes the difference between 'current' state and 'intermediate' state in 
+        Computes the difference between 'current' state and 'intermediate' state in
         a norm defined by the subclasses.
         """
         pass
-
 
     @abstractmethod
     def Step(self):
         """
         Advances the 'current' state by one (inner loop) step.
         Does not affect the 'intermediate' state. 
+        """
+        pass
+
+
+
+class StatefulStepper(Stepper):
+    def __init__(self):
+        super().__init__()
+        self._past = None
+        self._intermediate = None
+        self._current = None
+
+    def ValidateState(self):
+        """
+        Is called at the end of each outer loop step.
+        The 'current' state is validated and copied to 'past' and 'intermediate'
+        states.
+        """
+        pass
+
+
+    def RevertState(self):
+        """
+        Is called at the end of each inner loop step if the inner loop continues.
+        The 'current' state is copied to the 'intermediate' state.
+        The 'past' state stays unaffected.
+        """
+        pass
+
+    def ComputeDifference2Intermediate(self) -> float:
+        """
+        Computes the difference between 'current' state and 'intermediate' state in
+        a norm defined by the subclasses.
         """
         pass
 
@@ -118,7 +148,21 @@ class Stepper(ABC):
         self._past = value
 
 
-class FunctionCallStepper(Stepper):
+class StatelessStepper(Stepper):
+    def __init__(self):
+        super().__init__()
+
+    def ValidateState(self):
+        pass
+
+    def RevertState(self):
+        pass
+
+    def ComputeDifference2Intermediate(self) -> float:
+        return 0
+
+
+class FunctionCallStepper(StatelessStepper):
     """
     A stepper without states. Executes provided functions at the
     relevant points of the solver loop.
@@ -126,17 +170,20 @@ class FunctionCallStepper(Stepper):
 
     def __init__(self, step_function, before_loop_function=None, after_loop_function=None):
         super().__init__()
-        self.Step = step_function
+        self.step_function = step_function
         self.BeforeLoop = before_loop_function or (lambda: None)
         self.AfterLoop = after_loop_function or (lambda: None)
 
-        self.ValidateState = lambda: None
-        self.RevertState = lambda: None
-        self.ComputeDifference2Intermediate = lambda: 0.0
+        #self.ValidateState = lambda: None
+        #self.RevertState = lambda: None
+        #self.ComputeDifference2Intermediate = lambda: 0.0
+
+    def Step(self):
+        self.step_function()
 
 
 from ngsolve import GridFunction
-class GFStepper(Stepper):
+class GFStepper(StatefulStepper):
     """
     A Stepper whose states (past, intermediate, current) are of type ngsolve.GridFunction.
     """

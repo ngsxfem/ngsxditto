@@ -201,10 +201,6 @@ class FluidDiscretization(GFStepper):
         """
         raise NotImplementedError("SetTimeStepSize not implemented.")
 
-    # asign self._current = self.gfu now 
-    #@property
-    #def current(self):
-    #    return self.gfu
 
     def ComputeDifference2Intermediate(self):
         """

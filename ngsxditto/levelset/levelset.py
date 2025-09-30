@@ -9,7 +9,7 @@ from ngsxditto.stepper import *
 #import types
 
 
-class LevelSetGeometry(OnUpdateCallbacks, Stepper):
+class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
     """
     This class handles the level set geometry.
     """
@@ -51,8 +51,14 @@ class LevelSetGeometry(OnUpdateCallbacks, Stepper):
         P1 = H1(self.mesh, order=1)
         self.lsetp1 = GridFunction(P1)
 
-        self.past = self.current.vec.CreateVector()
-        self.intermediate = self.current.vec.CreateVector()
+        self.current = self.field
+        if hasattr(self.transport, 'fes_cont'):
+            self.past = GridFunction(self.transport.fes_cont)
+            self.intermediate = GridFunction(self.transport.fes_cont)
+        else:
+            self.past = GridFunction(self.transport.fes)
+            self.intermediate = GridFunction(self.transport.fes)
+
 
         self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
         self.deformation = self.lsetadap.deform
@@ -193,9 +199,6 @@ class LevelSetGeometry(OnUpdateCallbacks, Stepper):
     def field(self):
         return self.transport.field
 
-    @property
-    def current(self):
-        return self.field
 
     def ComputeDifference2Intermediate(self):
         intermediate_gfu =GridFunction(self.current.space)
@@ -206,11 +209,3 @@ class LevelSetGeometry(OnUpdateCallbacks, Stepper):
         interface_error = Integrate(error * error * self.dS, mesh=self.mesh) ** (1/2)
         return interface_error
 
-    def ValidateState(self):
-        self.past[:] = self.current.vec.data
-        self.intermediate[:] = self.current.vec.data
-
-
-    def RevertState(self):
-        self.intermediate[:] = self.current.vec.data
-        self.current.vec.data = self.past[:]

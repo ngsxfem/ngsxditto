@@ -127,6 +127,9 @@ class Solver:
         if name in self.stepper_names:
             raise ValueError(f"Function name {name} already exists.")
 
+        if callable(stepper_object):
+            stepper_object = FunctionCallStepper(stepper_object)
+
         self.stepper_dict[name] = {"object": stepper_object,
                                     "step_frequency": step_frequency,
                                     "time_frequency": time_frequency,

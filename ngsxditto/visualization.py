@@ -4,7 +4,7 @@ from ngsolve import *
 from ngsxditto.stepper import *
 
 
-class Visualization(Stepper):
+class Visualization(StatelessStepper):
     def __init__(self, name=None, step_frequency=None, time_frequency=None):
         super().__init__()
         self.initialize_funcs = []
@@ -36,14 +36,6 @@ class Visualization(Stepper):
             func(*args)
 
     def Step(self):
-        pass
-
-
-    def RevertState(self):
-        pass
-
-
-    def ComputeDifference2Intermediate(self):
         pass
 
 

@@ -6,8 +6,7 @@ from ngsxditto.stepper import *
 import ngsolve.webgui as ngw
 
 
-
-class MeanCurvatureSolver(Stepper):
+class MeanCurvatureSolver(StatelessStepper):
     """
     Class to compute the mean curvature vector from a level set function
     """
@@ -135,22 +134,6 @@ class MeanCurvatureSolver(Stepper):
         self.freedofs = GetDofsOfElements(self.X, self.cutinfo.GetElementsOfType(IF))
 
         self.H.vec.data = a.mat.Inverse(self.freedofs) * f.vec
-
-
-    def ValidateState(self):
-        pass
-        #self.past[:] = self.current.vec.data
-        #self.intermediate[:] = self.current.vec.data
-
-
-    def RevertState(self):
-        pass
-        #self.intermediate[:] = self.current.vec.data
-        #self.current.vec.data = self.past[:]
-
-
-    def ComputeDifference2Intermediate(self):
-        pass
 
 
     def compute_l2_error(self, H):
