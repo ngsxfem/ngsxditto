@@ -110,7 +110,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.UpdateDeformation()
         self.UpdateCutInfo()
         self.DefineIntegrators()
-        self.ValidateState()
+        self.ValidateStep()
 
 
     def UpdateLinearApproximation(self):

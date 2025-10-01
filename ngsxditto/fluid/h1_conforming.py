@@ -78,7 +78,7 @@ class H1Conforming(FluidDiscretization):
         self.gfu = GridFunction(self.fes)
         self.gfu.components[0].Set(initial_velocity)
         self.gfu.components[1].Set(initial_pressure)
-        self.ValidateState()
+        self.ValidateStep()
 
 
     def UpdateActiveDofs(self):

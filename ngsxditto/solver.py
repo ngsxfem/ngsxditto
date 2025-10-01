@@ -176,7 +176,7 @@ class Solver:
                 if self.should_finalize():
                     for stepper_name in self.stepper_names:
                         stepper_object = self.stepper_dict[stepper_name]["object"]
-                        stepper_object.ValidateState()
+                        stepper_object.ValidateStep()
                     self.i_outer += 1
                     self.i_inner = 0
                     self.progress_info.Increment()
@@ -185,7 +185,7 @@ class Solver:
                 else:
                     for stepper_name in self.stepper_names:
                         stepper_object = self.stepper_dict[stepper_name]["object"]
-                        stepper_object.RevertState()
+                        stepper_object.RevertStep()
                 if self.stopping_rule():
                     break
 

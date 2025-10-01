@@ -27,7 +27,7 @@ class Visualization(StatelessStepper):
         for func, args in self.initialize_funcs:
             func(*args)
 
-    def ValidateState(self):
+    def ValidateStep(self):
         for func, args in self.adddata_funcs:
             func(*args)
 
@@ -52,7 +52,7 @@ class SphericityDiagram(Visualization):
         self.time_list = [self.time.Get()]
         self.surface_volume_ratio = [self.lset.surface_area / self.lset.volume]
 
-    def ValidateState(self):
+    def ValidateStep(self):
         self.time_list.append(self.time.Get())
         self.surface_volume_ratio.append(self.lset.surface_area/self.lset.volume)
 
@@ -85,7 +85,7 @@ class UnfittedNGSWebguiPlot(Visualization):
         self.vis_last_time = self.time.Get()
         self.vis_time_increment = (self.end_time - self.vis_last_time) / 16
 
-    def ValidateState(self):
+    def ValidateStep(self):
         if self.time.Get() >= self.vis_last_time + self.vis_time_increment:
             self.vis_last_time = self.time.Get()
             self.gf_vis_tmp.Set(
@@ -113,7 +113,7 @@ class UnfittedNGSWebguiScene(Visualization):
         self.scene = ngw.Draw(IfPos(self.lset.field, self.cf_pos, self.cf_neg), self.lset.mesh,
                               autoscale=self.autoscale, min=self.min, max=self.max, deformaion=self.lset.deformation)
 
-    def ValidateState(self):
+    def ValidateStep(self):
         self.scene.Redraw()
 
     def AfterLoop(self):
