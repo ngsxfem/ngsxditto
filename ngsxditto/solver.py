@@ -69,12 +69,25 @@ class TimeProgressInfo(ProgressInfo):
         self.time.Set(self.time.Get() + self.dt)
 
 
+class IterationProgressInfo(ProgressInfo):
+    def __init__(self, n_end: int=10, n_start: int=0):
+        super().__init__()
+        self.n = self.n_start =  n_start
+        self.n_end = n_end
+
+    def GetProgressInfo(self):
+        return (self.n - self.n_start) / (self.n_end - self.n_start)
+
+    def Increment(self):
+        self.n += 1
+
+
 class Solver:
     """
     A solver class that registers functions and loops over them when called.
     """
     def __init__(self, stopping_rule: typing.Callable[[], bool] = None,
-                 progress_info: ProgressInfo = DummyProgressInfo,
+                 progress_info: ProgressInfo = DummyProgressInfo(),
                  should_finalize: typing.Callable[[], bool] = None
                  ):
         """
