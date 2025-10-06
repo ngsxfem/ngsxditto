@@ -16,8 +16,8 @@ class FluidDiscretization(GFStepper):
     DEFAULT_DT = 1e-3
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
                  if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None,
-                 f:CoefficientFunction=CF((0, 0)), g: CoefficientFunction=CF(0),
-                 surface_tension:CoefficientFunction=CF((0, 0)), dt=None, time: typing.Optional[Parameter] = None):
+                 f:CoefficientFunction=None, g: CoefficientFunction=CF(0),
+                 surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, create a DummyLevelSet that covers the whole domain.
@@ -59,9 +59,17 @@ class FluidDiscretization(GFStepper):
             self.lset.AddCallback(self.UpdateActiveDofs)
             self.lset.AddCallback(self.InitializeForms)
         self.wall_params = wall_params
-        self.f = f
+        if f is None:
+            default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
+            self.f = default
+        else:
+            self.f = f
         self.g = g
-        self.surface_tension = surface_tension
+        if surface_tension is None:
+            default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
+            self.surface_tension = default
+        else:
+            self.surface_tension = surface_tension
         self.gfu = None
         self.a = None
         self.lf = None
@@ -143,7 +151,8 @@ class FluidDiscretization(GFStepper):
         Applies the boundary conditions after they are set with SetBoundaryConditions and after the spaces
         are defined with InitializeSpaces.
         """
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
+        default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
+        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
         self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
 
@@ -189,7 +198,8 @@ class FluidDiscretization(GFStepper):
             The solution of the stokes problem.
         """
         gfu = GridFunction(self.fes)
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
+        default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
+        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
         gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
         gfu.vec.data += self.a.mat.Inverse(freedofs=self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
         return gfu

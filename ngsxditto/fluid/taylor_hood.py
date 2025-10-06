@@ -14,8 +14,8 @@ class TaylorHood(H1Conforming):
     """
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
                  wall_params: WallParameters = None, if_dirichlet=None,
-                 f: CoefficientFunction = CF((0, 0)), g: CoefficientFunction=CF(0),
-                 surface_tension: CoefficientFunction = CF((0, 0)), dt=None, nitsche_stab:int=100,
+                 f: CoefficientFunction = None, g: CoefficientFunction=CF(0),
+                 surface_tension: CoefficientFunction = None, dt=None, nitsche_stab:int=100,
                  ghost_stab:int=20, extension_radius:float=0.2):
         """
         Initializes the Taylor-Hood discretization with the given parameters and levelset.

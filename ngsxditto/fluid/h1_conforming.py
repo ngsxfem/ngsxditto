@@ -13,8 +13,8 @@ class H1Conforming(FluidDiscretization):
     """
     def __init__(self, mesh, fluid_params: FluidParameters, order=4, lset:LevelSetGeometry=None,
                  wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None,
-                 f: CoefficientFunction = CF((0, 0)), g: CoefficientFunction = CF(0),
-                 surface_tension: CoefficientFunction = CF((0, 0)), dt=None,
+                 f: CoefficientFunction = None, g: CoefficientFunction = CF(0),
+                 surface_tension: CoefficientFunction = None, dt=None,
                  nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2):
         """
         Initializes the fluid discretization with the given parameters and levelset.
@@ -153,7 +153,8 @@ class H1Conforming(FluidDiscretization):
 
     def SolveStokes(self):
         gfu = GridFunction(self.fes)
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=CF((0, 0)))
+        default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
+        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
         gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
         gfu.vec.data += self.a.mat.Inverse(self.active_dofs & self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
         return gfu
