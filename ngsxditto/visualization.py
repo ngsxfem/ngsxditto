@@ -2,6 +2,9 @@ from matplotlib import pyplot as plt
 import ngsolve.webgui as ngw
 from ngsolve import *
 from ngsxditto.stepper import *
+import numpy as np
+from typing import Sequence, Union, Optional
+from IPython.display import Image, display
 
 
 class Visualization(StatelessStepper):
@@ -119,7 +122,128 @@ class UnfittedNGSWebguiScene(Visualization):
     def AfterLoop(self):
         pass
 
-### pyvista stuff
+
+class PyVistaAnimation(Visualization):
+    def __init__(self,
+            mesh: Mesh,
+            lset, cf_neg,
+            coefs: Union[CoefficientFunction, Sequence[CoefficientFunction]],
+            coef_names: Union[str, Sequence[str]],
+            subdivision: int = 3,
+            export_on_enter: bool = True,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        mesh : Mesh
+            The NGSolve mesh to export.
+        coefs : CoefficientFunction or Sequence[CoefficientFunction]
+            Single CoefficientFunction or a list of CoefficientFunctions.
+        coef_names : str or Sequence[str]
+            Single name (if coefs is a single CoefficientFunction) or list of names.
+        subdivision : int, optional
+            Subdivision level for the primary VTK export (default: 5).
+        export_on_enter : bool, optional
+            Whether to export the data on entering the context manager (default: True).
+
+        Raises
+        ------
+        ValueError
+            If the number of names does not match the number of coefficients.
+        """
+        super().__init__()
+        self.lset = lset
+        self.cf_neg = cf_neg
+        self.coefs = [self.lset.lsetp1, self.lset.deformation, self.cf_neg]
+        self.coef_names = ["P1-levelset", "deform", "uh"]
+
+        self.mesh: Mesh = mesh
+        self.subdivision: int = subdivision
+
+        # Temporary directory for VTK files
+        self._tempdir: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory()
+        self._vtk_files = []
+        self._vtk_file: str = f"{self._tempdir.name}/data.vtu"
+        self._mesh_file: str = f"{self._tempdir.name}/mesh.vtu"
+        self.plot = pv.Plotter(notebook=False, off_screen=True)
+        self.plot.open_gif(f"{self._tempdir.name}/animation.gif")
+
+        self.export_on_enter = export_on_enter
+        self.counter = 0
+
+    def export_current_step(self) -> None:
+        """
+        Export mesh and coefficient data to temporary VTK files.
+        """
+        current_file = f"{self._tempdir.name}/data{self.counter}.vtu"
+        vtk = VTKOutput(
+            ma=self.mesh,
+            coefs=self.coefs,
+            names=self.coef_names,
+            filename=current_file[:-4],
+            subdivision=self.subdivision,
+        )
+        vtk.Do()
+        self._vtk_files.append(current_file)
+
+        vtk_mesh = VTKOutput(
+            ma=self.mesh,
+            filename=self._mesh_file[:-4],
+            subdivision=0,
+        )
+        vtk_mesh.Do()
+
+    def visualize_current_step(self,) -> None:
+        visobj = pv.read(self._vtk_files[-1])
+        visobj_mesh = pv.read(self._mesh_file)
+        deform = visobj.point_data["deform"]
+        if deform.shape[1] == 2:
+            deform3d = np.hstack([deform, np.zeros((deform.shape[0], 1))])
+            visobj.point_data["deform"] = deform3d
+        visobj = visobj.clip_scalar(scalars="P1-levelset", value=0.0)
+
+        contour = visobj.contour(isosurfaces=[0.0], scalars="P1-levelset", rng=[-1, 1])
+
+        self.plot.background_color = "white"
+        # plot.add_mesh(visobj_mesh, style="wireframe", color=wireframe_color)
+        if deform.shape[1] == 2:
+            visobj = visobj.warp_by_vector(vectors="deform")
+            self.plot.add_mesh(visobj, scalars="uh", cmap="jet")
+        elif deform.shape[1] == 3:
+            def_contour = contour.warp_by_vector(vectors="deform")
+            self.plot.add_mesh(def_contour, scalars="uh", cmap="jet")
+        self.plot.clear()
+        self.plot.add_mesh(visobj, scalars="uh", cmap="jet")
+        self.plot.add_text(f"Step {self.counter}", font_size=10)
+        self.plot.write_frame()  # save current frame to the GIF
+
+
+    def cleanup(self) -> None:
+        """Remove temporary files."""
+        self._tempdir.cleanup()
+
+    def __enter__(self) -> "PyVistaVisualizer":
+        """Enable use as a context manager."""
+        if self.export_on_enter:
+            self.export_current_step()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        """Clean up temporary files on exit."""
+        self.cleanup()
+
+    def BeforeLoop(self):
+        pass
+
+    def ValidateStep(self):
+        self.export_current_step()
+        self.visualize_current_step()
+        self.counter += 1
+
+    def AfterLoop(self):
+        # Export als interaktive HTML-Datei
+        self.plot.close()
+        display(Image(filename=f"{self._tempdir.name}/animation.gif"))
 
 ### this is just a technical playground for now... 
 # I think finally, finally, the pyvista visualizer should be able to draw
@@ -239,7 +363,7 @@ try:
             ----------
             clip_name : str, optional
                 Name of the coefficient to clip (must be one of `coef_names`).
-            scaclar_name : str
+            scalar_name : str
                 Name of the coefficient to visualize (must be one of `coef_names`).
             clip_value : float
                 Clip the scalar field at this value (default: 0.0).
@@ -265,14 +389,24 @@ try:
 
             visobj = pv.read(self._vtk_file)
             visobj_mesh = pv.read(self._mesh_file)
-
+            deform = visobj.point_data["deform"]
+            if deform.shape[1] == 2:
+                deform3d = np.hstack([deform, np.zeros((deform.shape[0], 1))])
+                visobj.point_data["deform"] = deform3d
             if clip_value is not None:
                 visobj = visobj.clip_scalar(scalars=clip_name, value=clip_value)
 
+            contour = visobj.contour(isosurfaces=[0.0], scalars=clip_name, rng=[-1, 1])
+
+            #def_contour = contour.warp_by_vector(vectors="deform")
             plot = pv.Plotter()
             plot.background_color = background
-            plot.add_mesh(visobj_mesh, style="wireframe", color=wireframe_color)
-            plot.add_mesh(visobj, scalars=clip_name, cmap=cmap)
+            #plot.add_mesh(visobj_mesh, style="wireframe", color=wireframe_color)
+            if deform.shape[1] == 2:
+                plot.add_mesh(visobj, scalars=scalar_name, cmap=cmap)
+            elif deform.shape[1] == 3:
+                plot.add_mesh(contour, scalars=scalar_name, cmap=cmap)
+
 
             if screenshot:
                 plot.show(screenshot=screenshot)
