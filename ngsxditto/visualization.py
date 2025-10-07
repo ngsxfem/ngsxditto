@@ -127,8 +127,6 @@ class PyVistaAnimation(Visualization):
     def __init__(self,
             mesh: Mesh,
             lset, cf_neg,
-            coefs: Union[CoefficientFunction, Sequence[CoefficientFunction]],
-            coef_names: Union[str, Sequence[str]],
             subdivision: int = 3,
             export_on_enter: bool = True,
     ) -> None:
