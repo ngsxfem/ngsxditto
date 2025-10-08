@@ -161,7 +161,6 @@ class PyVistaAnimation(Visualization):
         # Temporary directory for VTK files
         self._tempdir: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory()
         self._vtk_files = []
-        self._vtk_file: str = f"{self._tempdir.name}/data.vtu"
         self._mesh_file: str = f"{self._tempdir.name}/mesh.vtu"
         self.plot = pv.Plotter(notebook=False, off_screen=True)
         self.plot.open_gif(f"{self._tempdir.name}/animation.gif")
@@ -220,7 +219,7 @@ class PyVistaAnimation(Visualization):
         """Remove temporary files."""
         self._tempdir.cleanup()
 
-    def __enter__(self) -> "PyVistaVisualizer":
+    def __enter__(self) -> "PyVistaAnimation":
         """Enable use as a context manager."""
         if self.export_on_enter:
             self.export_current_step()
@@ -242,6 +241,7 @@ class PyVistaAnimation(Visualization):
         # Export als interaktive HTML-Datei
         self.plot.close()
         display(Image(filename=f"{self._tempdir.name}/animation.gif"))
+        self.cleanup()
 
 ### this is just a technical playground for now... 
 # I think finally, finally, the pyvista visualizer should be able to draw
