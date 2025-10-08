@@ -2,6 +2,7 @@ from ngsolve import CoefficientFunction, Parameter
 from alive_progress import alive_bar
 from ngsxditto.stepper import *
 import typing
+import time
 
 
 class ProgressInfo:
@@ -144,8 +145,9 @@ class Solver:
             stepper_object = FunctionCallStepper(stepper_object)
 
         self.stepper_dict[name] = {"object": stepper_object,
-                                    "step_frequency": step_frequency,
-                                    "time_frequency": time_frequency,
+                                   "step_frequency": step_frequency,
+                                   "time_frequency": time_frequency,
+                                   "total_computation_time": 0,
                                     "last_time": 0}
         self.stepper_names.append(name)
 
@@ -155,8 +157,12 @@ class Solver:
         Executes all 'Step' functions of the objects that were registered.
         """
         for stepper_name in self.stepper_names:
-            stepper_object = self.stepper_dict[stepper_name]["object"]
+            entry = self.stepper_dict[stepper_name]
+            stepper_object =entry["object"]
+            start_time = time.time()
             stepper_object.BeforeLoop()
+            end_time = time.time()
+            entry["total_computation_time"] += (end_time - start_time)
 
         with alive_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
@@ -168,6 +174,7 @@ class Solver:
                     stepper_object = entry["object"]
                     step_frequency = entry["step_frequency"]
                     time_frequency = entry["time_frequency"]
+
                     should_run = False
 
                     if step_frequency is not None:
@@ -182,14 +189,22 @@ class Solver:
                         should_run = True
 
                     if should_run:
+                        start_time = time.time()
                         stepper_object.Step()
+                        end_time = time.time()
+                        entry["total_computation_time"] += (end_time - start_time)
 
                 self.i_inner += 1
 
                 if self.should_finalize():
                     for stepper_name in self.stepper_names:
+                        entry = self.stepper_dict[stepper_name]
                         stepper_object = self.stepper_dict[stepper_name]["object"]
+                        start_time = time.time()
                         stepper_object.ValidateStep()
+                        end_time = time.time()
+                        entry["total_computation_time"] += (end_time - start_time)
+
                     self.i_outer += 1
                     self.i_inner = 0
                     self.progress_info.Increment()
@@ -197,14 +212,27 @@ class Solver:
 
                 else:
                     for stepper_name in self.stepper_names:
-                        stepper_object = self.stepper_dict[stepper_name]["object"]
+                        entry = self.stepper_dict[stepper_name]
+                        stepper_object = entry["object"]
+                        start_time = time.time()
                         stepper_object.RevertStep()
+                        end_time = time.time()
+                        entry["total_computation_time"] += (end_time - start_time)
+
                 if self.stopping_rule():
                     break
 
             for stepper_name in self.stepper_names:
-                stepper_object = self.stepper_dict[stepper_name]["object"]
+                entry = self.stepper_dict[stepper_name]
+                stepper_object = entry["object"]
+                start_time = time.time()
                 stepper_object.AfterLoop()
+                end_time = time.time()
+                entry["total_computation_time"] += (end_time - start_time)
+
+            for stepper_name in self.stepper_names:
+                print(f"{stepper_name}: {self.stepper_dict[stepper_name]['total_computation_time']}")
+
 
 
 class TimeLoop(Solver):
