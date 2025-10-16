@@ -52,8 +52,8 @@ class SphericityDiagram(Visualization):
         self.surface_volume_ratio = []
 
     def BeforeLoop(self):
-        self.time_list = [self.time.Get()]
-        self.surface_volume_ratio = [self.lset.surface_area / self.lset.volume]
+        self.time_list = []
+        self.surface_volume_ratio = []
 
     def ValidateStep(self):
         self.time_list.append(self.time.Get())

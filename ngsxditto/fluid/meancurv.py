@@ -44,7 +44,6 @@ class MeanCurvatureSolver(StatelessStepper):
         self.own_lsetadap = own_lsetadap
 
         if own_lsetadap:
-            self.own_lsetadap = True
             self.lsetadap = LevelSetMeshAdaptation (mesh, order=order, threshold=0.5,
                                                     discontinuous_qn=True)
         else:
