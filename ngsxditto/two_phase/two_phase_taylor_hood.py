@@ -42,6 +42,18 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
         self.intermediate = GridFunction(self.fes)
 
 
+    def UpdateGfuDofs(self):
+        new_gfu = GridFunction(self.fes)
+        new_gfu.components[0].Set(self.gfu.components[0])
+        new_gfu.components[1].Set(self.gfu.components[1])
+        new_gfu.components[2].Set(self.gfu.components[2])
+        new_gfu.components[3].Set(self.gfu.components[3])
+
+        self.gfu = new_gfu
+
+
+
+
 
 
 

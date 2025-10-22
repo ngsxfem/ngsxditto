@@ -23,6 +23,7 @@ class TwoPhaseDiscretization(StatefulStepper):
             self.lset = lset
             self.lset.AddCallback(self.UpdateActiveDofs)
             self.lset.AddCallback(self.InitializeCombinedSpace)
+            self.lset.AddCallback(self.UpdateGfuDofs)
             self.lset.AddCallback(self.InitializeForms)
         self.if_dirichlet = if_dirichlet
         self.wall_params = wall_params
