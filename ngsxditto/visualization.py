@@ -92,7 +92,7 @@ class UnfittedNGSWebguiPlot(Visualization):
         if self.time.Get() >= self.vis_last_time + self.vis_time_increment:
             self.vis_last_time = self.time.Get()
             self.gf_vis_tmp.Set(
-                CF((self.lset.field, self.cf_neg, self.cf_pos, 0)))
+                CF((self.lset.lsetp1, self.cf_neg, self.cf_pos, 0)))
             self.gf_vis.AddMultiDimComponent(self.gf_vis_tmp.vec)
 
     def AfterLoop(self):
