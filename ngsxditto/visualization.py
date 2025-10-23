@@ -82,6 +82,12 @@ class UnfittedNGSWebguiPlot(Visualization):
         self.max = max
         self.autoscale = autoscale
 
+    def SetCFNeg(self, cf_neg):
+        self.cf_neg = cf_neg
+
+    def SetCFPos(self, cf_pos):
+        self.cf_pos = cf_pos
+
     def BeforeLoop(self):
         self.gf_vis = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=4), multidim=0)
         self.gf_vis_tmp = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=4))

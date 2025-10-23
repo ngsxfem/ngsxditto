@@ -139,15 +139,14 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             self.lf += rhos[i] * f_list[i] * v[i] * dx_list[i]
             self.lf += g_list[i] * q[i] * dx_list[i]
 
+            if self.surface_tension is not None:
+                self.lf += -surface_tension_list[0] * self.surface_tension * v[0] * dS
+
             for (region, fct) in self.neumann.items():
                 self.lf += nus[i] * fct * v[i] * dx(definedon=self.mesh.Boundaries(region))
-        if self.surface_tension is not None:
-            self.lf += -surface_tension_list[0] * self.surface_tension * v[0] * dS
 
         self.lf.Assemble()
-        self.mass_rhs = LinearForm(self.fes)
-        self.mass_rhs += rhos[0] * self.gfu.components[0] * v[0] * dx_list[0]
-        self.mass_rhs += rhos[1] * self.gfu.components[2] * v[1] * dx_list[1]
+
 
         self.a = BilinearForm(self.fes)
         dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
@@ -157,7 +156,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
             ghost_u = 1/h**2 * (u[i] - u[i].Other()) * (v[i] - v[i].Other()) * dw
             ghost_p = (p[i] - p[i].Other()) * (q[i] - q[i].Other()) * dw
-            ghost_penalty = self.ghost_stab * nus[i] * ghost_u - self.ghost_stab * 1/nus[i] * ghost_p #+ self.ghost_stab * 1/nus[i] * ghost_u
+            ghost_penalty = self.ghost_stab * nus[i] * ghost_u - self.ghost_stab * 1/nus[i] * ghost_p + self.ghost_stab * 1/nus[i] * ghost_u
 
             stokes = basic_stokes + ghost_penalty
             stokes_list.append(stokes)
@@ -172,7 +171,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         self.a += nitsche
 
-        self.a.Assemble(reallocate=True)
+        self.a.Assemble()
 
         self.m_star = BilinearForm(self.fes)
 
@@ -180,7 +179,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             self.m_star += rhos[i] * mass_list[i]
             self.m_star += self.dt * stokes_list[i]
         self.m_star += nitsche
-        self.m_star.Assemble(reallocate=True)
+        self.m_star.Assemble()
 
         freedofs = self.fes.FreeDofs()
         #freedofs &= CompoundBitArray([self.active_u_dofs_1, self.active_p_dofs_1,
@@ -206,8 +205,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
     def Step(self):
         if self.time is not None:
             self.time += self.dt
+
         self.InitializeForms()
-        self.gfu.vec.data = self.inv * (self.dt * self.lf.vec + self.mass_rhs.vec)
+        res = self.lf.vec - self.a.mat * self.gfu.vec
+        self.gfu.vec.data += self.dt * self.inv * res
 
 
 

@@ -24,7 +24,7 @@ class TwoPhaseDiscretization(StatefulStepper):
             self.lset.AddCallback(self.UpdateActiveDofs)
             self.lset.AddCallback(self.InitializeCombinedSpace)
             self.lset.AddCallback(self.UpdateGfuDofs)
-            self.lset.AddCallback(self.InitializeForms)
+            #self.lset.AddCallback(self.InitializeForms)
         self.if_dirichlet = if_dirichlet
         self.wall_params = wall_params
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
