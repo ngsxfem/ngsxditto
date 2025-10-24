@@ -20,14 +20,19 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
 
 
     def InitializeBaseSpaces(self):
+        """
+        Initialize the base velocity and pressure space.
+        """
         if self.dbnd is None:
             raise TypeError("self.dbnd is still None. Set Boundary conditions first.")
         self.V_base = VectorH1(self.mesh, order=self.order, dirichlet=self.dbnd, dgjumps=True)
         self.Q_base = H1(self.mesh, order=self.order - 1)
-        self.phase_fes = self.V_base * self.Q_base
 
 
     def InitializeCombinedSpace(self):
+        """
+        Initialize the combined two-phase space depending on the dofs that correspond to each phase.
+        """
         self.fes = FESpace([
             Compress(self.V_base, self.active_u_dofs_1),
             Compress(self.Q_base, self.active_p_dofs_1),
@@ -36,6 +41,9 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
         ])
 
     def InitializeGfu(self):
+        """
+        Initializes the gfu and the GridFunctions for the stepper.
+        """
         self.gfu = GridFunction(self.fes)
         self.current = self.gfu
         self.past = GridFunction(self.fes)
@@ -43,6 +51,9 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
 
 
     def UpdateGfuDofs(self):
+        """
+        Updates the gfu by setting it w.r.t. the updated space
+        """
         new_gfu = GridFunction(self.fes)
         new_gfu.components[0].Set(self.gfu.components[0])
         new_gfu.components[1].Set(self.gfu.components[1])

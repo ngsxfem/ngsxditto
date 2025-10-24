@@ -22,8 +22,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         ----------
         mesh: Mesh
             The computational mesh
-        fluid_params: FluidParameters
-            parameter of fluid, like viscosity, density and surface tension coefficient.
+        fluid1_params: FluidParameters
+            Parameters of the first fluid (corresponding to the negative part of the levelset.)
+        fluid2_params: FluidParameters
+            Parameters of the second fluid (corresponding to the negative part of the levelset.)
         order: int
             the polynomial order
         lset: LevelsetGeometry
@@ -32,10 +34,14 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             wall parameters for contact problems
         if_dirichlet: CoefficientFunction
             Dirichlet boundary condition of the unfitted domain.
-        f: CoefficientFunction
-            The force term
-        g: CoefficientFunction
-            The divergence constraint
+        f1: CoefficientFunction
+            The force term of the first phase.
+        f2: CoefficientFunction
+            The force term of the second phase.
+        g1: CoefficientFunction
+            The divergence constraint of the first phase.
+        g2: CoefficientFunction
+            The divergence constraint of the second phase.
         surface_tension: CoefficientFunction
             The surface tension force.
         dt: float
@@ -45,18 +51,22 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         ghost_stab: int
             The ghost stability parameter
         extension_radius: float
-            Radius of the zero levelset on which the domain is extended.
+            Radius around the zero levelset on which the domain is extended.
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order, lset=lset,
                          wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2,
                          surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet)
         self.V_base = None
         self.Q_base = None
-        self.phase_fes = None
 
-        self.active_dofs=None
         self.els_outer = None
+        self.els_inner = None
         self.facets_ring = None
+        self.active_u_dofs_1 = None
+        self.active_u_dofs_2 = None
+        self.active_p_dofs_1 = None
+        self.active_p_dofs_2 = None
+
         self.ghost_stab = ghost_stab
         self.nitsche_stab = nitsche_stab    # nitsche stabilization
         self.extension_radius = extension_radius    # extension ring
@@ -75,7 +85,6 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
     def SetInitialValues(self, initial_velocity1:CoefficientFunction, initial_velocity2:CoefficientFunction,
                          initial_pressure1:CoefficientFunction=CF(0), initial_pressure2:CoefficientFunction=CF(0)):
-        self.gfu = GridFunction(self.fes)
         self.gfu.components[0].Set(initial_velocity1)
         self.gfu.components[1].Set(initial_pressure1)
         self.gfu.components[2].Set(initial_velocity2)
@@ -209,7 +218,6 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.InitializeForms()
         res = self.lf.vec - self.a.mat * self.gfu.vec
         self.gfu.vec.data += self.dt * self.inv * res
-
 
 
     def SetTimeStepSize(self, dt):

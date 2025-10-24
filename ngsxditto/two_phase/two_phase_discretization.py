@@ -12,6 +12,42 @@ class TwoPhaseDiscretization(StatefulStepper):
                  f1:CoefficientFunction=None, f2: CoefficientFunction=None, g1: CoefficientFunction=CF(0),
                  g2: CoefficientFunction=CF(0),
                  surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
+        """
+        Creates a two-phase fluid discretization on the given mesh defined by the levelset.
+        If no levelset is given, create a DummyLevelSet that covers the whole domain.
+
+        Parameters:
+        -----------
+        mesh: Mesh
+            The computational mesh
+        fluid1_params: FluidParameters
+            Parameters of the first fluid (corresponding to the negative part of the levelset.)
+        fluid2_params: FluidParameters
+            Parameters of the second fluid (corresponding to the negative part of the levelset.)
+        order: int
+            the polynomial order
+        lset: LevelsetGeometry
+            The levelset that characterizes the unfitted domain.
+        if_dirichlet: CoefficientFunction
+            Dirichlet boundary condition of the unfitted domain.
+        wall_params: WallParameters
+            wall parameters for contact problems
+        f1: CoefficientFunction
+            The force term of the first phase.
+        f2: CoefficientFunction
+            The force term of the second phase.
+        g1: CoefficientFunction
+            The divergence constraint of the first phase.
+        g2: CoefficientFunction
+            The divergence constraint of the second phase.
+        surface_tension: CoefficientFunction
+            The surface tension force.
+        dt: float
+            Time-step size
+        time: Parameter
+            The time parameter.
+        """
+
         super().__init__()
         self.mesh = mesh
         self.fluid1_params = fluid1_params
@@ -24,7 +60,6 @@ class TwoPhaseDiscretization(StatefulStepper):
             self.lset.AddCallback(self.UpdateActiveDofs)
             self.lset.AddCallback(self.InitializeCombinedSpace)
             self.lset.AddCallback(self.UpdateGfuDofs)
-            #self.lset.AddCallback(self.InitializeForms)
         self.if_dirichlet = if_dirichlet
         self.wall_params = wall_params
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
@@ -66,13 +101,13 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.multistepper.SetObject(self)
 
 
-    def InitializeCombinedSpace(self):
-        raise NotImplementedError("InitializeCombinedSpaces not implemened")
-
 
     def Initialize(self, dirichlet:dict=None, neumann:dict=None,
-                   initial_velocity:CoefficientFunction=None,
-                   initial_pressure:CoefficientFunction=CF(0)):
+                   initial_velocity1:CoefficientFunction=None,
+                   initial_velocity2: CoefficientFunction = None,
+                   initial_pressure1:CoefficientFunction=CF(0),
+                   initial_pressure2: CoefficientFunction = CF(0)
+                   ):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
         physical domain and initializing the finite element spaces and bilinear forms.
@@ -89,8 +124,11 @@ class TwoPhaseDiscretization(StatefulStepper):
             {"region (str)": function (CoefficientFunction), ...}
         """
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
-        if initial_velocity is None:
-            initial_velocity = default
+        if initial_velocity1 is None:
+            initial_velocity1 = default
+        if initial_velocity2 is None:
+            initial_velocity2 = default
+
         self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
         self.InitializeBaseSpaces()
         self.UpdateActiveDofs()
@@ -98,7 +136,8 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.InitializeGfu()
         self.ApplyBoundaryConditions()
         self.InitializeForms()
-        #self.SetInitialValues(initial_velocity1, initial_velocity2, initial_pressure1, initial_pressure2)
+        self.SetInitialValues(initial_velocity1, initial_velocity2, initial_pressure1, initial_pressure2)
+        self.ValidateStep()
 
 
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
@@ -194,7 +233,21 @@ class TwoPhaseDiscretization(StatefulStepper):
         return Integrate((self.current.components[0] - self.intermediate.components[0])**2 * dx,
                          self.mesh)**(1/2)
 
-
     def Step(self):
-        raise NotImplementedError("Step only implemented in subclass.")
+        raise NotImplementedError("Step only implemented in subclasses.")
+
+
+    # Temporary functions to be replaced with better implementation.
+    def InitializeGfu(self):
+        raise NotImplementedError("InitializeGfu implemented in subclasses")
+
+    def UpdateGfuDofs(self):
+        raise NotImplementedError("UpdateGfuDofs implemented in subclasses")
+
+    def InitializeBaseSpaces(self):
+        raise NotImplementedError("InitializeBaseSpaces implemented in subclasses")
+
+    def InitializeCombinedSpace(self):
+        raise NotImplementedError("InitializeCombinedSpace implemented in subclasses")
+
 
