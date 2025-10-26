@@ -143,16 +143,19 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         surface_tension_list = [self.fluid1_params.surface_tension_coeff, self.fluid2_params.surface_tension_coeff]
 
+        kappaminus = CutRatioGF(self.lset.cutinfo)
+        kappa = (kappaminus, 1 - kappaminus)
+
         self.lf = LinearForm(self.fes)
         for i in range(2):
             self.lf += rhos[i] * f_list[i] * v[i] * dx_list[i]
             self.lf += g_list[i] * q[i] * dx_list[i]
 
-            if self.surface_tension is not None:
-                self.lf += -surface_tension_list[0] * self.surface_tension * v[0] * dS
-
             for (region, fct) in self.neumann.items():
                 self.lf += nus[i] * fct * v[i] * dx(definedon=self.mesh.Boundaries(region))
+
+        if self.surface_tension is not None:
+            self.lf += -surface_tension_list[0] * self.surface_tension * (kappa[0] * v[0] + kappa[1] * v[1]) * dS
 
         self.lf.Assemble()
 
@@ -171,14 +174,16 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             stokes_list.append(stokes)
             self.a += stokes
 
-        kappaminus = CutRatioGF(self.lset.cutinfo)
-        kappa = (kappaminus, 1 - kappaminus)
 
         nitsche = (-(kappa[0]*nus[0]*grad(u[0]) * n + kappa[1] * nus[1]*grad(u[1]) * n) * (v[0] - v[1]) -
                    (kappa[0]*nus[0]*grad(v[0]) * n + kappa[1] * nus[1]*grad(v[1]) * n) * (u[0] - u[1]) +
                    self.nitsche_stab / h * (u[0] - u[1]) * (v[0] - v[1])) * dS
 
+        bnd_terms = (((kappa[0] * p[0] + kappa[1] * p[1]) * (v[0] - v[1]) * n) * dS +
+                     ((kappa[0] * q[0] + kappa[1] * q[1]) * (u[0] - u[1]) * n) * dS)
+
         self.a += nitsche
+        self.a += bnd_terms
 
         self.a.Assemble()
 
@@ -188,6 +193,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             self.m_star += rhos[i] * mass_list[i]
             self.m_star += self.dt * stokes_list[i]
         self.m_star += nitsche
+        self.m_star += bnd_terms
         self.m_star.Assemble()
 
         freedofs = self.fes.FreeDofs()
@@ -205,8 +211,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
         gfu.components[2].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
-
-        gfu.vec.data += self.a.mat.Inverse(self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * self.gfu.vec)
+        gfu.vec.data += self.a.mat.Inverse(self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
 
         return gfu
 
