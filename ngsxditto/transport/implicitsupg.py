@@ -51,15 +51,18 @@ class ImplicitSUPGTransport(BaseTransport):
 
     def SetWind(self, wind: CoefficientFunction):
         self.wind = wind
+        self.UpdateForms()
+
+    def UpdateForms(self):
         u, v = self.u, self.v
         h = specialcf.mesh_size
         W = L2(self.mesh, order=0)
         gamma_gfu = GridFunction(W)
-        gamma_gfu.Set(h / (2 * Norm(wind) + 10**(-5)))
+        gamma_gfu.Set(h / (2 * Norm(self.wind) + 10**(-5)))
         self.gamma = CoefficientFunction(gamma_gfu)
 
-        self.mass_term = u * (v + self.gamma * wind * grad(v)) * dx
-        self.conv = wind * grad(u) * (v + self.gamma * wind * grad(v)) * dx
+        self.mass_term = u * (v + self.gamma * self.wind * grad(v)) * dx
+        self.conv = self.wind * grad(u) * (v + self.gamma * self.wind * grad(v)) * dx
 
         self.bfa = BilinearForm(self.fes, symmetric=False)
         self.bfa += self.mass_term
@@ -87,6 +90,7 @@ class ImplicitSUPGTransport(BaseTransport):
 
 
     def Step(self):
+        self.UpdateForms()
         if self.time is not None:
             self.time.Set(self.time.Get() + self.dt)
         self.gfu.vec.data = self.inv @ self.rhs.mat * self.gfu.vec
