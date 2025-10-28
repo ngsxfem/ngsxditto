@@ -132,9 +132,10 @@ class UnfittedNGSWebguiScene(Visualization):
 class PyVistaAnimation(Visualization):
     def __init__(self,
             mesh: Mesh,
-            lset, cf_neg,
+            lset, cf_neg, cf_pos,
             subdivision: int = 3,
             export_on_enter: bool = True,
+            show_globally: bool = False,
     ) -> None:
         """
         Parameters
@@ -158,7 +159,9 @@ class PyVistaAnimation(Visualization):
         super().__init__()
         self.lset = lset
         self.cf_neg = cf_neg
-        self.coefs = [self.lset.lsetp1, self.lset.deformation, self.cf_neg]
+        self.cf_pos = cf_pos
+        self.uh = IfPos(self.lset.lsetp1, self.cf_pos, self.cf_neg)
+        self.coefs = [self.lset.lsetp1, self.lset.deformation, self.uh]
         self.coef_names = ["P1-levelset", "deform", "uh"]
 
         self.mesh: Mesh = mesh
@@ -173,6 +176,7 @@ class PyVistaAnimation(Visualization):
 
         self.export_on_enter = export_on_enter
         self.counter = 0
+        self.show_globally = show_globally
 
     def export_current_step(self) -> None:
         """
@@ -203,7 +207,9 @@ class PyVistaAnimation(Visualization):
         if deform.shape[1] == 2:
             deform3d = np.hstack([deform, np.zeros((deform.shape[0], 1))])
             visobj.point_data["deform"] = deform3d
-        visobj = visobj.clip_scalar(scalars="P1-levelset", value=0.0)
+
+        if not self.show_globally:
+            visobj = visobj.clip_scalar(scalars="P1-levelset", value=0.0)
 
         contour = visobj.contour(isosurfaces=[0.0], scalars="P1-levelset", rng=[-1, 1])
 
@@ -215,6 +221,7 @@ class PyVistaAnimation(Visualization):
         elif deform.shape[1] == 3:
             def_contour = contour.warp_by_vector(vectors="deform")
             self.plot.add_mesh(def_contour, scalars="uh", cmap="jet")
+
         self.plot.clear()
         self.plot.add_mesh(visobj, scalars="uh", cmap="jet")
         self.plot.add_text(f"Step {self.counter}", font_size=10)
