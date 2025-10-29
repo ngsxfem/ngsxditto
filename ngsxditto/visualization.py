@@ -132,7 +132,9 @@ class UnfittedNGSWebguiScene(Visualization):
 class PyVistaAnimation(Visualization):
     def __init__(self,
             mesh: Mesh,
-            lset, cf_neg, cf_pos,
+            lset,
+            cf_neg,
+            cf_pos=None,
             subdivision: int = 3,
             export_on_enter: bool = True,
             show_globally: bool = False,
@@ -160,7 +162,11 @@ class PyVistaAnimation(Visualization):
         self.lset = lset
         self.cf_neg = cf_neg
         self.cf_pos = cf_pos
-        self.uh = IfPos(self.lset.lsetp1, self.cf_pos, self.cf_neg)
+        if self.cf_pos is not None:
+            self.uh = IfPos(self.lset.lsetp1, self.cf_pos, self.cf_neg)
+        else:
+            self.uh = self.cf_neg
+
         self.coefs = [self.lset.lsetp1, self.lset.deformation, self.uh]
         self.coef_names = ["P1-levelset", "deform", "uh"]
 
