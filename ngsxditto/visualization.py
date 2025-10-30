@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 import ngsolve.webgui as ngw
 from ngsolve import *
+from ngsxditto import LevelSetGeometry
 from ngsxditto.stepper import *
 import numpy as np
 from typing import Sequence, Union, Optional
@@ -44,7 +45,24 @@ class Visualization(StatelessStepper):
 
 
 class SphericityDiagram(Visualization):
+    """
+    Plots the ratio of the surface area to the volume.
+    """
     def __init__(self, lset, time, name=None, step_frequency=None, time_frequency=None):
+        """
+        Parameters:
+        -----------
+        lset: LevelSetGeometry
+            The levelset that separates the domains
+        time: Parameter
+            The time parameter.
+        name: str
+            Name of the plot.
+        step_frequency: int
+            Only visualize every n-th step
+        time_frequency: int
+            Only visualize every time this amount of time has passed
+        """
         super().__init__(name, step_frequency, time_frequency)
         self.lset = lset
         self.time = time
@@ -65,8 +83,41 @@ class SphericityDiagram(Visualization):
 
 
 class UnfittedNGSWebguiPlot(Visualization):
-    def __init__(self, lset, cf_neg, cf_pos, order, time, end_time, name=None, step_frequency=None, time_frequency=None,
-                 min=0, max=1, autoscale=True):
+    """
+    Animate the unfitted problem using the ngsolve webgui after all steps are finished.
+    """
+    def __init__(self, lset:LevelSetGeometry, cf_neg:CoefficientFunction, cf_pos:CoefficientFunction,
+                 order:int, time:Parameter, end_time:float, name:str=None,
+                 step_frequency:int=None, time_frequency:float=None,
+                 min:float=0, max:float=1, autoscale:bool=True):
+        """
+        Parameters:
+        -----------
+        lset: LevelSetGeometry
+            The levelset that separates the domains
+        cf_neg: CoefficientFunction
+            The function within the negative part of the levelset function.
+        cf_pos: CoefficientFunction
+            The function within the positive part of the levelset function.
+        order: int
+            The polynomial order.
+        time: Parameter
+            The time parameter.
+        end_time: float
+            The point in time until the animation runs.
+        name: str
+            Name of the plot.
+        step_frequency: int
+            Only visualize every n-th step
+        time_frequency: int
+            Only visualize every time this amount of time has passed
+        min: float
+            Minimimal value of the color map
+        max: float
+            Maximimimal value of the color map
+        autoscale: bool
+            Whether to autoscale the color map
+        """
         super().__init__(name, step_frequency, time_frequency)
         self.lset = lset
         self.cf_neg = cf_neg
@@ -107,8 +158,34 @@ class UnfittedNGSWebguiPlot(Visualization):
 
 
 class UnfittedNGSWebguiScene(Visualization):
+    """
+    Animate the unfitted scene using the ngsolve webgui while the steps by updating the scene after each step.
+    """
+
     def __init__(self, lset, cf_neg, cf_pos, name=None, step_frequency=None, time_frequency=None,
                  min=0, max=1, autoscale=True):
+        """
+        Parameters:
+        -----------
+        lset: LevelSetGeometry
+            The levelset that separates the domains
+        cf_neg: CoefficientFunction
+            The function within the negative part of the levelset function.
+        cf_pos: CoefficientFunction
+            The function within the positive part of the levelset function.
+        name: str
+            Name of the plot.
+        step_frequency: int
+            Only visualize every n-th step
+        time_frequency: int
+            Only visualize every time this amount of time has passed
+        min: float
+            Minimimal value of the color map
+        max: float
+            Maximimimal value of the color map
+        autoscale: bool
+            Whether to autoscale the color map
+        """
         super().__init__(name, step_frequency, time_frequency)
         self.lset = lset
         self.cf_neg = cf_neg
@@ -132,9 +209,9 @@ class UnfittedNGSWebguiScene(Visualization):
 class PyVistaAnimation(Visualization):
     def __init__(self,
             mesh: Mesh,
-            lset,
-            cf_neg,
-            cf_pos=None,
+            cf_neg: CoefficientFunction,
+            cf_pos: CoefficientFunction = None,
+            lset: LevelSetGeometry=None,
             subdivision: int = 3,
             export_on_enter: bool = True,
             show_globally: bool = False,
@@ -144,19 +221,16 @@ class PyVistaAnimation(Visualization):
         ----------
         mesh : Mesh
             The NGSolve mesh to export.
-        coefs : CoefficientFunction or Sequence[CoefficientFunction]
-            Single CoefficientFunction or a list of CoefficientFunctions.
-        coef_names : str or Sequence[str]
-            Single name (if coefs is a single CoefficientFunction) or list of names.
+        cf_neg : CoefficientFunction
+            The function to visualize (in the negative part of the levelset function.)
+        cf_neg : CoefficientFunction
+            The function to visualize (in the positive part of the levelset function.)
+        lset : LevelSetGeometry
+            The level set geometry to use.
         subdivision : int, optional
             Subdivision level for the primary VTK export (default: 5).
         export_on_enter : bool, optional
             Whether to export the data on entering the context manager (default: True).
-
-        Raises
-        ------
-        ValueError
-            If the number of names does not match the number of coefficients.
         """
         super().__init__()
         self.lset = lset
@@ -207,6 +281,9 @@ class PyVistaAnimation(Visualization):
         vtk_mesh.Do()
 
     def visualize_current_step(self,) -> None:
+        """
+        Adds the current plot to the GIF.
+        """
         visobj = pv.read(self._vtk_files[-1])
         visobj_mesh = pv.read(self._mesh_file)
         deform = visobj.point_data["deform"]
