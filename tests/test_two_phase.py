@@ -12,7 +12,6 @@ mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.15))
 
 order = 4
 
-# 
 nu1 = 1
 nu2 = 1e-1
 
@@ -22,8 +21,6 @@ fluid2_params = FluidParameters(viscosity=nu2)
 true_solution_u = CF(( y**2, 0.0 ))
 true_solution_p = CF( x )
 
-# piecewise forcings for -nu * Delta u + grad p = f
-# note: Delta u = (2, 0), grad p = (1,0) => f_i = (1 - 2*nu_i, 0)
 f1 = CF(( 1.0 - 2.0 * nu1, 0.0 ))
 f2 = CF(( 1.0 - 2.0 * nu2, 0.0 ))
 
@@ -37,7 +34,7 @@ def test_two_phase_stokes():
                                f1=f1, f2=f2, dt=0.1, ghost_stab=0)
     fluid.Initialize(dirichlet=dirichlet)
     sol = fluid.SolveStokes()
-    u1, p1, u2, p2 = sol.components
+    u1, p1, u2, p2, _ = sol.components
     fluid.SetInitialValues(u1, u2, p1, p2)
 
     u_error1 = fluid.gfu.components[0] - true_solution_u
