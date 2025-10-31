@@ -30,7 +30,8 @@ def test_fitted_stokes(fluid_type):
     fluid.Initialize(dirichlet=dirichlet)
 
     sol = fluid.SolveStokes()
-    fluid.SetInitialValues(*sol.components)
+    uh, ph, _ = sol.components
+    fluid.SetInitialValues(uh, ph)
 
     l2_error_u = Integrate((fluid.gfu.components[0] - true_solution_u)**2, mesh)
     assert l2_error_u < 1e-3
@@ -55,7 +56,8 @@ def test_unfitted_stokes(fluid_type):
 
     fluid.Initialize()
     sol = fluid.SolveStokes()
-    fluid.SetInitialValues(*sol.components)
+    uh, ph, _ = sol.components
+    fluid.SetInitialValues(uh, ph)
 
     u_error = fluid.gfu.components[0] - true_solution_u
     l2_error_u = Integrate(InnerProduct(u_error,u_error) * fluid.lset.dx_neg, mesh)**(1/2)
