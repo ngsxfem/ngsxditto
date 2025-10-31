@@ -80,6 +80,9 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.ci_main = CutInfo(self.mesh, self.lset.lsetp1)
         self.ci_inner = CutInfo(self.mesh, lsetp1_inner)
         self.ci_outer = CutInfo(self.mesh, lsetp1_outer)
+        #els_hasneg = self.ci_main.GetElementsOfType(HASNEG)
+        self.els_outer = self.ci_outer.GetElementsOfType(HASNEG)
+        self.els_inner = self.ci_inner.GetElementsOfType(NEG)
 
 
 
@@ -108,21 +111,18 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.ci_outer.Update(lsetp1_outer)
 
         # Element and facet markers
-        els_hasneg = self.ci_main.GetElementsOfType(HASNEG)
-        self.els_outer = self.ci_outer.GetElementsOfType(HASNEG)
-        self.els_inner = self.ci_inner.GetElementsOfType(NEG)
         els_ring = self.els_outer & ~self.els_inner
         self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
-        self.active_u_dofs_1 = GetDofsOfElements(self.V_base, self.els_outer)
-        self.active_u_dofs_2 = GetDofsOfElements(self.V_base, ~self.els_inner)
-        self.active_p_dofs_1 = GetDofsOfElements(self.Q_base, self.els_outer)
-        self.active_p_dofs_2 = GetDofsOfElements(self.Q_base, ~self.els_inner)
+        #self.active_u_dofs_1 = GetDofsOfElements(self.V_base, self.els_outer)
+        #self.active_u_dofs_2 = GetDofsOfElements(self.V_base, ~self.els_inner)
+        #self.active_p_dofs_1 = GetDofsOfElements(self.Q_base, self.els_outer)
+        #self.active_p_dofs_2 = GetDofsOfElements(self.Q_base, ~self.els_inner)
 
 
 
     def InitializeForms(self):
-        u1, p1, u2, p2 = self.fes.TrialFunction()
-        v1, q1, v2, q2 = self.fes.TestFunction()
+        u1, p1, u2, p2, r = self.fes.TrialFunction()
+        v1, q1, v2, q2, s = self.fes.TestFunction()
         u = [u1, u2]
         v = [v1, v2]
         p = [p1, p2]
@@ -169,8 +169,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             ghost_u = 1/h**2 * (u[i] - u[i].Other()) * (v[i] - v[i].Other()) * dw
             ghost_p = (p[i] - p[i].Other()) * (q[i] - q[i].Other()) * dw
             ghost_penalty = self.ghost_stab * nus[i] * ghost_u - self.ghost_stab * 1/nus[i] * ghost_p + self.ghost_stab * 1/nus[i] * ghost_u
-
-            stokes = basic_stokes + ghost_penalty
+            pressure_stab = (r * q[i] + s * p[i]) * dx_list[i]
+            stokes = basic_stokes + ghost_penalty + pressure_stab
             stokes_list.append(stokes)
             self.a += stokes
 
@@ -192,8 +192,11 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         for i in range(2):
             self.m_star += rhos[i] * mass_list[i]
             self.m_star += self.dt * stokes_list[i]
-        self.m_star += nitsche
-        self.m_star += bnd_terms
+            self.m_star += self.dt * (r * q[i] + s * p[i]) * dx_list[i]
+
+        self.m_star += self.dt * nitsche
+        self.m_star += self.dt * bnd_terms
+
         self.m_star.Assemble()
 
         freedofs = self.fes.FreeDofs()

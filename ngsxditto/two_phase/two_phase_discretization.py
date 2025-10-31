@@ -57,6 +57,7 @@ class TwoPhaseDiscretization(StatefulStepper):
             self.lset = DummyLevelSet(mesh)
         else:
             self.lset = lset
+
             self.lset.AddCallback(self.UpdateActiveDofs)
             self.lset.AddCallback(self.InitializeCombinedSpace)
             self.lset.AddCallback(self.UpdateGfuDofs)

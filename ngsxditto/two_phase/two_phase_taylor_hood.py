@@ -25,7 +25,7 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
         """
         if self.dbnd is None:
             raise TypeError("self.dbnd is still None. Set Boundary conditions first.")
-        self.V_base = VectorH1(self.mesh, order=self.order, dirichlet=self.dbnd, dgjumps=True)
+        self.V_base = VectorH1(self.mesh, order=self.order, dirichlet=self.dbnd)
         self.Q_base = H1(self.mesh, order=self.order - 1)
 
 
@@ -34,11 +34,13 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
         Initialize the combined two-phase space depending on the dofs that correspond to each phase.
         """
         self.fes = FESpace([
-            Compress(self.V_base, self.active_u_dofs_1),
-            Compress(self.Q_base, self.active_p_dofs_1),
-            Compress(self.V_base, self.active_u_dofs_2),
-            Compress(self.Q_base, self.active_p_dofs_2),
-        ])
+            Compress(self.V_base, GetDofsOfElements(self.V_base, self.els_outer)),
+            Compress(self.Q_base, GetDofsOfElements(self.Q_base, self.els_outer)),
+            Compress(self.V_base, GetDofsOfElements(self.V_base, ~self.els_inner)),
+            Compress(self.Q_base, GetDofsOfElements(self.Q_base, ~self.els_inner)),
+            NumberSpace(self.mesh)
+        ],
+            dgjumps=True)
 
     def InitializeGfu(self):
         """

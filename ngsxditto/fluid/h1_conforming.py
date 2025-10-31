@@ -104,7 +104,7 @@ class H1Conforming(FluidDiscretization):
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
 
     def InitializeForms(self):
-        (u, p), (v, q) = self.fes.TnT()
+        (u, p, r), (v, q, s) = self.fes.TnT()
         X = self.fes
         h = specialcf.mesh_size
         n = self.lset.n
@@ -139,6 +139,8 @@ class H1Conforming(FluidDiscretization):
         if self.if_dirichlet is not None:
             self.stokes += nitsche
             self.stokes += (p*v*n + q*u*n)*dS
+
+        #self.stokes += (p*s + q*r) * dx_neg
 
         self.a = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.a += self.stokes
