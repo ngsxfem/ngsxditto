@@ -196,7 +196,7 @@ class Solver:
 
                 self.i_inner += 1
 
-                if self.should_finalize():
+                if self.should_finalize() and should_run:
                     for stepper_name in self.stepper_names:
                         entry = self.stepper_dict[stepper_name]
                         stepper_object = self.stepper_dict[stepper_name]["object"]
