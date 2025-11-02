@@ -21,7 +21,8 @@ class TaylorHood(H1Conforming):
         Initializes the Taylor-Hood discretization with the given parameters and levelset.
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, if_dirichlet=if_dirichlet, lset=lset,
-                         wall_params=wall_params, f=f, g=g, surface_tension=surface_tension, dt=dt, nitsche_stab=nitsche_stab, ghost_stab=ghost_stab, extension_radius=extension_radius)
+                         wall_params=wall_params, f=f, g=g, surface_tension=surface_tension, dt=dt,
+                         nitsche_stab=nitsche_stab, ghost_stab=ghost_stab, extension_radius=extension_radius)
         self.V = None
         self.Q = None
 
@@ -33,17 +34,8 @@ class TaylorHood(H1Conforming):
         self.Q = H1(self.mesh, order=self.order - 1)
 
         self.fes = FESpace([self.V, self.Q, NumberSpace(self.mesh)], dgjumps=True)
-        self.gfu = GridFunction(self.fes)
-        self.current = self.gfu
+        self.gfup = GridFunction(self.fes)
+        self.gfu, self.gfp, self.gfn = self.gfup.components
+        self.current = self.gfup
         self.past = GridFunction(self.fes)
         self.intermediate = GridFunction(self.fes)
-
-
-
-
-
-
-
-
-
-

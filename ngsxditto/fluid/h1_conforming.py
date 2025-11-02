@@ -74,10 +74,9 @@ class H1Conforming(FluidDiscretization):
         super().SetLevelSet(lset=lset)
 
 
-    def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
-        self.gfu = GridFunction(self.fes)
-        self.gfu.components[0].Set(initial_velocity)
-        self.gfu.components[1].Set(initial_pressure)
+    def SetInitialValues(self, initial_velocity, initial_pressure=CF(0), mean_pressure_fix=None):
+        self.gfu.Set(initial_velocity)
+        self.gfp.Set(initial_pressure)
         self.ValidateStep()
 
 
@@ -115,13 +114,18 @@ class H1Conforming(FluidDiscretization):
         self.lf = LinearForm(X)
         self.lf += self.rho * self.f * v * dx_neg
         self.lf += self.g * q * dx_neg
+
         if self.surface_tension is not None:
             self.lf += -self.fluid_params.surface_tension_coeff * self.surface_tension * v * dS
+
         if self.if_dirichlet is not None:
-            self.lf += (-self.nu * Grad(v) * n * self.if_dirichlet + self.nu * self.nitsche_stab / h * self.if_dirichlet * v + q * n * self.if_dirichlet) * dS
+            self.lf += (-self.nu * Grad(v) * n * self.if_dirichlet +
+                        self.nu * self.nitsche_stab / h * self.if_dirichlet * v +
+                        q * n * self.if_dirichlet) * dS
 
         for (region, fct) in self.neumann.items():
             self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
+
         self.lf.Assemble()
 
         self.mass = u * v * dx_neg
@@ -129,52 +133,53 @@ class H1Conforming(FluidDiscretization):
         dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
 
         basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - p * div(v) - q * div(u)) * dx_neg
+
         nitsche = (-grad(u) * n * v - grad(v) * n * u + self.nitsche_stab / h * u * v) * dS
 
         ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
         ghost_p = (p - p.Other()) * (q - q.Other()) * dw
-        ghost_penalty = self.ghost_stab * self.nu * ghost_u - self.ghost_stab * 1/self.nu * ghost_p + self.ghost_stab * 1/self.nu * ghost_u
 
-        self.stokes = basic_stokes + ghost_penalty
+        ghost_penalty = self.ghost_stab * ghost_u - self.ghost_stab * ghost_p
+
+
+        self.stokes_term = basic_stokes + ghost_penalty
         if self.if_dirichlet is not None:
-            self.stokes += nitsche
-            self.stokes += (p*v*n + q*u*n)*dS
+            self.stokes_term += nitsche
+            self.stokes_term += (p*v*n + q*u*n)*dS
 
-        #self.stokes += (p*s + q*r) * dx_neg
+        #self.stokes_term += (p*s + q*r) * dx_neg
 
-        self.a = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.a += self.stokes
-        self.a += (1e-5 * u * v) * dx_neg
-        self.a.Assemble(reallocate=True)
+        self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
+        self.stokes_op += self.stokes_term
+        self.stokes_op += (1e-8 * u * v) * dx_neg    # regularize for translation uniqueness
+        self.stokes_op.Assemble(reallocate=True)
 
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += self.rho * self.mass + self.dt * self.stokes
+        self.m_star += self.rho * self.mass + self.dt * self.stokes_term
         self.m_star.Assemble(reallocate=True)
 
         self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs())
 
 
     def SolveStokes(self):
-        gfu = GridFunction(self.fes)
+        gfup = GridFunction(self.fes)
+        gfu, gfp, gfn = gfup.components
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
         cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
-        gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-        gfu.vec.data += self.a.mat.Inverse(self.active_dofs & self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
-        return gfu
+        gfu.Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+        gfup.vec.data += (self.stokes_op.mat.Inverse(self.active_dofs & self.fes.FreeDofs()) *
+                         (self.lf.vec - self.stokes_op.mat * gfup.vec))
+        return gfup
 
 
     def Step(self):
         if self.time is not None:
             self.time += self.dt
 
-        res = self.lf.vec - self.a.mat * self.gfu.vec
-        self.gfu.vec.data += self.dt * self.inv * res
+        res = self.lf.vec - self.stokes_op.mat * self.gfup.vec
+        self.gfup.vec.data += self.dt * self.inv * res
 
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
-        self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += self.mass + self.dt * self.stokes
-        self.m_star.Assemble(reallocate=True)
-        self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs())
-
+        self.InitializeForms()

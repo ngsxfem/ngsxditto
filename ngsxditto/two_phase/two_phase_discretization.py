@@ -9,8 +9,8 @@ class TwoPhaseDiscretization(StatefulStepper):
     """
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order: int = 4,
                  lset = None, if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None,
-                 f1:CoefficientFunction=None, f2: CoefficientFunction=None, g1: CoefficientFunction=CF(0),
-                 g2: CoefficientFunction=CF(0),
+                 f1:CoefficientFunction=None, f2: CoefficientFunction=None,
+                 g1: CoefficientFunction=CF(0), g2: CoefficientFunction=CF(0),
                  surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a two-phase fluid discretization on the given mesh defined by the levelset.
@@ -56,11 +56,8 @@ class TwoPhaseDiscretization(StatefulStepper):
         if lset is None:
             self.lset = DummyLevelSet(mesh)
         else:
-            self.lset = lset
+            self.SetLevelSet(lset)
 
-            self.lset.AddCallback(self.UpdateActiveDofs)
-            self.lset.AddCallback(self.InitializeCombinedSpace)
-            self.lset.AddCallback(self.UpdateGfuDofs)
         self.if_dirichlet = if_dirichlet
         self.wall_params = wall_params
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
@@ -80,7 +77,10 @@ class TwoPhaseDiscretization(StatefulStepper):
             self.surface_tension = surface_tension
         self.dt = dt
         self.time = time
+        self.gfup = None
         self.gfu = None
+        self.gfp = None
+        self.gfn = None
         self.a = None
         self.lf = None
         self.conv = None
@@ -102,12 +102,11 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.multistepper.SetObject(self)
 
 
-
     def Initialize(self, dirichlet:dict=None, neumann:dict=None,
                    initial_velocity1:CoefficientFunction=None,
                    initial_velocity2: CoefficientFunction = None,
                    initial_pressure1:CoefficientFunction=CF(0),
-                   initial_pressure2: CoefficientFunction = CF(0)
+                   initial_pressure2: CoefficientFunction = CF(0),
                    ):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
@@ -123,6 +122,15 @@ class TwoPhaseDiscretization(StatefulStepper):
         neumann: dict
             A dictionary with neumann boundary conditions of the form
             {"region (str)": function (CoefficientFunction), ...}
+        initial_velocity1: CoefficientFunction
+            The initial velocity of the fluid in \Omega^{-}.
+        initial_velocity2: CoefficientFunction
+            The initial velocity of the fluid in \Omega^{+}.
+        initial_pressure1: CoefficientFunction
+            The initial pressure of the fluid in \Omega^{-}.
+        initial_pressure2: CoefficientFunction
+            The initial pressure of the fluid in \Omega^{+}.
+
         """
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
         if initial_velocity1 is None:
@@ -166,7 +174,8 @@ class TwoPhaseDiscretization(StatefulStepper):
 
 
     def SetInitialValues(self, initial_velocity1:CoefficientFunction, initial_velocity2:CoefficientFunction,
-                         initial_pressure1:CoefficientFunction=CF(0), initial_pressure2:CoefficientFunction=CF(0)):
+                         initial_pressure1:CoefficientFunction=CF(0), initial_pressure2:CoefficientFunction=CF(0),
+                         mean_pressure_fix=None):
         """
         Sets the initial values for velocity and pressure
         """
@@ -178,10 +187,9 @@ class TwoPhaseDiscretization(StatefulStepper):
         Applies the boundary conditions after they are set with SetBoundaryConditions and after the spaces
         are defined with InitializeSpaces.
         """
-        default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
         cf = self.mesh.BoundaryCF(self.dirichlet)
         self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-        self.gfu.components[2].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+        self.gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
     def InitializeSpaces(self):
         """
@@ -211,13 +219,8 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.lset = lset
         if self.UpdateActiveDofs not in lset.callbacks:
             self.lset.callbacks.append(self.UpdateActiveDofs)
-        #if self.InitializeSpaces not in lset.callbacks:
-        #    self.lset.AddCallback(self.InitializeSpaces())
-
         if self.InitializeForms not in lset.callbacks:
             self.lset.callbacks.append(self.InitializeForms)
-
-
 
     def SetTimeStepSize(self, dt):
         """

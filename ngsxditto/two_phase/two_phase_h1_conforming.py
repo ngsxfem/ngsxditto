@@ -56,16 +56,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order, lset=lset,
                          wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2,
                          surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet)
-        self.V_base = None
-        self.Q_base = None
 
         self.els_outer = None
         self.els_inner = None
         self.facets_ring = None
-        self.active_u_dofs_1 = None
-        self.active_u_dofs_2 = None
-        self.active_p_dofs_1 = None
-        self.active_p_dofs_2 = None
 
         self.ghost_stab = ghost_stab
         self.nitsche_stab = nitsche_stab    # nitsche stabilization
@@ -87,11 +81,12 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
 
     def SetInitialValues(self, initial_velocity1:CoefficientFunction, initial_velocity2:CoefficientFunction,
-                         initial_pressure1:CoefficientFunction=CF(0), initial_pressure2:CoefficientFunction=CF(0)):
+                         initial_pressure1:CoefficientFunction=CF(0), initial_pressure2:CoefficientFunction=CF(0),
+                         mean_pressure_fix=None):
         self.gfu.components[0].Set(initial_velocity1)
-        self.gfu.components[1].Set(initial_pressure1)
-        self.gfu.components[2].Set(initial_velocity2)
-        self.gfu.components[3].Set(initial_pressure2)
+        self.gfp.components[0].Set(initial_pressure1)
+        self.gfu.components[1].Set(initial_velocity2)
+        self.gfp.components[1].Set(initial_pressure2)
 
         self.ValidateStep()
 
@@ -113,20 +108,12 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         # Element and facet markers
         els_ring = self.els_outer & ~self.els_inner
         self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
-        #self.active_u_dofs_1 = GetDofsOfElements(self.V_base, self.els_outer)
-        #self.active_u_dofs_2 = GetDofsOfElements(self.V_base, ~self.els_inner)
-        #self.active_p_dofs_1 = GetDofsOfElements(self.Q_base, self.els_outer)
-        #self.active_p_dofs_2 = GetDofsOfElements(self.Q_base, ~self.els_inner)
-
 
 
     def InitializeForms(self):
-        u1, p1, u2, p2, r = self.fes.TrialFunction()
-        v1, q1, v2, q2, s = self.fes.TestFunction()
-        u = [u1, u2]
-        v = [v1, v2]
-        p = [p1, p2]
-        q = [q1, q2]
+        u, p, r = self.fes.TrialFunction()
+        v, q, s = self.fes.TestFunction()
+
         h = specialcf.mesh_size
         n = self.lset.n
         rhos = [self.rho1, self.rho2]
@@ -168,7 +155,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
             ghost_u = 1/h**2 * (u[i] - u[i].Other()) * (v[i] - v[i].Other()) * dw
             ghost_p = (p[i] - p[i].Other()) * (q[i] - q[i].Other()) * dw
-            ghost_penalty = self.ghost_stab * nus[i] * ghost_u - self.ghost_stab * 1/nus[i] * ghost_p + self.ghost_stab * 1/nus[i] * ghost_u
+            ghost_penalty = self.ghost_stab * ghost_u - self.ghost_stab * ghost_p
             pressure_stab = (r * q[i] + s * p[i]) * dx_list[i]
             stokes = basic_stokes + ghost_penalty + pressure_stab
             stokes_list.append(stokes)
@@ -208,24 +195,25 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
 
     def SolveStokes(self):
-        gfu = GridFunction(self.fes)
+        gfup = GridFunction(self.fes)
+        gfu, gfp, gfn = gfup.components
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
         cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
         gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-        gfu.components[2].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+        gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
-        gfu.vec.data += self.a.mat.Inverse(self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
+        gfup.vec.data += self.a.mat.Inverse(self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfup.vec)
 
-        return gfu
+        return gfup
 
 
     def Step(self):
         if self.time is not None:
             self.time += self.dt
 
-        self.InitializeForms()
-        res = self.lf.vec - self.a.mat * self.gfu.vec
-        self.gfu.vec.data += self.dt * self.inv * res
+        #self.InitializeForms()
+        res = self.lf.vec - self.a.mat * self.gfup.vec
+        self.gfup.vec.data += self.dt * self.inv * res
 
 
     def SetTimeStepSize(self, dt):

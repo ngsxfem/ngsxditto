@@ -34,11 +34,13 @@ def test_two_phase_stokes():
                                f1=f1, f2=f2, dt=0.1, ghost_stab=0)
     fluid.Initialize(dirichlet=dirichlet)
     sol = fluid.SolveStokes()
-    u1, p1, u2, p2, _ = sol.components
-    fluid.SetInitialValues(u1, u2, p1, p2)
+    gfu, gfp, gfn = sol.components
+    u_neg, u_pos = gfu.components
+    p_neg, p_pos = gfp.components
+    fluid.SetInitialValues(u_neg, u_pos, p_neg, p_pos)
 
     u_error1 = fluid.gfu.components[0] - true_solution_u
-    u_error2 = fluid.gfu.components[2] - true_solution_u
+    u_error2 = fluid.gfu.components[1] - true_solution_u
 
     u_error_total = IfPos(fluid.lset.lsetp1, u_error2, u_error1)
 
@@ -46,14 +48,14 @@ def test_two_phase_stokes():
 
     assert l2_error_u < 1e-10
 
-    p_error1 = fluid.gfu.components[1] - true_solution_p
-    p_error2 = fluid.gfu.components[3] - true_solution_p
+    p_error1 = fluid.gfp.components[0] - true_solution_p
+    p_error2 = fluid.gfp.components[1] - true_solution_p
 
     p_error_total = IfPos(fluid.lset.lsetp1, p_error2, p_error1)
 
     vol = 4
     average_diff = 1 / vol * Integrate(p_error_total, mesh)
-    corrected_p_error = IfPos(fluid.lset.lsetp1, fluid.gfu.components[3],  fluid.gfu.components[1]) - average_diff - true_solution_p
+    corrected_p_error = IfPos(fluid.lset.lsetp1, fluid.gfp.components[1],  fluid.gfp.components[0]) - average_diff - true_solution_p
 
     l2_error_p = Integrate(InnerProduct(corrected_p_error, corrected_p_error) * dx, mesh)**(1/2)
 

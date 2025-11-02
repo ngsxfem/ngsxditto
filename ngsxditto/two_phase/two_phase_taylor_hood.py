@@ -18,6 +18,12 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
                          surface_tension=surface_tension, dt=dt, nitsche_stab=nitsche_stab, ghost_stab=ghost_stab,
                          extension_radius=extension_radius)
 
+        self.V_base = None
+        self.Q_base = None
+        self.V_neg = None
+        self.V_pos = None
+        self.Q_neg = None
+        self.Q_pos = None
 
     def InitializeBaseSpaces(self):
         """
@@ -33,11 +39,15 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
         """
         Initialize the combined two-phase space depending on the dofs that correspond to each phase.
         """
+        self.V_neg = Compress(self.V_base, GetDofsOfElements(self.V_base, self.els_outer))
+        self.V_pos = Compress(self.V_base, GetDofsOfElements(self.V_base, ~self.els_inner))
+        self.Q_neg = Compress(self.Q_base, GetDofsOfElements(self.Q_base, self.els_outer))
+        self.Q_pos = Compress(self.Q_base, GetDofsOfElements(self.Q_base, ~self.els_inner))
+
+
         self.fes = FESpace([
-            Compress(self.V_base, GetDofsOfElements(self.V_base, self.els_outer)),
-            Compress(self.Q_base, GetDofsOfElements(self.Q_base, self.els_outer)),
-            Compress(self.V_base, GetDofsOfElements(self.V_base, ~self.els_inner)),
-            Compress(self.Q_base, GetDofsOfElements(self.Q_base, ~self.els_inner)),
+            self.V_neg * self.V_pos,
+            self.Q_neg * self.Q_pos,
             NumberSpace(self.mesh)
         ],
             dgjumps=True)
@@ -46,32 +56,8 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
         """
         Initializes the gfu and the GridFunctions for the stepper.
         """
-        self.gfu = GridFunction(self.fes)
-        self.current = self.gfu
+        self.gfup = GridFunction(self.fes)
+        self.gfu, self.gfp, self.gfn = self.gfup.components
+        self.current = self.gfup
         self.past = GridFunction(self.fes)
         self.intermediate = GridFunction(self.fes)
-
-
-    def UpdateGfuDofs(self):
-        """
-        Updates the gfu by setting it w.r.t. the updated space
-        """
-        new_gfu = GridFunction(self.fes)
-        new_gfu.components[0].Set(self.gfu.components[0])
-        new_gfu.components[1].Set(self.gfu.components[1])
-        new_gfu.components[2].Set(self.gfu.components[2])
-        new_gfu.components[3].Set(self.gfu.components[3])
-
-        self.gfu = new_gfu
-
-
-
-
-
-
-
-
-
-
-
-

@@ -52,32 +52,35 @@ class FluidDiscretization(GFStepper):
         self.fluid_params = fluid_params
         self.order = order
         self.if_dirichlet = if_dirichlet
+
         if lset is None:
             self.lset = DummyLevelSet(mesh)
         else:
-            self.lset = lset
-            self.lset.AddCallback(self.UpdateActiveDofs)
-            self.lset.AddCallback(self.InitializeForms)
+            self.SetLevelSet(lset)
+
         self.wall_params = wall_params
+        default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
         if f is None:
-            default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
             self.f = default
         else:
             self.f = f
         self.g = g
         if surface_tension is None:
-            default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
             self.surface_tension = default
         else:
             self.surface_tension = surface_tension
+        self.gfup = None
         self.gfu = None
-        self.a = None
+        self.gfp = None
+        self.gfn = None
+        self.stokes_op = None
         self.lf = None
         self.conv = None
         self.m_star = None
         self.inv = None
         self.mass = None
-        self.stokes = None
+        self.regularization = None
+        self.stokes_term = None
         self.fes = None
         self.dirichlet = None
         self.neumann = None
@@ -90,7 +93,9 @@ class FluidDiscretization(GFStepper):
         self.multistepper.SetObject(self)
 
 
-    def Initialize(self, dirichlet:dict=None, neumann:dict=None, initial_velocity:CoefficientFunction=None, initial_pressure:CoefficientFunction=CF(0)):
+    def Initialize(self, dirichlet:dict=None, neumann:dict=None,
+                   initial_velocity:CoefficientFunction=None,
+                   initial_pressure:CoefficientFunction=CF(0)):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
         physical domain and initializing the finite element spaces and bilinear forms.
@@ -105,6 +110,10 @@ class FluidDiscretization(GFStepper):
         neumann: dict
             A dictionary with neumann boundary conditions of the form
             {"region (str)": function (CoefficientFunction), ...}
+        initial_velocity: CoefficientFunction
+            The initial velocity field
+        initial_pressure: CoefficientFunction
+            The initial pressure field
         """
         self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
         self.InitializeSpaces()
@@ -139,7 +148,8 @@ class FluidDiscretization(GFStepper):
         self.dbnd = "|".join(dirichlet.keys())
 
 
-    def SetInitialValues(self, initial_velocity:CoefficientFunction, initial_pressure:CoefficientFunction=CF(0)):
+    def SetInitialValues(self, initial_velocity:CoefficientFunction, initial_pressure:CoefficientFunction=CF(0),
+                         mean_pressure_fix=None):
         """
         Sets the initial values for velocity and pressure
         """
@@ -153,28 +163,28 @@ class FluidDiscretization(GFStepper):
         """
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
         cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
-        self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+        self.gfu.Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
 
     def InitializeSpaces(self):
         """
         Initializes the Finite element spaces.
         """
-        raise NotImplementedError("InitializeSpaces not implemented.")
+        raise NotImplementedError("InitializeSpaces not implemented in base class.")
 
 
     def UpdateActiveDofs(self):
         """
         Updates the active degrees of freedom after a levelset update.
         """
-        raise NotImplementedError("UpdateActiveDofs not implemented.")
+        raise NotImplementedError("UpdateActiveDofs not implemented in base class.")
 
 
     def InitializeForms(self):
         """
         Initializes the bilinear and linear forms.
         """
-        raise NotImplementedError("InitializeForms not implemented.")
+        raise NotImplementedError("InitializeForms not implemented in base class.")
 
 
     def SetLevelSet(self, lset:LevelSetGeometry):
@@ -194,15 +204,10 @@ class FluidDiscretization(GFStepper):
 
         Returns:
         ----------
-        gfu: GridFunction
+        gfup: GridFunction
             The solution of the stokes problem.
         """
-        gfu = GridFunction(self.fes)
-        default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
-        gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-        gfu.vec.data += self.a.mat.Inverse(freedofs=self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfu.vec)
-        return gfu
+        raise NotImplementedError("SolveStokes not implemented in base class.")
 
 
     def SetTimeStepSize(self, dt):
@@ -222,5 +227,5 @@ class FluidDiscretization(GFStepper):
 
 
     def Step(self):
-        raise NotImplementedError("Step only implemented in subclass.")
+        raise NotImplementedError("Step not implemented in base class.")
 
