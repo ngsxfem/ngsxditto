@@ -155,9 +155,12 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
             ghost_u = 1/h**2 * (u[i] - u[i].Other()) * (v[i] - v[i].Other()) * dw
             ghost_p = (p[i] - p[i].Other()) * (q[i] - q[i].Other()) * dw
-            ghost_penalty = self.ghost_stab * ghost_u - self.ghost_stab * ghost_p
+            #ghost_penalty = self.ghost_stab * ghost_u - self.ghost_stab * ghost_p
+            ghost_penalty = (self.ghost_stab * nus[i] * ghost_u - self.ghost_stab * 1 / nus[i] * ghost_p +
+                             self.ghost_stab * 1 / nus[i] * ghost_u)
+
             pressure_stab = (r * q[i] + s * p[i]) * dx_list[i]
-            stokes = basic_stokes + ghost_penalty + pressure_stab
+            stokes = basic_stokes + ghost_penalty #+ pressure_stab
             stokes_list.append(stokes)
             self.a += stokes
 
@@ -179,7 +182,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         for i in range(2):
             self.m_star += rhos[i] * mass_list[i]
             self.m_star += self.dt * stokes_list[i]
-            self.m_star += self.dt * (r * q[i] + s * p[i]) * dx_list[i]
+            #self.m_star += self.dt * (r * q[i] + s * p[i]) * dx_list[i]
 
         self.m_star += self.dt * nitsche
         self.m_star += self.dt * bnd_terms
@@ -211,7 +214,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         if self.time is not None:
             self.time += self.dt
 
-        #self.InitializeForms()
+        self.InitializeForms()
         res = self.lf.vec - self.a.mat * self.gfup.vec
         self.gfup.vec.data += self.dt * self.inv * res
 

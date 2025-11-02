@@ -219,8 +219,8 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.lset = lset
         if self.UpdateActiveDofs not in lset.callbacks:
             self.lset.callbacks.append(self.UpdateActiveDofs)
-        if self.InitializeForms not in lset.callbacks:
-            self.lset.callbacks.append(self.InitializeForms)
+        #if self.InitializeForms not in lset.callbacks:
+        #    self.lset.callbacks.append(self.InitializeForms)
 
     def SetTimeStepSize(self, dt):
         """
