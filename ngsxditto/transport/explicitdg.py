@@ -1,5 +1,6 @@
 from ngsolve import *
 from .basetransport import BaseTransport
+from ngsxditto import direct_solver_spd, direct_solver_nonspd
 import typing
 
 # taken and adapted from NGSolve's modeltemplates

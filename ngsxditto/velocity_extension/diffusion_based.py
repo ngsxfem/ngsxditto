@@ -1,6 +1,7 @@
 from ngsolve import *
 from ngsxditto.levelset import *
 from ngsxditto.stepper import *
+from ngsxditto import direct_solver_spd, direct_solver_nonspd
 from xfem import *
 import ngsolve.webgui as ngw
 
@@ -71,7 +72,7 @@ class DiffusionBasedVelocityExtension(StatelessStepper):
         f.Assemble()
 
         underformed_field = GridFunction(self.V)
-        underformed_field.vec.data = a.mat.Inverse(self.V.FreeDofs()) * f.vec
+        underformed_field.vec.data = a.mat.Inverse(self.V.FreeDofs(), inverse=direct_solver_spd) * f.vec
 
         self.field.Set(shifted_eval(underformed_field, back=self.lset.deformation, forth=None))
 

@@ -2,6 +2,7 @@ from ngsolve import *
 from xfem import *
 
 from ngsxditto.levelset import LevelSetGeometry, DummyLevelSet
+from ngsxditto import direct_solver_spd, direct_solver_nonspd
 import ngsolve.webgui as ngw
 from ngsxditto.fluid import *
 from .two_phase_discretization import *
@@ -193,7 +194,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         #freedofs &= CompoundBitArray([self.active_u_dofs_1, self.active_p_dofs_1,
         #                              self.active_u_dofs_2, self.active_p_dofs_2])
 
-        self.inv = self.m_star.mat.Inverse(freedofs=freedofs)
+        self.inv = self.m_star.mat.Inverse(freedofs=freedofs, inverse=direct_solver_nonspd)
 
 
 
@@ -205,7 +206,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
         gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
-        gfup.vec.data += self.a.mat.Inverse(self.fes.FreeDofs()) * (self.lf.vec - self.a.mat * gfup.vec)
+        gfup.vec.data += self.a.mat.Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd) * (self.lf.vec - self.a.mat * gfup.vec)
 
         return gfup
 

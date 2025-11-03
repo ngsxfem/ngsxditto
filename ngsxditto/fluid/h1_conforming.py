@@ -3,6 +3,7 @@ from xfem import *
 from .params import FluidParameters, WallParameters
 from .discretization import FluidDiscretization
 from ngsxditto.levelset import LevelSetGeometry, DummyLevelSet
+from ngsxditto import direct_solver_spd, direct_solver_nonspd
 from .meancurv import *
 import ngsolve.webgui as ngw
 
@@ -147,7 +148,10 @@ class H1Conforming(FluidDiscretization):
             self.stokes_term += nitsche
             self.stokes_term += (p*v*n + q*u*n)*dS
 
-        #self.stokes_term += (p*s + q*r) * dx_neg
+        if False:
+            self.stokes_term += (p*s + q*r) * dx_neg
+        else:
+            self.fes.FreeDofs()[-1] = False
 
         self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.stokes_op += self.stokes_term
@@ -158,7 +162,7 @@ class H1Conforming(FluidDiscretization):
         self.m_star += self.rho * self.mass + self.dt * self.stokes_term
         self.m_star.Assemble(reallocate=True)
 
-        self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs())
+        self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs(), inverse=direct_solver_nonspd)
 
 
     def SolveStokes(self):
@@ -167,7 +171,7 @@ class H1Conforming(FluidDiscretization):
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
         cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
         gfu.Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-        gfup.vec.data += (self.stokes_op.mat.Inverse(self.active_dofs & self.fes.FreeDofs()) *
+        gfup.vec.data += (self.stokes_op.mat.Inverse(self.active_dofs & self.fes.FreeDofs(), inverse=direct_solver_nonspd) *
                          (self.lf.vec - self.stokes_op.mat * gfup.vec))
         return gfup
 

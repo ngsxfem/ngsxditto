@@ -3,6 +3,9 @@ import logging
 logger = logging.getLogger(__name__)
 logger.debug("importing ngsxditto")
 
+direct_solver_spd = "sparsecholesky"
+direct_solver_nonspd = "umfpack"
+
 from .transport import *
 from .fluid import *
 from .levelset import *

@@ -1,5 +1,6 @@
 from ngsolve import *
 from .basetransport import BaseTransport
+from ngsxditto import direct_solver_spd, direct_solver_nonspd
 
 
 class ImplicitSUPGTransport(BaseTransport):
@@ -69,7 +70,7 @@ class ImplicitSUPGTransport(BaseTransport):
         self.bfa += self.dt/2 * self.conv
         self.bfa.Assemble()
 
-        self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs())
+        self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd)
         self.rhs = BilinearForm(self.fes, symmetric=False)
         self.rhs += self.mass_term
         self.rhs += -self.dt / 2 * self.conv
@@ -82,7 +83,7 @@ class ImplicitSUPGTransport(BaseTransport):
         self.bfa += self.dt/2 * self.conv
         self.bfa.Assemble()
 
-        self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs())
+        self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd)
         self.rhs = BilinearForm(self.fes, symmetric=False)
         self.rhs += self.mass_term
         self.rhs += -self.dt / 2 * self.conv

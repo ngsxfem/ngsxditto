@@ -3,6 +3,7 @@ from xfem import *
 from xfem.lsetcurv import *
 from typing import Optional, Tuple, Union
 from ngsxditto.stepper import *
+from ngsxditto import direct_solver_spd, direct_solver_nonspd
 import ngsolve.webgui as ngw
 
 
@@ -132,7 +133,7 @@ class MeanCurvatureSolver(StatelessStepper):
         #self.freedofs = self.X.FreeDofs()
         self.freedofs = GetDofsOfElements(self.X, self.cutinfo.GetElementsOfType(IF))
 
-        self.H.vec.data = a.mat.Inverse(self.freedofs) * f.vec
+        self.H.vec.data = a.mat.Inverse(self.freedofs,inverse=direct_solver_spd) * f.vec
 
 
     def compute_l2_error(self, H):
