@@ -5,19 +5,19 @@ from ngsxditto import direct_solver_spd, direct_solver_nonspd
 from xfem import *
 import ngsolve.webgui as ngw
 
-class DiffusionBasedVelocityExtension(StatelessStepper):
+class DiffusionBasedVectorExtension(StatelessStepper):
     """
-    Extends a velocity field from an interface to the whole domain using a diffusion based algorithm.
+    Extends a vector field from an interface to the whole domain using a diffusion based algorithm.
     """
     def __init__(self, lset:LevelSetGeometry, rhs=None, gamma:float=0.1, order:int=2, ghost_stab:int=2, dirichlet:str=".*",
                  q: CoefficientFunction=CF(0)):
         """
-        Initialise the diffusion based velocity extension with the given parameters.
+        Initialise the diffusion based vector extension with the given parameters.
 
         Parameters:
         -----------
         lset: LevelSetGeometry
-            The levelset where the velocity field is given.
+            The levelset where the vector field is given.
         gamma: float
             The diffusion coefficient.
         order: int
@@ -46,12 +46,12 @@ class DiffusionBasedVelocityExtension(StatelessStepper):
 
     def Step(self):
         """
-        Solves for the velocity field on the whole domain.
+        Solves for the vector field on the whole domain.
 
         Parameters:
         -----------
         u_field: GridFunction
-            The velocity field defined on the interface.
+            The vector field defined on the interface.
         """
         n = self.lset.n
         h = specialcf.mesh_size

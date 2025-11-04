@@ -12,7 +12,7 @@ from .levelset import *
 from .redistancing import *
 from .multistepper import *
 from .gradient_tester import *
-from .velocity_extension import *
+from .extension import *
 from .callback import *
 from .solver import *
 from .visualization import *
