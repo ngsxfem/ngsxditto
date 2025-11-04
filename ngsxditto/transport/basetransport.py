@@ -1,15 +1,19 @@
 from ngsolve import CoefficientFunction, Mesh, Parameter
 from ngsxditto.multistepper import MultiStepper
+from ngsxditto.stepper import GFStepper
 
 import typing 
 
-class BaseTransport:
+class BaseTransport(GFStepper):
     """
     This class is responsible for the abstract implementation of an interface for (level-set) transport.
     """
     def __init__(self, mesh: Mesh, wind: CoefficientFunction, inflow_values: CoefficientFunction,
-                 dt: typing.Optional[float] = None, time: typing.Optional[Parameter] = None,
-                 source: typing.Optional[CoefficientFunction] = None, order:int = None) -> None:
+                 dt: typing.Optional[float] = None, 
+                 time: typing.Optional[Parameter] = None, ## TODO: to remove
+                 source: typing.Optional[CoefficientFunction] = None, 
+                 active_elements: typing.Optional[BitArray] = None,
+                 order:int = None) -> None:
         """
         Initializes the transport object with the given parameters.
         Parameters:
@@ -22,10 +26,15 @@ class BaseTransport:
             The inflow boundary data
         time: Parameter
             reference to a Parameter for the time (to update depending coeffiecient function during propagate)
+        source: CoefficientFunction 
+            The source term
+        active_elements: BitArray|None
+            submesh defined by BitArray on which the transport is defined. If None, the whole mesh is used.
         dt: float
             The time step size for the transport.
         """        
-
+        super().__init__()
+        
         self.mesh = mesh
         self.wind = wind
         self.inflow_values = inflow_values
@@ -36,7 +45,7 @@ class BaseTransport:
         self.source = source
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
-        self.callbacks = []
+        self.active_elements = active_elements
 
 
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
@@ -81,6 +90,3 @@ class BaseTransport:
         Returns a **continuous** level-set field. This can be the GridFunction (or a part of it)
         """
         raise NotImplementedError("field not implemented")
-
-    def AddCallBack(self, callback):
-        self.callbacks.append(callback)

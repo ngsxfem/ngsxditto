@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ExtensionOperator(BaseMatrix):
+class ExtensionOperator(BaseMatrix): ### merges in ElementBasedExtensionOperator
     """
     LinearOperator for the ghost penalty extension. Requires an extension with
     members 
@@ -33,7 +33,9 @@ class ExtensionOperator(BaseMatrix):
 
 
 
-class ElementBasedExtension(StatelessStepper):
+class ElementBasedExtension(StatelessStepper): # TODO: new name ElementBasedExtensionOperator
+    ### TODO: kein Stepper mehr 
+    ### TODO: become BaseMatrix (see above)
     """
     Generates a linear operator that extends a vector of a field from a submesh 
     to another submesh using  a harmonic extension based on 
@@ -125,7 +127,7 @@ class ElementBasedExtension(StatelessStepper):
         self.operator = ExtensionOperator(self)
         self.initialized = False
 
-    def Step(self):
+    def Step(self): ###todo: Step -> Update
         """
         Solves for the field on the target domain.
         """
@@ -161,3 +163,17 @@ class ElementBasedExtension(StatelessStepper):
 
         self.initialized = True
         return self
+
+
+#### for gridfunctions
+class ElementBasedExtension(StatelessStepper):
+
+    ...init...
+
+    def Step(self):
+    """
+    Solves for the field on the target domain.
+    """
+      ebe1.Step()
+      for gf in self.gfs:
+        gf.vec.data = ebe1.operator * gf.vec

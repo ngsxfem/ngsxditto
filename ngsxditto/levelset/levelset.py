@@ -52,6 +52,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.lsetp1 = GridFunction(P1)
 
         self.current = self.field
+        #### TODO: generate own fes_cont space!
         if hasattr(self.transport, 'fes_cont'):
             self.past = GridFunction(self.transport.fes_cont)
             self.intermediate = GridFunction(self.transport.fes_cont)
@@ -147,6 +148,16 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         Evolves the level set one step with the transport scheme. Automatically updates cut info and integrators.
         """
         self.transport.Step()
+
+        #### TODO: projiziere in stetigen Raum mit Berücksichtungen der aktiven Elemente
+        # So ähnlich wie hier:
+        #self.gfu_cont.Set(self.gfu, definedonelements=self.active_elements)
+        #outer_cont_dofs = ~GetDofsOfElements(self.fes_cont, self.active_elements)
+        #self.gfu_cont_tmp.Set(self.transport.past, definedonelements=~self.active_elements)
+        #self.gfu_cont.vec += Projector(outer_cont_dofs) * self.gfu_cont_tmp.vec 
+
+
+        self.gfu_cont.Set(self.transport.field)
         self.steps_since_last_redistancing += 1
         self.ProcessCallbacks()
 
@@ -197,7 +208,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
     @property
     def field(self):
-        return self.transport.field
+        return self.transport.field ### take fes_cont-field here!
 
 
     def ComputeDifference2Intermediate(self):
