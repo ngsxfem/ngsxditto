@@ -5,7 +5,7 @@ from ngsxditto import direct_solver_spd, direct_solver_nonspd
 from xfem import *
 import ngsolve.webgui as ngw
 
-class DiffusionBasedVectorExtension(StatelessStepper):
+class LevelsetBasedExtension(StatelessStepper):
     """
     Extends a vector field from an interface to the whole domain using a diffusion based algorithm.
     """

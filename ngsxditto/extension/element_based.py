@@ -17,23 +17,23 @@ class ExtensionOperator(BaseMatrix):
     * inverse
     * mat
     """
-    def __init__ (self, gpe):
+    def __init__ (self, ebe):
         super().__init__()
-        self.gpe = gpe
+        self.ebe = ebe
 
     def Mult (self, x, y):
-        if not self.gpe.initialized:
+        if not self.ebe.initialized:
             logger.warning("ExtensionOperator not initialized in operator application. Calling Step() of extension.")
-            self.gpe.Step()
+            self.ebe.Step()
         y.data = x
-        y -= self.gpe.inverse @ self.gpe.mat * x
+        y -= self.ebe.inverse @ self.ebe.mat * x
 
     def Shape (self):
-        return (self.gpe.fes.ndof, self.gpe.fes.ndof)
+        return (self.ebe.fes.ndof, self.ebe.fes.ndof)
 
 
 
-class GhostPenaltyExtension(StatelessStepper):
+class ElementBasedExtension(StatelessStepper):
     """
     Generates a linear operator that extends a vector of a field from a submesh 
     to another submesh using  a harmonic extension based on 
