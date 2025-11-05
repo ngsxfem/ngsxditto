@@ -1,4 +1,4 @@
-from ngsolve import CoefficientFunction, Mesh, Parameter
+from ngsolve import CoefficientFunction, Mesh, Parameter, BitArray
 from ngsxditto.multistepper import MultiStepper
 from ngsxditto.stepper import GFStepper
 
@@ -34,7 +34,7 @@ class BaseTransport(GFStepper):
             The time step size for the transport.
         """        
         super().__init__()
-        
+
         self.mesh = mesh
         self.wind = wind
         self.inflow_values = inflow_values

@@ -43,7 +43,8 @@ n = Normalize(grad(lsetp1))
 energyform = (grad(u)|n)*(grad(v)|n)*dx(definedonelements=band)
 
 oldband = ifels
-ebext = ElementBasedExtension(mesh, oldband, band, gfu.space,
+
+ebext = ElementBasedExtension(gfu, oldband, band, 
                               energyform=energyform,
                               activeelems=band,
                               activefacets=None
@@ -51,24 +52,15 @@ ebext = ElementBasedExtension(mesh, oldband, band, gfu.space,
 
                               #dirichlet_dofs=~V.FreeDofs())
 #%%
-gfw.vec.data = ebext.operator * gfu.vec
-
-Draw(gfu, mesh, "gfu")
-Draw(gfw, mesh, "gfw")
-Draw(gfu-gfw, mesh, "d")
-
-# %%
 gfwvis = GridFunction(V, multidim=0)
+gfwvis.AddMultiDimComponent(gfu.vec)
+ebext.Step()
 
 for i in range(20):
     oldband[:] = band
     AddNeighborhood(band, AdjacencyMatrix(mesh,"vertex"), layers=1, inplace=True)
-
     ebext.Step()
-
-
-    gfw.vec.data = ebext.operator * gfw.vec
-    gfwvis.AddMultiDimComponent(gfw.vec)
-Draw(gfwvis, mesh, "gfw")
+    gfwvis.AddMultiDimComponent(gfu.vec)
+Draw(gfwvis, mesh, "gfwvis")
 
 # %%

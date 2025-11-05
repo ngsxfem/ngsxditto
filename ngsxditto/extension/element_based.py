@@ -9,50 +9,27 @@ import ngsolve.webgui as ngw
 import logging
 logger = logging.getLogger(__name__)
 
-
-class ExtensionOperator(BaseMatrix): ### merges in ElementBasedExtensionOperator
+class ElementBasedExtensionOperator(BaseMatrix):
     """
-    LinearOperator for the ghost penalty extension. Requires an extension with
-    members 
-    * inverse
-    * mat
-    """
-    def __init__ (self, ebe):
-        super().__init__()
-        self.ebe = ebe
-
-    def Mult (self, x, y):
-        if not self.ebe.initialized:
-            logger.warning("ExtensionOperator not initialized in operator application. Calling Step() of extension.")
-            self.ebe.Step()
-        y.data = x
-        y -= self.ebe.inverse @ self.ebe.mat * x
-
-    def Shape (self):
-        return (self.ebe.fes.ndof, self.ebe.fes.ndof)
-
-
-
-class ElementBasedExtension(StatelessStepper): # TODO: new name ElementBasedExtensionOperator
-    ### TODO: kein Stepper mehr 
-    ### TODO: become BaseMatrix (see above)
-    """
-    Generates a linear operator that extends a vector of a field from a submesh 
+    A linear operator that extends a vector of a field from a submesh 
     to another submesh using  a harmonic extension based on 
     a ghost-penalty(-like) bilinear form which yields a smooth extensions.
+
+    Before application of the operator the extension needs to be updated 
+    by calling the method `Update()`.    
     """
-    def __init__(self, mesh : Mesh, supportelems : BitArray, targetelems : BitArray, 
-                 fes : FESpace, deformation=None,
+    def __init__(self, fes : FESpace, supportelems : BitArray, targetelems : BitArray, 
+                 deformation=None,
                  dirichlet_dofs : BitArray = None,
                  energyform = None, activeelems : BitArray = None,
                  activefacets : BitArray = None):
         """
-        Initialise the ghost penalty extension with the given parameters.
+        Initialize the extension with the given parameters.
 
         Parameters:
         -----------
-        mesh: Mesh
-            Mesh on which the extension is defined.
+        fes: FESpace
+            Finite element space for the extension.
         supportelems: BitArray
             BitArray defining the support element submesh for the extension.
             The function to be extended has meaningful values on this submesh **before**
@@ -61,8 +38,6 @@ class ElementBasedExtension(StatelessStepper): # TODO: new name ElementBasedExte
             BitArray defining the target element submesh for the extension.
             The function to be extended has meaningful values on this submesh **after**
             the extension step.
-        fes: FESpace
-            Finite element space for the extension.
         deformation: GridFunction | None
             Deformation of the mesh (in case of parametric mapping) for the Ghost penalty form.
             Note that this field is ignored in case of custom energy form.
@@ -82,11 +57,10 @@ class ElementBasedExtension(StatelessStepper): # TODO: new name ElementBasedExte
             Note that the user needs to update this manually.
         """
         super().__init__()
-        self.mesh = mesh
+        self.fes = fes
+        self.mesh = mesh = fes.mesh
         self.supportelems = supportelems
         self.targetelems = targetelems
-
-        self.fes = fes
 
         self.filtered_target = BitArray(mesh.ne)
         self.filtered_support = BitArray(mesh.ne)
@@ -124,12 +98,11 @@ class ElementBasedExtension(StatelessStepper): # TODO: new name ElementBasedExte
                                           facet_restriction=self.activefacets, 
                                           element_restriction=self.activeelems, check_unused=False)
         self.blf += self.energyform
-        self.operator = ExtensionOperator(self)
         self.initialized = False
 
-    def Step(self): ###todo: Step -> Update
+    def Update(self):
         """
-        Solves for the field on the target domain.
+        Sets up the linear operator to solve for the field on the target domain.
         """
 
         if not self.customenergyform:
@@ -155,7 +128,6 @@ class ElementBasedExtension(StatelessStepper): # TODO: new name ElementBasedExte
 
         self.blf.Assemble(reallocate=True)
 
-        self.mat = self.blf.mat
         if self.customenergyform:
             self.inverse = self.blf.mat.Inverse(freedofs=self.target_dofs, inverse=direct_solver_nonspd)
         else:
@@ -164,16 +136,74 @@ class ElementBasedExtension(StatelessStepper): # TODO: new name ElementBasedExte
         self.initialized = True
         return self
 
+    def Mult (self, x, y):
+        if not self.initialized:
+            logger.warning("ElementBasedExtensionOperator not initialized in operator application. Calling Update() of extension.")
+            self.Update()
+        y.data = x
+        y -= self.inverse @ self.blf.mat * x
 
-#### for gridfunctions
+    def Shape (self):
+        return (self.fes.ndof, self.fes.ndof)
+
+
+
 class ElementBasedExtension(StatelessStepper):
+    """
+    A stateless stepper that extends a given GridFunction(s) from a support to a target domain using an `ElementBasedExtensionOperator`.
 
-    ...init...
+    Parameters:
+    ----------
+    gfs: GridFunction | List[GridFunction]
+        The GridFunction(s) to be extended.
+
+    update_operator: bool
+        Whether to update the operator in each step. (if yes: this class is responsible for keeping the operator up-to-date, otherwise
+        this is managed from outside/by the user)
+
+    extension_operator: ElementBasedExtensionOperator
+        The ElementBasedExtensionOperator used for the extension.
+
+    or alternatively the contructor arguments of an ElementBasedExtensionOperator 
+    (in this case the ElementBasedExtension holds his own operator object)
+    """
+
+    def __init__(self, gfs: GridFunction|list[GridFunction], *args, **kwargs):
+        super().__init__()
+        if type(gfs) == GridFunction:
+            self.gfs = [gfs]
+        else:
+            self.gfs = gfs
+        if "update_operator" in kwargs:
+            self.update_operator = kwargs["update_operator"]
+        else:
+            self.update_operator = True
+
+        if (len(args) == 1 and type(args[0]) == ElementBasedExtensionOperator) or (len(kwargs) == 1 and type(kwargs["extension_operator"]) == ElementBasedExtensionOperator):
+            self.ebeo = args[0]
+        else:
+            for k in args:
+                if type(k) == ElementBasedExtensionOperator:
+                    raise Exception("ElementBasedExtensionOperator is only allowed as the only arguments besides gridfunctions!")
+            for k in kwargs:
+                if type(k) == ElementBasedExtensionOperator:
+                    raise Exception("ElementBasedExtensionOperator is only allowed as the only arguments besides gridfunctions!")
+
+            ### replace or add fes-argument to argument list (deduced from gfs[0])
+            if len(args) > 0:
+                if type(args[0]) == FESpace:
+                    args[0] = self.gfs[0].space
+                else:
+                    args = tuple( [self.gfs[0].space, *args] )
+            else:
+                kwargs["fes"] = self.gfs[0].space
+            self.ebeo = ElementBasedExtensionOperator(*args, **kwargs)
 
     def Step(self):
-    """
-    Solves for the field on the target domain.
-    """
-      ebe1.Step()
-      for gf in self.gfs:
-        gf.vec.data = ebe1.operator * gf.vec
+        """
+        Solves for the field on the target domain.
+        """
+        if self.update_operator:
+            self.ebeo.Update()
+        for gf in self.gfs:
+            gf.vec.data = self.ebeo * gf.vec
