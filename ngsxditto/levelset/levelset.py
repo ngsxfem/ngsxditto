@@ -9,7 +9,7 @@ from ngsxditto.stepper import *
 #import types
 
 
-class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
+class LevelSetGeometry(OnUpdateCallbacks, StatelessStepper):
     """
     This class handles the level set geometry.
     """
@@ -32,7 +32,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
             The initial levelset function.
         """
         OnUpdateCallbacks.__init__(self)
-        Stepper.__init__(self)
+        StatelessStepper.__init__(self)
         self.transport = transport
         self.time = self.transport.time
         self.multistepper = MultiStepper()
@@ -51,15 +51,17 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         P1 = H1(self.mesh, order=1)
         self.lsetp1 = GridFunction(P1)
 
-        self.current = self.field
-        #### TODO: generate own fes_cont space!
-        if hasattr(self.transport, 'fes_cont'):
-            self.past = GridFunction(self.transport.fes_cont)
-            self.intermediate = GridFunction(self.transport.fes_cont)
-        else:
-            self.past = GridFunction(self.transport.fes)
-            self.intermediate = GridFunction(self.transport.fes)
 
+        self.fes_cont = H1(self.mesh, order=self.transport.order)
+
+        self.lset_cont = GridFunction(self.fes_cont)
+        self.lset_cont_tmp = GridFunction(self.fes_cont)
+
+        self.lsetstepper = GFStepper()
+
+        self.lsetstepper.current = self.lset_cont # current points to lset_cont
+        self.lsetstepper.past = GridFunction(self.fes_cont)
+        self.lsetstepper.intermediate = GridFunction(self.fes_cont)
 
         self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
         self.deformation = self.lsetadap.deform
@@ -77,6 +79,14 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
         if initial_levelset is not None:
             self.Initialize(initial_levelset)
+
+    def ValidateStep(self):
+        self.transport.ValidateStep()
+        self.lsetstepper.ValidateStep()
+
+    def RevertStep(self):
+        self.transport.RevertStep()
+        self.lsetstepper.RevertStep()
 
     @classmethod
     def from_cf(cls, cf : CoefficientFunction, mesh : Mesh, order : int = 1 ):
@@ -107,6 +117,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
             The initial time. (Default: 0.0)
         """
         self.transport.SetInitialValues(initial_lset, initial_time)
+        self.ProjectToContinuous(whole_mesh=True)
+
         self.UpdateLinearApproximation()
         self.UpdateDeformation()
         self.UpdateCutInfo()
@@ -143,21 +155,28 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.dx_pos = dCut(levelset=self.lsetp1, domain_type=POS, definedonelements=self.haspos, deformation=self.deformation)
         self.dS = dCut(levelset=self.lsetp1, domain_type=IF, definedonelements=self.hasif, deformation=self.deformation)
 
+    def ProjectToContinuous(self, whole_mesh=False):
+        """
+        Projects the transport field to the continuous level set.
+        """
+        if whole_mesh or self.transport.active_elements is None:
+            self.lset_cont.Set(self.transport.field)   
+        else:
+            # first take values on active elements
+            self.lset_cont.Set(self.transport.field, definedonelements=self.transport.active_elements)
+            # take values from old lset on the remainder **without** changing the active elements.
+            outer_cont_dofs = ~GetDofsOfElements(self.fes_cont, self.transport.active_elements)
+            self.lset_cont_tmp.Set(self.lsetstepper.past, definedonelements=~self.transport.active_elements)
+            self.lset_cont.vec.data += Projector(outer_cont_dofs,range=True) * self.lset_cont_tmp.vec 
+
     def Step(self):
         """
         Evolves the level set one step with the transport scheme. Automatically updates cut info and integrators.
         """
-        self.transport.Step()
 
-        #### TODO: projiziere in stetigen Raum mit Berücksichtungen der aktiven Elemente
-        # So ähnlich wie hier:
-        #self.gfu_cont.Set(self.gfu, definedonelements=self.active_elements)
-        #outer_cont_dofs = ~GetDofsOfElements(self.fes_cont, self.active_elements)
-        #self.gfu_cont_tmp.Set(self.transport.past, definedonelements=~self.active_elements)
-        #self.gfu_cont.vec += Projector(outer_cont_dofs) * self.gfu_cont_tmp.vec 
+        self.transport.Step() # step on auxiliary field (e.g. DG)
+        self.ProjectToContinuous()
 
-
-        self.gfu_cont.Set(self.transport.field)
         self.steps_since_last_redistancing += 1
         self.ProcessCallbacks()
 
@@ -208,14 +227,14 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
     @property
     def field(self):
-        return self.transport.field ### take fes_cont-field here!
+        return self.lset_cont
 
 
     def ComputeDifference2Intermediate(self):
-        intermediate_gfu =GridFunction(self.current.space)
-        intermediate_gfu.vec.data = self.intermediate
+        intermediate_gfu =GridFunction(self.lsetstepper.current.space)
+        intermediate_gfu.vec.data = self.lsetstepper.intermediate
 
-        error = self.current - intermediate_gfu
+        error = self.lsetstepper.current - intermediate_gfu
 
         interface_error = Integrate(error * error * self.dS, mesh=self.mesh) ** (1/2)
         return interface_error

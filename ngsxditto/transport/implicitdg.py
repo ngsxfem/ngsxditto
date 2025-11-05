@@ -1,6 +1,7 @@
 from ngsolve import *
 from .basetransport import BaseTransport
 from ngsxditto import direct_solver_spd, direct_solver_nonspd
+from xfem import *
 import typing
 
 # taken and adapted from NGSolve's modeltemplates
@@ -33,27 +34,27 @@ class ImplicitDGTransport(BaseTransport):
         super().__init__(mesh, wind, inflow_values, dt, source, active_elements=active_elements, order=order)
 
         self.fes = L2(mesh, order=order, all_dofs_together=True, dgjumps=True)
-        self.fes_cont = H1(mesh, order=order)
 
         self.active_facets = BitArray(mesh.nfacet)
         self.bnd_facets = BitArray(mesh.nfacet)
 
-        self.wind = wind
-        if wind is not None:
-            self.SetWind(wind)
+        if active_elements is None:
+            self.active_elements = BitArray(mesh.ne)
+            self.active_elements[:] = True
+        else:
+            self.active_elements = active_elements
 
         self.gfu = GridFunction(self.fes)
         self.current = self.gfu
         self.past = GridFunction(self.gfu.space)
         self.intermediate = GridFunction(self.gfu.space)
 
-        self.gfu_cont = GridFunction(self.fes_cont)  ### TODO: remove completely!
-        self.gfu_cont_tmp = GridFunction(self.fes_cont) ### TODO: remove completely!
-
-        self.tempu = self.bfa.mat.CreateColVector()
-
         self.bnd_facets_ind = GridFunction(FacetFESpace(mesh,order=0))
         self.nobnd_facets_ind = IfPos(self.bnd_facets_ind, 0, 1)
+
+        self.wind = wind
+        if wind is not None:
+            self.SetWind(wind)
 
     
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
@@ -61,7 +62,6 @@ class ImplicitDGTransport(BaseTransport):
             self.time.Set(initial_time)
         self.gfu.Set (initial_values) #, definedonelements=self.active_elements)
         self.ValidateStep()
-        self.gfu_cont.Set(self.gfu)
 
     def SetWind(self, wind: CoefficientFunction):
         u, v = self.gfu.space.TnT()
@@ -72,11 +72,12 @@ class ImplicitDGTransport(BaseTransport):
                                           facet_restriction=self.active_facets)
         self.bfa += u * v * dx(definedonelements=self.active_elements)
         self.bfa += self.dt*(v * (wind | grad(u))).Compile() * dx(definedonelements=self.active_elements, bonus_intorder=1) # ! bonus_intorder=1 important, because integration order would be too low otherwise
-        self.bfa += self.dt*(- IfPos((wind|n), 0, (wind|n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True)
+        self.bfa += self.dt*(- IfPos((wind|n), 0, (wind|n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
 
         self.lf = LinearForm(self.fes)
         self.lf += ( self.past * v).Compile() * dx(definedonelements=self.active_elements)
-        self.lf += -(IfPos((wind|n), 0, (wind|n) * self.inflow_values * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
+        self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.past * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
+        #self.lf += -(IfPos((wind|n), 0, (wind|n) * self.inflow_values * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
         ### TODO: test agains dx(skeleton=True)
 
     def SetTimeStepSize(self, dt: float):
@@ -87,7 +88,10 @@ class ImplicitDGTransport(BaseTransport):
         self.bnd_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=~self.active_elements,
                                                         bnd_val_a=False, bnd_val_b=True)
         self.bnd_facets_ind.vec[:] = 0
-        self.bnd_facets_ind.vec.[self.bnd_facets] = 1
+        self.bnd_facets_ind.vec[self.bnd_facets] = 1
+
+        self.active_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=self.active_elements, use_and=False) ##todo
+
 
         self.bfa.Assemble(reallocate=True)
         self.lf.Assemble()
@@ -97,8 +101,7 @@ class ImplicitDGTransport(BaseTransport):
 
         freedofs = GetDofsOfElements(self.fes, self.active_elements)
         self.gfu.vec.data = self.bfa.mat.Inverse(freedofs = freedofs, inverse = direct_solver_nonspd) * self.lf.vec
-        self.gfu.Set(self.past, definedonelements=~self.active_elements)
 
     @property
     def field(self):
-        return self.gfu#_cont
+        return self.gfu

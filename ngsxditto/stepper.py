@@ -225,3 +225,10 @@ class GFStepper(StatefulStepper):
         diff = self._current.vec.CreateVector()
         diff.data = self._current.vec - self._intermediate.vec
         return diff.Norm()
+
+    def Step(self):
+        """
+        dummy implementation
+        """
+        pass
+

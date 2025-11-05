@@ -8,6 +8,7 @@ logger.debug("importing ngsxditto.transport")
 
 from .basetransport import *
 from .explicitdg import *
+from .implicitdg import *
 from .implicitsupg import *
 from .known_solution_transport import *
 from .no_transport import *
