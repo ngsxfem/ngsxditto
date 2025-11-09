@@ -87,6 +87,6 @@ class BaseTransport(GFStepper):
     @property
     def field(self):
         """
-        Returns a **continuous** level-set field. This can be the GridFunction (or a part of it)
+        Returns a level-set field. This can be the GridFunction (or a part of it)
         """
         raise NotImplementedError("field not implemented")

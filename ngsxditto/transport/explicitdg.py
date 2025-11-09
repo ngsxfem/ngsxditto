@@ -44,14 +44,16 @@ class ExplicitDGTransport(BaseTransport):
             self.SetWind(wind)
 
         self.gfu = GridFunction(self.fes)
-        self.gfu_cont = GridFunction(self.fes_cont)
+        self.current = self.gfu
+        self.past = GridFunction(self.gfu.space)
+        self.intermediate = GridFunction(self.gfu.space)
+
         self.tempu = self.bfa.mat.CreateColVector()
     
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
         if self.time is not None:
             self.time.Set(initial_time)
         self.gfu.Set (initial_values)
-        self.gfu_cont.Set(self.gfu)
 
     def SetWind(self, wind: CoefficientFunction):
         u, v = self.u, self.v
@@ -90,25 +92,9 @@ class ExplicitDGTransport(BaseTransport):
         if self.time is not None:
             self.time.Set(self.time.Get() + self.dt)
         self.gfu.vec.data -= self.dt * self.invMA * self.tempu
-        self.gfu_cont.Set (self.gfu)
 
 
-    def Propagate(self, t_old: float, t_new: float):
-        n = (t_new - t_old) / self.dt
-        if (n - round(n)) > 1e-6:
-            raise Exception("timesteps not aligned - adaptivity not implemented")
-        for i in range(round(n)):
-            if self.time is not None:
-                self.time.Set(t_old + i * self.dt)
-            self.tempu.data = self.gfu.vec - 0.5 * self.dt * self.invMA * self.gfu.vec
-            if self.time is not None:
-                self.time.Set(t_old + (i+0.5) * self.dt)
-            self.gfu.vec.data -= self.dt * self.invMA * self.tempu
-        self.gfu_cont.Set(self.gfu)
-        # callback inside or outside?
-        for callback in self.callbacks:
-            callback()
 
     @property
     def field(self):
-        return self.gfu_cont
+        return self.gfu

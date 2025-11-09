@@ -72,23 +72,23 @@ class ImplicitDGTransport(BaseTransport):
         self.bfa = RestrictedBilinearForm(self.fes, element_restriction=self.active_elements,
                                           facet_restriction=self.active_facets, check_unused=False)
         self.bfa += u * v * dx(definedonelements=self.active_elements)
-        self.bfa += self.dt*(v * (wind | grad(u))).Compile() * dx(definedonelements=self.active_elements, bonus_intorder=1) # ! bonus_intorder=1 important, because integration order would be too low otherwise
+        self.bfa += self.dt*(v * (wind * grad(u))).Compile() * dx(definedonelements=self.active_elements, bonus_intorder=1) # ! bonus_intorder=1 important, because integration order would be too low otherwise
         skeleton_form1 = False
         if skeleton_form1:
-            self.bfa += self.dt*( - (wind|n) * (u-self.nobnd_facets_ind *u.Other()) * IfPos((wind|n), v.Other(), v) ).Compile() * dx(skeleton=True,definedonelements=self.inner_facets)
-            self.bfa += self.dt*( - (wind|n) * u * IfPos((wind|n), v.Other(), v) ).Compile() * dx(skeleton=True,definedonelements=self.bnd_facets)
+            self.bfa += self.dt*( - (wind*n) * (u-self.nobnd_facets_ind *u.Other()) * IfPos((wind*n), v.Other(), v) ).Compile() * dx(skeleton=True,definedonelements=self.inner_facets)
+            self.bfa += self.dt*( - (wind*n) * u * IfPos((wind*n), v.Other(), v) ).Compile() * dx(skeleton=True,definedonelements=self.bnd_facets)
             ####ds-skeleton terms are missing ?!
         else:
-            self.bfa += self.dt*(- IfPos((wind|n), 0, (wind|n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
+            self.bfa += self.dt*(- IfPos((wind*n), 0, (wind*n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
 
         self.lf = LinearForm(self.fes)
         self.lf += ( self.past * v).Compile() * dx(definedonelements=self.active_elements)
         skeleton_form2 = False
         if skeleton_form2:
-            self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.past * v)).Compile() * dx(skeleton=True,definedonelements=self.bnd_facets, bonus_intorder=0)  # integral on boundary facets
+            self.lf += -self.dt*(IfPos((wind*n), 0, (wind*n) * self.past * v)).Compile() * dx(skeleton=True,definedonelements=self.bnd_facets, bonus_intorder=0)  # integral on boundary facets
         else:
-            self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.past * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=0)  # integral on boundary facets
-            #self.lf += -(IfPos((wind|n), 0, (wind|n) * self.inflow_values * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
+            self.lf += -self.dt*(IfPos((wind*n), 0, (wind*n) * self.past * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=0)  # integral on boundary facets
+            #self.lf += -(IfPos((wind*n), 0, (wind*n) * self.inflow_values * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
 
     def SetTimeStepSize(self, dt: float):
         self.dt = dt

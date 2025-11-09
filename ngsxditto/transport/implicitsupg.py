@@ -43,6 +43,9 @@ class ImplicitSUPGTransport(BaseTransport):
             self.SetWind(wind)
 
         self.gfu = GridFunction(self.fes)
+        self.current = self.gfu
+        self.past = GridFunction(self.gfu.space)
+        self.intermediate = GridFunction(self.gfu.space)
 
 
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
@@ -68,30 +71,20 @@ class ImplicitSUPGTransport(BaseTransport):
         self.bfa = BilinearForm(self.fes, symmetric=False)
         self.bfa += self.mass_term
         self.bfa += self.dt/2 * self.conv
-        self.bfa.Assemble()
 
-        self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd)
-        self.rhs = BilinearForm(self.fes, symmetric=False)
+        self.rhs = BilinearForm(self.fes)
         self.rhs += self.mass_term
         self.rhs += -self.dt / 2 * self.conv
-        self.rhs.Assemble()
 
     def SetTimeStepSize(self, dt: float):
         self.dt = dt
-        self.bfa = BilinearForm(self.fes, symmetric=False)
-        self.bfa += self.mass_term
-        self.bfa += self.dt/2 * self.conv
-        self.bfa.Assemble()
-
-        self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd)
-        self.rhs = BilinearForm(self.fes, symmetric=False)
-        self.rhs += self.mass_term
-        self.rhs += -self.dt / 2 * self.conv
-        self.rhs.Assemble()
+        self.UpdateForms()
 
 
     def Step(self):
-        self.UpdateForms()
+        self.bfa.Assemble()
+        self.inv = self.bfa.mat.Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd)
+        self.rhs.Assemble()
         if self.time is not None:
             self.time.Set(self.time.Get() + self.dt)
         self.gfu.vec.data = self.inv @ self.rhs.mat * self.gfu.vec

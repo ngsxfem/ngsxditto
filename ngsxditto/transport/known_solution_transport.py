@@ -31,6 +31,11 @@ class KnownSolutionTransport(BaseTransport):
             self.time.Set(0)
         self.gfu.Set(self.true_solution)
 
+        self.current = self.gfu
+        self.past = GridFunction(self.gfu.space)
+        self.intermediate = GridFunction(self.gfu.space)
+
+
     def SetInitialValues(self, initial_values: CoefficientFunction=None, initial_time: float = 0.0):
         pass
 
