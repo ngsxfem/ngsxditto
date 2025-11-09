@@ -45,6 +45,7 @@ def test_with_autoredistancing():
     levelset.multistepper.RunFixedSteps(99)
     assert levelset.steps_since_last_redistancing == 99
     levelset.Step()
+    print(levelset.ShouldRedistance())
     assert levelset.steps_since_last_redistancing == 0
 
     assert Integrate((levelset.transport.field - true_circle)**2, mesh)**(1/2) < 0.1

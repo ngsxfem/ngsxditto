@@ -171,12 +171,12 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
         self.transport.Step() # step on auxiliary field (e.g. DG)
         self.ProjectToContinuous()
+        self.steps_since_last_redistancing += 1
         self.RedistanceIfNecessary()
         self.UpdateLinearApproximation()
         self.UpdateDeformation()
         self.UpdateCutInfo()
 
-        self.steps_since_last_redistancing += 1
         self.ProcessCallbacks()
 
 
