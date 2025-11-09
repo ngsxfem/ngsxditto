@@ -1,5 +1,3 @@
-
-
 class AutoRedistancing:
     """
     This is the base class for handling auto-redistancing algorithms.
@@ -47,6 +45,6 @@ class GradientRedistancing(AutoRedistancing):
         self.gradient_tester = gradient_tester
         self.gradient_bounds = gradient_bounds
 
-    def ShouldRedistance(self, levelset):
-        min_grad, max_grad = self.gradient_tester.MinMaxGradientNorm(levelset.transport.field)
+    def ShouldRedistance(self, lset):
+        min_grad, max_grad = self.gradient_tester.MinMaxGradientNorm(lset.transport.field)
         return self.gradient_bounds[0] >= min_grad and self.gradient_bounds[1] <= max_grad
