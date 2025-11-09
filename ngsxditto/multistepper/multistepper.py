@@ -18,7 +18,7 @@ class MultiStepper:
 
     def RunFixedSteps(self, n):
         """
-        Applies the OneStep function of the object a given number of times..
+        Applies the OneStep function of the object a given number of times.
         """
         with alive_bar(n, force_tty=True, title="Time stepping: ", bar='smooth') as bar:
             for _ in range(n):
