@@ -71,9 +71,9 @@ class LevelsetBasedExtension(StatelessStepper):
         f += (self.rhs * self.lset.n + self.q) * InnerProduct(z, n) * dS
         f.Assemble()
 
-        underformed_field = GridFunction(self.V)
-        underformed_field.vec.data = a.mat.Inverse(self.V.FreeDofs(), inverse=direct_solver_spd) * f.vec
+        deformed_lsetp1_field = GridFunction(self.V)
+        deformed_lsetp1_field.vec.data = a.mat.Inverse(self.V.FreeDofs(), inverse=direct_solver_spd) * f.vec
 
-        self.field.Set(shifted_eval(underformed_field, back=self.lset.deformation, forth=None))
+        self.field.Set(shifted_eval(deformed_lsetp1_field, back=self.lset.deformation, forth=None))
 
 
