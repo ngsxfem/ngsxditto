@@ -69,6 +69,9 @@ class TimeProgressInfo(ProgressInfo):
         """
         self.time.Set(self.time.Get() + self.dt)
 
+    def SetTimeStepSize(self, dt):
+        self.dt = dt
+
 
 class IterationProgressInfo(ProgressInfo):
     def __init__(self, n_end: int=10, n_start: int=0):
@@ -270,8 +273,12 @@ class TimeLoop(Solver):
             return self.time.Get() >= self.end_time - 0.1*self.dt
 
 
-        progress_info = TimeProgressInfo(self.time, self.end_time, dt)
-        super().__init__(stopping_rule=reached_final_time, progress_info=progress_info, should_finalize=should_finalize)
+        self.progress_info = TimeProgressInfo(self.time, self.end_time, self.dt)
+        super().__init__(stopping_rule=reached_final_time, progress_info=self.progress_info, should_finalize=should_finalize)
+
+    def SetTimeStepSize(self, dt):
+        self.dt = dt
+        self.progress_info.SetTimeStepSize(dt)
 
 
 
