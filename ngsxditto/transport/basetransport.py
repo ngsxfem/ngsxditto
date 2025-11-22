@@ -45,7 +45,11 @@ class BaseTransport(GFStepper):
         self.source = source
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
-        self.active_elements = active_elements
+        if active_elements is None:
+            self.active_elements = BitArray(mesh.ne)
+            self.active_elements[:] = True
+        else:
+            self.active_elements = active_elements
 
 
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):

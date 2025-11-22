@@ -39,11 +39,6 @@ class ImplicitDGTransport(BaseTransport):
         self.inner_facets = BitArray(mesh.nfacet)
         self.bnd_facets = BitArray(mesh.nfacet)
 
-        if active_elements is None:
-            self.active_elements = BitArray(mesh.ne)
-            self.active_elements[:] = True
-        else:
-            self.active_elements = active_elements
 
         self.gfu = GridFunction(self.fes)
         self.current = self.gfu
@@ -61,7 +56,7 @@ class ImplicitDGTransport(BaseTransport):
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
         if self.time is not None:
             self.time.Set(initial_time)
-        self.gfu.Set (initial_values) #, definedonelements=self.active_elements)
+        self.gfu.Set(initial_values) #, definedonelements=self.active_elements)
         self.ValidateStep()
 
 
@@ -83,7 +78,7 @@ class ImplicitDGTransport(BaseTransport):
             self.bfa += self.dt*(- IfPos((self.wind*n), 0, (self.wind*n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
 
         self.lf = LinearForm(self.fes)
-        self.lf += ( self.past * v).Compile() * dx(definedonelements=self.active_elements)
+        self.lf += (self.past * v).Compile() * dx(definedonelements=self.active_elements)
         skeleton_form2 = False
         if skeleton_form2:
             self.lf += -self.dt*(IfPos((self.wind*n), 0, (self.wind*n) * self.past * v)).Compile() * dx(skeleton=True,definedonelements=self.bnd_facets, bonus_intorder=0)  # integral on boundary facets
