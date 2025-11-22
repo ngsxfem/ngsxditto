@@ -1,6 +1,7 @@
 from ngsolve import *
 from .basetransport import BaseTransport
 from ngsxditto import direct_solver_spd, direct_solver_nonspd
+from xfem import *
 import typing
 
 # taken and adapted from NGSolve's modeltemplates
@@ -10,7 +11,8 @@ class ExplicitDGTransport(BaseTransport):
     This class propagates a function along a given velocity field (wind) using the Runge-Kutta-2 discretization
     in time and the DG or HDG method as space discretization.
     """
-    def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order: int=2, source=None, usetrace: bool=True, compile=False):
+    def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order: int=2, source=None, usetrace: bool=True,
+                 compile=False, active_elements: typing.Optional[BitArray] = None):
         """
         Initializes the transport object with the given parameters.
 
@@ -29,58 +31,85 @@ class ExplicitDGTransport(BaseTransport):
         usetrace: bool
             If True use a HDG discretization in space. If false use a DG discretization.
         """
-        super().__init__(mesh, wind, inflow_values, dt, source, order=order)
+        super().__init__(mesh, wind, inflow_values, dt, source, order=order, active_elements=active_elements)
 
         self.usetrace = usetrace
         self.compile = compile
-        self.fes = L2(mesh, order=order, all_dofs_together=True)
-        self.fes_cont = H1(mesh, order=order)
+        self.fes = L2(mesh, order=order, all_dofs_together=True, dgjumps=True)
         self.u, self.v = self.fes.TnT()
-        self.bfa = BilinearForm(self.fes, nonassemble=True)
-        self.invmass = self.fes.Mass(rho=1).Inverse()
+        self.bfa = None
+        self.mass = None
+        self.invmass = None
         self.invMA = None
-        self.wind = wind
-        if wind is not None:
-            self.SetWind(wind)
+        self.tempu = None
+
 
         self.gfu = GridFunction(self.fes)
         self.current = self.gfu
         self.past = GridFunction(self.gfu.space)
         self.intermediate = GridFunction(self.gfu.space)
 
-        self.tempu = self.bfa.mat.CreateColVector()
+        self.active_facets = BitArray(mesh.nfacet)
+        self.inner_facets = BitArray(mesh.nfacet)
+        self.bnd_facets = BitArray(mesh.nfacet)
+
+        self.bnd_facets_ind = GridFunction(FacetFESpace(mesh,order=0))
+        self.nobnd_facets_ind = IfPos(self.bnd_facets_ind, 0, 1)
+        self.wind = wind
+        if wind is not None:
+            self.SetWind(wind)
+
     
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
         if self.time is not None:
             self.time.Set(initial_time)
         self.gfu.Set (initial_values)
+        self.ValidateStep()
 
     def SetWind(self, wind: CoefficientFunction):
         u, v = self.u, self.v
         fes = self.fes
+        self.mass = RestrictedBilinearForm(fes, element_restriction=self.active_elements,
+                                          facet_restriction=self.active_facets, check_unused=False)
+        self.mass += u * v * dx(definedonelements=self.active_elements)
+        self.mass.Assemble(reallocate=True)
+        freedofs = GetDofsOfElements(self.fes, self.active_elements)
+
+        self.invmass = self.mass.mat.Inverse(freedofs=freedofs)
+
+        self.tempu = self.mass.mat.CreateColVector()
+
+        wn = wind * specialcf.normal(self.mesh.dim)
 
         if not self.usetrace:
-            self.bfa = BilinearForm(fes, nonassemble=True)
-            self.bfa += -u * wind * grad(v) * dx
-            wn = wind * specialcf.normal(self.mesh.dim)
-            self.bfa += (wn * IfPos(wn, u, u.Other(bnd=self.inflow_values)) * v).Compile(self.compile, wait=True) * dx(
-                element_boundary=True)
-            aop = self.bfa.mat
+            self.bfa = RestrictedBilinearForm(fes, element_restriction=self.active_elements,
+                                          facet_restriction=self.active_facets, check_unused=False)
+
+
+            self.bfa += -u * wind * grad(v) * dx(definedonelements=self.active_elements, bonus_intorder=1)
+            self.bfa += (wn * IfPos(wn, self.nobnd_facets_ind*u, self.nobnd_facets_ind*u.Other()) * v).Compile(self.compile, wait=True) * dx(
+                element_boundary=True, definedonelements=self.active_elements)
+
+            self.bfa += (wn * u * v).Compile(self.compile, wait=True) * ds(
+                skeleton=True, definedonelements=self.bnd_facets)
+
+
         else:
-            fes_trace = Discontinuous(FacetFESpace(self.mesh, order=self.order))
-            utr, vtr = fes_trace.TnT()
-            trace = fes.TraceOperator(fes_trace, False)
+            self.fes_trace = FacetFESpace(self.mesh, order=self.order, dgjumps=True)
+            utr, vtr = self.fes_trace.TnT()
 
-            self.bfa = BilinearForm(fes, nonassemble=True)
-            self.bfa += -u * wind * grad(v) * dx
+            self.bfa = RestrictedBilinearForm(fes, element_restriction=self.active_elements,
+                                          facet_restriction=self.active_facets, check_unused=False)
+            self.bfa += -u * wind * grad(v) * dx(definedonelements=self.active_elements, bonus_intorder=1)
+            self.bfa += wn * IfPos(wn, u, 0) * v *dx(element_boundary=True, definedonelements=self.active_elements)
 
-            self.bfa_trace = BilinearForm(fes_trace, nonassemble=True)
-            wn = wind * specialcf.normal(self.mesh.dim)
+            self.bfa_trace = RestrictedBilinearForm(self.fes_trace, element_restriction=self.active_elements,
+                                          facet_restriction=self.active_facets, check_unused=False)
+
             self.bfa_trace += ((wn * IfPos(wn, utr, utr.Other(bnd=self.inflow_values)) * vtr).Compile(
-                self.compile,wait=True) * dx(element_boundary=True))
+                self.compile,wait=True) * dx(element_boundary=True, definedonelements=self.active_elements))
+            self.bfa_trace += wn * IfPos(wn, utr * vtr, 0) * ds(skeleton=True, definedonelements=self.bnd_facets)
 
-            aop = self.bfa.mat + trace.T @ self.bfa_trace.mat @ trace
-        self.invMA = self.invmass @ aop
 
 
     def SetTimeStepSize(self, dt: float):
@@ -88,11 +117,31 @@ class ExplicitDGTransport(BaseTransport):
 
 
     def Step(self):
-        self.tempu.data = self.gfu.vec - 0.5 * self.dt * self.invMA * self.gfu.vec
         if self.time is not None:
             self.time.Set(self.time.Get() + self.dt)
-        self.gfu.vec.data -= self.dt * self.invMA * self.tempu
 
+        self.bnd_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=~self.active_elements,
+                                                        bnd_val_a=False, bnd_val_b=True)
+        self.bnd_facets_ind.vec[:] = 0
+        self.bnd_facets_ind.vec[self.bnd_facets] = 1
+
+        self.active_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=self.active_elements, use_and=False)
+        self.inner_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=self.active_elements, use_and=True)
+
+        freedofs = GetDofsOfElements(self.fes, self.active_elements)
+
+        self.bfa.Assemble(reallocate=True)
+        if self.usetrace:
+            self.bfa_trace.Assemble(reallocate=True)
+            trace = self.fes.TraceOperator(self.fes_trace, False)
+            aop = self.bfa.mat + trace.T @ self.bfa_trace.mat @ trace
+        else:
+            aop = self.bfa.mat
+
+        self.invMA = self.invmass @ aop
+
+        self.tempu.data = Projector(freedofs,range=True) * self.past.vec - 0.5 * self.dt * self.invMA * self.past.vec
+        self.gfu.vec.data = Projector(freedofs,range=True) * self.past.vec - self.dt * self.invMA * self.tempu
 
 
     @property
