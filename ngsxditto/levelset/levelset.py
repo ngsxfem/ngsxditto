@@ -178,7 +178,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         """
         print("The next function is redistanced")
         self.redistancing.Redistance(self.field)
-        self.transport.gfu.Set(self.field)
+        if hasattr(self.transport, 'gfu_cont'):
+            self.transport.gfu.Set(self.field)
         self.steps_since_last_redistancing = 0
 
     def RedistanceIfNecessary(self):
