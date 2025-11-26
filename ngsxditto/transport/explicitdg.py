@@ -89,9 +89,14 @@ class ExplicitDGTransport(BaseTransport):
             self.bfa += -u * wind * grad(v) * dx(definedonelements=self.active_elements, bonus_intorder=1)
             self.bfa += (wn * IfPos(wn, self.nobnd_facets_ind*u, self.nobnd_facets_ind*u.Other()) * v).Compile(self.compile, wait=True) * dx(
                 element_boundary=True, definedonelements=self.active_elements)
-
-            self.bfa += (wn * u * v).Compile(self.compile, wait=True) * ds(
+            if self.inflow_values is not None:
+                self.bfa += (wn * IfPos(wn, u, self.inflow_values) * v).Compile(self.compile, wait=True) * ds(
                 skeleton=True, definedonelements=self.bnd_facets)
+
+            else:
+                self.bfa += (wn * u * v).Compile(self.compile, wait=True) * ds(
+                skeleton=True, definedonelements=self.bnd_facets)
+
 
 
         else:
