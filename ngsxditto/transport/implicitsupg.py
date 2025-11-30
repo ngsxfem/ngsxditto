@@ -62,8 +62,6 @@ class ImplicitSUPGTransport(BaseTransport):
             self.SetWind(wind)
 
 
-
-
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
         if self.time is not None:
             self.time.Set(initial_time)
@@ -85,11 +83,13 @@ class ImplicitSUPGTransport(BaseTransport):
         self.mass_term = u * (v + self.gamma * self.wind * grad(v)) * dx(definedonelements=self.active_elements)
         self.conv = self.wind * grad(u) * (v + self.gamma * self.wind * grad(v)) * dx(definedonelements=self.active_elements)
 
-        self.bfa = BilinearForm(self.fes, symmetric=False)
+        self.bfa = RestrictedBilinearForm(self.fes, element_restriction=self.active_elements,
+                                          facet_restriction=self.active_facets, check_unused=False)
         self.bfa += self.mass_term
         self.bfa += self.dt/2 * self.conv
 
-        self.rhs = BilinearForm(self.fes)
+        self.rhs = RestrictedBilinearForm(self.fes, element_restriction=self.active_elements,
+                                          facet_restriction=self.active_facets, check_unused=False)
         self.rhs += self.mass_term
         self.rhs += -self.dt / 2 * self.conv
 
