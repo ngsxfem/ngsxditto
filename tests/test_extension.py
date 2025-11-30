@@ -1,7 +1,7 @@
 from ngsolve import *
 from ngsxditto import *
-from ngsxditto.new_xfem_functions import *
-
+from xfem import *
+from xfem.utils import *
 
 
 domain = MoveTo(-1, -1).Rectangle(2, 2).Face()

@@ -68,6 +68,7 @@ class ImplicitSUPGTransport(BaseTransport):
         if self.time is not None:
             self.time.Set(initial_time)
         self.gfu.Set(initial_values)
+        self.ValidateStep()
 
     def SetWind(self, wind: CoefficientFunction):
         self.wind = wind

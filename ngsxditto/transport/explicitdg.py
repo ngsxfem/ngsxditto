@@ -1,6 +1,7 @@
 from ngsolve import *
 from .basetransport import BaseTransport
 from ngsxditto import direct_solver_spd, direct_solver_nonspd
+from xfem.utils import *
 from xfem import *
 import typing
 
@@ -31,6 +32,9 @@ class ExplicitDGTransport(BaseTransport):
         usetrace: bool
             If True use a HDG discretization in space. If false use a DG discretization.
         """
+        if usetrace and active_elements is not None:
+            raise NotImplementedError("Narrow band transport not yet implemented for HDG methods. Set usetrace=False or active_elements=None")
+
         super().__init__(mesh, wind, inflow_values, dt, source, order=order, active_elements=active_elements)
 
         self.usetrace = usetrace
@@ -94,13 +98,11 @@ class ExplicitDGTransport(BaseTransport):
                 self.bfa += (wn * IfPos(wn, u, self.inflow_values) * v).Compile(self.compile, wait=True) * ds(
                 skeleton=True, definedonelements=self.active_facets)
             else:
-                self.bfa += (wn * u * v).Compile(self.compile, wait=True) * dx(
-                skeleton=True, definedonelements=self.bnd_facets)
+                self.bfa += (wn * u * v).Compile(self.compile, wait=True) * ds(
+                skeleton=True)#, definedonelements=self.bnd_facets)
 
 
         else:
-            if self.active_elements is not None:
-                raise NotImplementedError("Narrow band transport not yet implemented for HDG methods. Set usetrace=False.")
             self.fes_trace = Discontinuous(FacetFESpace(self.mesh, order=self.order))
             utr, vtr = self.fes_trace.TnT()
 
@@ -132,12 +134,12 @@ class ExplicitDGTransport(BaseTransport):
 
         freedofs = GetDofsOfElements(self.fes, self.active_elements)
 
-        self.bfa.Assemble(reallocate=True)
         if self.usetrace:
-            self.bfa_trace.Assemble(reallocate=True)
+            #self.bfa_trace.Assemble(reallocate=True)
             trace = self.fes.TraceOperator(self.fes_trace, False)
             aop = self.bfa.mat + trace.T @ self.bfa_trace.mat @ trace
         else:
+            self.bfa.Assemble(reallocate=True)
             aop = self.bfa.mat
 
         self.invMA = self.invmass @ aop

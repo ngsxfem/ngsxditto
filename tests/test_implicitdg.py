@@ -1,10 +1,10 @@
 from ngsxditto import LevelSetGeometry, TimeLoop
 from ngsxditto.transport import *
 from ngsxditto.extension import ElementBasedExtension
-from ngsxditto.new_xfem_functions import *
 from ngsolve import *
 from netgen.geom2d import SplineGeometry
 from xfem.lsetcurv import *
+from xfem import *
 import pytest
 
 
