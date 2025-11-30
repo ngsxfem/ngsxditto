@@ -89,31 +89,28 @@ class ExplicitDGTransport(BaseTransport):
             self.bfa += -u * wind * grad(v) * dx(definedonelements=self.active_elements, bonus_intorder=1)
             self.bfa += (wn * IfPos(wn, self.nobnd_facets_ind*u, self.nobnd_facets_ind*u.Other()) * v).Compile(self.compile, wait=True) * dx(
                 element_boundary=True, definedonelements=self.active_elements)
+
             if self.inflow_values is not None:
                 self.bfa += (wn * IfPos(wn, u, self.inflow_values) * v).Compile(self.compile, wait=True) * ds(
-                skeleton=True, definedonelements=self.bnd_facets)
-
+                skeleton=True, definedonelements=self.active_facets)
             else:
-                self.bfa += (wn * u * v).Compile(self.compile, wait=True) * ds(
+                self.bfa += (wn * u * v).Compile(self.compile, wait=True) * dx(
                 skeleton=True, definedonelements=self.bnd_facets)
-
 
 
         else:
-            self.fes_trace = FacetFESpace(self.mesh, order=self.order, dgjumps=True)
+            if self.active_elements is not None:
+                raise NotImplementedError("Narrow band transport not yet implemented for HDG methods. Set usetrace=False.")
+            self.fes_trace = Discontinuous(FacetFESpace(self.mesh, order=self.order))
             utr, vtr = self.fes_trace.TnT()
 
-            self.bfa = RestrictedBilinearForm(fes, element_restriction=self.active_elements,
-                                          facet_restriction=self.active_facets, check_unused=False)
-            self.bfa += -u * wind * grad(v) * dx(definedonelements=self.active_elements, bonus_intorder=1)
-            self.bfa += wn * IfPos(wn, u, 0) * v *dx(element_boundary=True, definedonelements=self.active_elements)
+            self.bfa = BilinearForm(fes, nonassemble=True)
+            self.bfa += -u * wind * grad(v) * dx
 
-            self.bfa_trace = RestrictedBilinearForm(self.fes_trace, element_restriction=self.active_elements,
-                                          facet_restriction=self.active_facets, check_unused=False)
-
+            self.bfa_trace = BilinearForm(self.fes_trace, nonassemble=True)
+            wn = wind * specialcf.normal(self.mesh.dim)
             self.bfa_trace += ((wn * IfPos(wn, utr, utr.Other(bnd=self.inflow_values)) * vtr).Compile(
-                self.compile,wait=True) * dx(element_boundary=True, definedonelements=self.active_elements))
-            self.bfa_trace += wn * IfPos(wn, utr * vtr, 0) * ds(skeleton=True, definedonelements=self.bnd_facets)
+                self.compile,wait=True) * dx(element_boundary=True))
 
 
 
