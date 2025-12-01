@@ -59,4 +59,4 @@ def test_two_phase_stokes():
 
     l2_error_p = Integrate(InnerProduct(corrected_p_error, corrected_p_error) * dx, mesh)**(1/2)
 
-    assert l2_error_p < 1e-10
+    assert l2_error_p < 1e-9

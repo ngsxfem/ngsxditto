@@ -155,7 +155,7 @@ class H1Conforming(FluidDiscretization):
 
         self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.stokes_op += self.stokes_term
-        self.stokes_op += (1e-8 * u * v) * dx_neg    # regularize for translation uniqueness
+        self.stokes_op += (1e-6 * u * v) * dx_neg    # regularize for translation uniqueness
         self.stokes_op.Assemble(reallocate=True)
 
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
