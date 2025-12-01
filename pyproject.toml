@@ -6,7 +6,7 @@ authors = [{ name = "Christoph Lehrenfeld, Mika Meyer, Maximilian Zienecker", em
 dependencies = [
     "ngsolve",
     "xfem",
-    "alive-progress"
+    "alive-progress",
     "scipy"
 ]
 
