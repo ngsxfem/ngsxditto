@@ -7,7 +7,7 @@ dependencies = [
     "ngsolve",
     "xfem",
     "alive-progress"
-    # "scipy"
+    "scipy"
 ]
 
 [build-system]
