@@ -15,10 +15,10 @@ class ElementBasedExtensionOperator(BaseMatrix):
     to another submesh using  a harmonic extension based on 
     a ghost-penalty(-like) bilinear form which yields a smooth extensions.
 
-    Before application of the operator the extension needs to be updated 
-    by calling the method `Update()`.    
+    Before application of the operator the extension needs to be updated
+    by calling the method `Update()`.
     """
-    def __init__(self, fes : FESpace, supportelems : BitArray, targetelems : BitArray, 
+    def __init__(self, fes : FESpace, supportelems : BitArray, targetelems : BitArray,
                  deformation=None,
                  dirichlet_dofs : BitArray = None,
                  energyform = None, activeelems : BitArray = None,
@@ -94,8 +94,8 @@ class ElementBasedExtensionOperator(BaseMatrix):
                 raise Exception("Either activefacets or activeelems must be provided if energyform is not None!")
         self.dirichlet_dofs = dirichlet_dofs
 
-        self.blf = RestrictedBilinearForm(self.fes, symmetric=not self.customenergyform, 
-                                          facet_restriction=self.activefacets, 
+        self.blf = RestrictedBilinearForm(self.fes, symmetric=not self.customenergyform,
+                                          facet_restriction=self.activefacets,
                                           element_restriction=self.activeelems, check_unused=False)
         self.blf += self.energyform
         self.initialized = False
@@ -111,7 +111,7 @@ class ElementBasedExtensionOperator(BaseMatrix):
             AddNeighborhood(self.filtered_support, self.adjacency, layers=1, inplace=True)
             self.filtered_support &= self.supportelems
             self.filtered_support_or_target[:] = self.filtered_support | self.filtered_target
-            self.activefacets[:] = GetFacetsWithNeighborTypes(self.mesh, a= self.filtered_support_or_target, 
+            self.activefacets[:] = GetFacetsWithNeighborTypes(self.mesh, a= self.filtered_support_or_target,
                                                               b= self.filtered_support_or_target,
                                                               bnd_val_a=False, bnd_val_b=False, use_and=True)
 
@@ -126,12 +126,14 @@ class ElementBasedExtensionOperator(BaseMatrix):
         self.target_dofs[:] = GetDofsOfElements(self.fes, self.filtered_target)
         self.target_dofs &= ~self.support_dofs
 
-        self.blf.Assemble(reallocate=True)
+        with TaskManager():
+            self.blf.Assemble(reallocate=True)
 
-        if self.customenergyform:
-            self.inverse = self.blf.mat.Inverse(freedofs=self.target_dofs, inverse=direct_solver_nonspd)
-        else:
-            self.inverse = self.blf.mat.Inverse(freedofs=self.target_dofs, inverse=direct_solver_spd)
+        with TaskManager():
+            if self.customenergyform:
+                self.inverse = self.blf.mat.Inverse(freedofs=self.target_dofs, inverse=direct_solver_nonspd)
+            else:
+                self.inverse = self.blf.mat.Inverse(freedofs=self.target_dofs, inverse=direct_solver_spd)
 
         self.initialized = True
         return self
@@ -164,7 +166,7 @@ class ElementBasedExtension(StatelessStepper):
     extension_operator: ElementBasedExtensionOperator
         The ElementBasedExtensionOperator used for the extension.
 
-    or alternatively the contructor arguments of an ElementBasedExtensionOperator 
+    or alternatively the contructor arguments of an ElementBasedExtensionOperator
     (in this case the ElementBasedExtension holds his own operator object)
     """
 

@@ -5,8 +5,9 @@ description = "ngsxditto -- application framework for level-set based unfitted d
 authors = [{ name = "Christoph Lehrenfeld, Mika Meyer, Maximilian Zienecker", email = "lehrenfeld@math.uni-goettingen.de" }]
 dependencies = [
     "ngsolve",
-    "xfem",
-    "alive-progress"
+    "xfem>=2.1.2507.dev26",
+    "alive-progress",
+    "scipy"
 ]
 
 [build-system]

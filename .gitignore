@@ -3,6 +3,7 @@ examples/ngsxditto
 build
 dist
 .vscode/*
+.venv**/**
 workspace.code-workspace
 **/*.html
 **/*.trace
