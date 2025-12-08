@@ -19,6 +19,7 @@ class ScottVogelius(H1Conforming):
         """
         Initializes the Scott-Vogelius discretization with the given parameters and levelset.
         """
+        raise NotImplementedError("Scott-Vogelius discretization is not yet implemented.")
         if order < 4:
             print("WARNING: Scott-Vogelius for order < 4 is not stable on all meshes.")
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params,

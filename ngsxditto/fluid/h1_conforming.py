@@ -13,10 +13,10 @@ class H1Conforming(FluidDiscretization):
     This class handles all H1-conforming fluid discretizations.
     """
     def __init__(self, mesh, fluid_params: FluidParameters, order=4, lset:LevelSetGeometry=None,
-                 wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None,
-                 f: CoefficientFunction = None, g: CoefficientFunction = CF(0),
+                 wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None, add_convection:bool=False,
+                 fix_point_eps:float = 1e-2, f: CoefficientFunction = None, g: CoefficientFunction = CF(0),
                  surface_tension: CoefficientFunction = None, dt=None,
-                 nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2):
+                 nitsche_stab:int=100, ghost_stab:int=1, extension_radius:float=0.2):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -49,7 +49,8 @@ class H1Conforming(FluidDiscretization):
             Radius of the zero levelset on which the domain is extended.
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
-                         surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet)
+                         surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet, add_convection=add_convection,
+                         fix_point_eps=fix_point_eps)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
@@ -104,15 +105,24 @@ class H1Conforming(FluidDiscretization):
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
 
     def InitializeForms(self):
+        self.AssembleLf()
+
+        if self.add_convection:
+            self.AssembleConvection()
+
+        self.AssembleStokes()
+
+        self.AssembleInvertTimeStepping()
+
+    def AssembleLf(self):
         (u, p, r), (v, q, s) = self.fes.TnT()
-        X = self.fes
         h = specialcf.mesh_size
         n = self.lset.n
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
 
-        self.lf = LinearForm(X)
+        self.lf = LinearForm(self.fes)
         self.lf += self.rho * self.f * v * dx_neg
         self.lf += self.g * q * dx_neg
 
@@ -129,41 +139,63 @@ class H1Conforming(FluidDiscretization):
 
         self.lf.Assemble()
 
-        self.mass = u * v * dx_neg
+    def AssembleStokes(self):
+        (u, p, r), (v, q, s) = self.fes.TnT()
+        h = specialcf.mesh_size
+        n = self.lset.n
 
+        dx_neg = self.lset.dx_neg
+        dS = self.lset.dS
         dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
 
         basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - p * div(v) - q * div(u)) * dx_neg
 
-        nitsche = (-grad(u) * n * v - grad(v) * n * u + self.nitsche_stab / h * u * v) * dS
 
-        ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
+        ghost_u = 1/h ** 2 * (u - u.Other()) * (v - v.Other()) * dw
         ghost_p = (p - p.Other()) * (q - q.Other()) * dw
 
         ghost_penalty = self.ghost_stab * ghost_u - self.ghost_stab * ghost_p
 
-
         self.stokes_term = basic_stokes + ghost_penalty
         if self.if_dirichlet is not None:
+            nitsche = (-grad(u) * n * v - grad(v) * n * u + self.nitsche_stab / h * u * v) * dS
             self.stokes_term += nitsche
-            self.stokes_term += (p*v*n + q*u*n)*dS
+            self.stokes_term += (p * v * n + q * u * n) * dS
 
         if False:
-            self.stokes_term += (p*s + q*r) * dx_neg
+            self.stokes_term += (p * s + q * r) * dx_neg
         else:
             self.fes.FreeDofs()[-1] = False
 
-        self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
+        self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
+                                                facet_restriction=self.facets_ring, check_unused=False)
         self.stokes_op += self.stokes_term
-        self.stokes_op += (1e-6 * u * v) * dx_neg    # regularize for translation uniqueness
+        self.stokes_op += (1e-6 * u * v) * dx_neg  # regularize for translation uniqueness
         self.stokes_op.Assemble(reallocate=True)
 
+    def AssembleConvection(self):
+        (u, p, r), (v, q, s) = self.fes.TnT()
+        dx_neg = self.lset.dx_neg
+
+        self.conv = (grad(u) * self.intermediate.components[0]) * v * dx_neg
+
+        self.conv_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
+        self.conv_op += self.conv
+        self.conv_op.Assemble(reallocate=True)
+
+
+    def AssembleInvertTimeStepping(self):
+        (u, p, r), (v, q, s) = self.fes.TnT()
+        dx_neg = self.lset.dx_neg
+
+        self.mass = u * v * dx_neg
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.m_star += self.rho * self.mass + self.dt * self.stokes_term
+        if self.add_convection:
+            self.m_star += self.dt * self.conv
         self.m_star.Assemble(reallocate=True)
 
         self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs(), inverse=direct_solver_nonspd)
-
 
     def SolveStokes(self):
         gfup = GridFunction(self.fes)
@@ -179,10 +211,26 @@ class H1Conforming(FluidDiscretization):
     def Step(self):
         if self.time is not None:
             self.time += self.dt
+        if not self.add_convection:
+            res = self.lf.vec - self.stokes_op.mat * self.gfup.vec
+            self.gfup.vec.data += self.dt * self.inv * res
 
-        res = self.lf.vec - self.stokes_op.mat * self.gfup.vec
-        self.gfup.vec.data += self.dt * self.inv * res
+        else:
+            count = 0
+            while True:
+                count += 1
+                self.AssembleConvection()
+                self.AssembleInvertTimeStepping()
+                res = self.lf.vec - self.stokes_op.mat * self.gfup.vec - self.conv_op.mat * self.gfup.vec
+                self.gfup.vec.data += self.dt * self.inv * res
+                diff_to_intermediate = self.ComputeDifference2Intermediate()
+                if diff_to_intermediate <= self.fix_point_eps:
+                    break
+                self.RevertStep()
 
+                if count >= 20:
+                    print("Fix point iteration did not converge after 20 iterations. Difference to previous step was", diff_to_intermediate)
+                    break
 
     def SetTimeStepSize(self, dt):
         self.dt = dt

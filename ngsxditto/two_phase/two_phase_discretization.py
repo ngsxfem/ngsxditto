@@ -3,12 +3,13 @@ from ngsxditto.stepper import *
 from ngsolve import *
 import typing
 
-class TwoPhaseDiscretization(StatefulStepper):
+class TwoPhaseDiscretization(GFStepper):
     """
     Base class for two-phase fluid discretizations.
     """
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order: int = 4,
                  lset = None, if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None,
+                 add_convection:bool = False, fix_point_eps:float = 1e-2,
                  f1:CoefficientFunction=None, f2: CoefficientFunction=None,
                  g1: CoefficientFunction=CF(0), g2: CoefficientFunction=CF(0),
                  surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
@@ -58,6 +59,9 @@ class TwoPhaseDiscretization(StatefulStepper):
         else:
             self.SetLevelSet(lset)
 
+        self.add_convection = add_convection
+        self.fix_point_eps = fix_point_eps
+
         self.if_dirichlet = if_dirichlet
         self.wall_params = wall_params
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
@@ -81,7 +85,7 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.gfu = None
         self.gfp = None
         self.gfn = None
-        self.a = None
+        self.stokes_op = None
         self.lf = None
         self.conv = None
         self.m_star = None
@@ -146,7 +150,6 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.ApplyBoundaryConditions()
         self.InitializeForms()
         self.SetInitialValues(initial_velocity1, initial_velocity2, initial_pressure1, initial_pressure2)
-        self.ValidateStep()
 
 
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
@@ -191,6 +194,7 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
         self.gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
+
     def InitializeSpaces(self):
         """
         Initializes the Finite element spaces.
@@ -219,8 +223,8 @@ class TwoPhaseDiscretization(StatefulStepper):
         self.lset = lset
         if self.UpdateActiveDofs not in lset.callbacks:
             self.lset.callbacks.append(self.UpdateActiveDofs)
-        #if self.InitializeForms not in lset.callbacks:
-        #    self.lset.callbacks.append(self.InitializeForms)
+        if self.InitializeForms not in lset.callbacks:
+            self.lset.callbacks.append(self.InitializeForms)
 
     def SetTimeStepSize(self, dt):
         """
@@ -234,24 +238,11 @@ class TwoPhaseDiscretization(StatefulStepper):
         return difference in velocity L2(Omega_tilde) norm where
         Omega_tilde is the background mesh
         """
-        return Integrate((self.current.components[0] - self.intermediate.components[0])**2 * dx,
-                         self.mesh)**(1/2)
+        inner_integal = Integrate((self.current.components[0].components[0] -
+                                   self.intermediate.components[0].components[0])**2 * self.lset.dx_neg,self.mesh)
+        outer_integral = Integrate((self.current.components[0].components[1] -
+                                   self.intermediate.components[0].components[1])**2 * self.lset.dx_pos,self.mesh)
+        return (inner_integal + outer_integral)**(1/2)
 
     def Step(self):
         raise NotImplementedError("Step only implemented in subclasses.")
-
-
-    # Temporary functions to be replaced with better implementation.
-    def InitializeGfu(self):
-        raise NotImplementedError("InitializeGfu implemented in subclasses")
-
-    def UpdateGfuDofs(self):
-        raise NotImplementedError("UpdateGfuDofs implemented in subclasses")
-
-    def InitializeBaseSpaces(self):
-        raise NotImplementedError("InitializeBaseSpaces implemented in subclasses")
-
-    def InitializeCombinedSpace(self):
-        raise NotImplementedError("InitializeCombinedSpace implemented in subclasses")
-
-

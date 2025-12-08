@@ -13,6 +13,7 @@ class TwoPhaseScottVogelius(TwoPhaseH1Conforming):
         """
         Initializes the Two-Phase Taylor-Hood discretization with the given parameters and levelset.
         """
+        raise NotImplementedError("TwoPhaseScottVogelius not yet implemented.")
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order,
                          if_dirichlet=if_dirichlet, lset=lset,wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2,
                          surface_tension=surface_tension, dt=dt, nitsche_stab=nitsche_stab, ghost_stab=ghost_stab,

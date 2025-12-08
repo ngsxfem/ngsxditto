@@ -15,8 +15,8 @@ class FluidDiscretization(GFStepper):
     """
     DEFAULT_DT = 1e-3
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
-                 if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None,
-                 f:CoefficientFunction=None, g: CoefficientFunction=CF(0),
+                 if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None, add_convection:bool = False,
+                 fix_point_eps:float = 1e-2, f:CoefficientFunction=None, g: CoefficientFunction=CF(0),
                  surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
@@ -52,6 +52,8 @@ class FluidDiscretization(GFStepper):
         self.fluid_params = fluid_params
         self.order = order
         self.if_dirichlet = if_dirichlet
+        self.add_convection = add_convection
+        self.fix_point_eps = fix_point_eps
 
         if lset is None:
             self.lset = DummyLevelSet(mesh)
@@ -94,7 +96,7 @@ class FluidDiscretization(GFStepper):
 
 
     def Initialize(self, dirichlet:dict=None, neumann:dict=None,
-                   initial_velocity:CoefficientFunction=None,
+                   initial_velocity:CoefficientFunction=CF((0, 0)),
                    initial_pressure:CoefficientFunction=CF(0)):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
@@ -120,8 +122,7 @@ class FluidDiscretization(GFStepper):
         self.ApplyBoundaryConditions()
         self.UpdateActiveDofs()
         self.InitializeForms()
-        if initial_velocity is not None:
-            self.SetInitialValues(initial_velocity, initial_pressure)
+        self.SetInitialValues(initial_velocity, initial_pressure)
 
 
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
@@ -193,9 +194,9 @@ class FluidDiscretization(GFStepper):
         """
         self.lset = lset
         if self.UpdateActiveDofs not in lset.callbacks:
-            lset.callbacks.append(self.UpdateActiveDofs)
+            self.lset.callbacks.append(self.UpdateActiveDofs)
         if self.InitializeForms not in lset.callbacks:
-            lset.callbacks.append(self.InitializeForms)
+            self.lset.callbacks.append(self.InitializeForms)
 
 
     def SolveStokes(self):
