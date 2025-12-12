@@ -16,7 +16,7 @@ class FluidDiscretization(GFStepper):
     DEFAULT_DT = 1e-3
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
                  if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None, add_convection:bool = False,
-                 fix_point_eps:float = 1e-2, f:CoefficientFunction=None, g: CoefficientFunction=CF(0),
+                 f:CoefficientFunction=None, g: CoefficientFunction=CF(0),
                  surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
@@ -53,7 +53,6 @@ class FluidDiscretization(GFStepper):
         self.order = order
         self.if_dirichlet = if_dirichlet
         self.add_convection = add_convection
-        self.fix_point_eps = fix_point_eps
 
         if lset is None:
             self.lset = DummyLevelSet(mesh)
@@ -223,7 +222,7 @@ class FluidDiscretization(GFStepper):
         return difference in velocity L2(Omega_tilde) norm where
         Omega_tilde is the background mesh
         """
-        return Integrate((self.current.components[0] - self.intermediate.components[0])**2 * dx,
+        return Integrate((self.current.components[0] - self.intermediate.components[0])**2 * self.lset.dx_neg,
                          self.mesh)**(1/2)
 
 
