@@ -15,7 +15,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
     def __init__(self, mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order=4,
                  lset:LevelSetGeometry=None,wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None,
                  f1: CoefficientFunction = None, f2: CoefficientFunction = None,  g1: CoefficientFunction = CF(0),
-                 g2: CoefficientFunction = CF(0), add_convection:bool=False, fix_point_eps:float = 1e-2,
+                 g2: CoefficientFunction = CF(0), add_convection:bool=False,
                  surface_tension: CoefficientFunction = None, dt=None,
                  nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2):
         """
@@ -57,7 +57,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order, lset=lset,
                          wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, add_convection=add_convection,
-                         fix_point_eps=fix_point_eps, surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet)
+                         surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet)
 
         self.els_outer = None
         self.els_inner = None
@@ -207,6 +207,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.conv = 0
         for i in range(2):
             self.conv += (grad(u[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
+            self.conv += (grad(self.intermediate.components[0].components[i]) * u[i]) * v[i] * dx_list[i]
+            self.conv -= (grad(self.intermediate.components[0].components[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
 
         self.conv_op = BilinearForm(self.fes)
         self.conv_op += self.conv
@@ -265,24 +267,9 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         if not self.add_convection:
             res = self.lf.vec - self.stokes_op.mat * self.gfup.vec
-            self.gfup.vec.data += self.dt * self.inv * res
         else:
-            count = 0
-            while True:
-                count += 1
-                self.AssembleConvection()
-                self.AssembleInvertTimeStepping()
-                res = self.lf.vec - self.stokes_op.mat * self.gfup.vec - self.conv_op.mat * self.gfup.vec
-                self.gfup.vec.data += self.dt * self.inv * res
-                diff_to_intermediate = self.ComputeDifference2Intermediate()
-                if diff_to_intermediate <= self.fix_point_eps:
-                    break
-                self.RevertStep()
-
-                if count >= 20:
-                    print("Fix point iteration did not converge after 20 iterations. Difference to previous step was", diff_to_intermediate)
-                    break
-
+            res = self.lf.vec - self.stokes_op.mat * self.gfup.vec - self.conv_op.mat * self.gfup.vec
+        self.gfup.vec.data += self.dt * self.inv * res
 
     def SetTimeStepSize(self, dt):
         self.dt = dt

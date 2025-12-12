@@ -9,7 +9,7 @@ class TwoPhaseDiscretization(GFStepper):
     """
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order: int = 4,
                  lset = None, if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None,
-                 add_convection:bool = False, fix_point_eps:float = 1e-2,
+                 add_convection:bool = False,
                  f1:CoefficientFunction=None, f2: CoefficientFunction=None,
                  g1: CoefficientFunction=CF(0), g2: CoefficientFunction=CF(0),
                  surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
@@ -60,7 +60,6 @@ class TwoPhaseDiscretization(GFStepper):
             self.SetLevelSet(lset)
 
         self.add_convection = add_convection
-        self.fix_point_eps = fix_point_eps
 
         self.if_dirichlet = if_dirichlet
         self.wall_params = wall_params
