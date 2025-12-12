@@ -81,7 +81,9 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
     def RevertStep(self):
         self.transport.RevertStep()
-        super().RevertStep()
+        self.intermediate.vec.data = self.current.vec
+        self.current.vec.data = self.past.vec
+
 
     @classmethod
     def from_cf(cls, cf : CoefficientFunction, mesh : Mesh, order : int = 1 ):

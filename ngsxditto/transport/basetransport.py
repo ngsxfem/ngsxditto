@@ -88,6 +88,10 @@ class BaseTransport(GFStepper):
         raise NotImplementedError("UpdateStates not implemented")
 
 
+    def RevertStep(self):
+        self.intermediate.vec.data = self.current.vec
+        self.current.vec.data = self.past.vec
+
     @property
     def field(self):
         """
