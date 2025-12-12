@@ -3,6 +3,8 @@ from alive_progress import alive_bar
 from ngsxditto.stepper import *
 import typing
 import time
+from contextlib import contextmanager
+
 
 
 class ProgressInfo:
@@ -92,7 +94,8 @@ class Solver:
     """
     def __init__(self, stopping_rule: typing.Callable[[], bool] = None,
                  progress_info: ProgressInfo = DummyProgressInfo(),
-                 should_finalize: typing.Callable[[], bool] = None
+                 should_finalize: typing.Callable[[], bool] = None,
+                 display_progress_bar:bool=True
                  ):
         """
         Initialize the solver with empty dictionary that can be filled with Stepper objects.
@@ -117,6 +120,12 @@ class Solver:
             def should_finalize():
                 return True
         self.should_finalize = should_finalize
+
+        @contextmanager
+        def dummy_bar(*args, **kwargs):
+            yield lambda x=None: None
+
+        self.progress_bar = alive_bar if display_progress_bar else dummy_bar
 
 
     def SetFinalizeRule(self, should_finalize:typing.Callable[[], bool]):
@@ -167,7 +176,7 @@ class Solver:
             end_time = time.time()
             entry["total_computation_time"] += (end_time - start_time)
 
-        with alive_bar(manual=True, force_tty=True, title=self.name+": ",
+        with self.progress_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
             while True:
                 for stepper_name in self.stepper_names:
@@ -245,7 +254,9 @@ class TimeLoop(Solver):
     def __init__(self, time : typing.Optional[CoefficientFunction] = None, 
                  dt : float = 0.1,
                  end_time : float = 1.0,
-                 should_finalize: typing.Callable[[], bool] = None):
+                 should_finalize: typing.Callable[[], bool] = None,
+                 display_progress_bar:bool=True
+                 ):
         """
         Initialize the timeloop with a time parameter, step-size and end time.
         Parameters:
@@ -274,7 +285,8 @@ class TimeLoop(Solver):
 
 
         self.progress_info = TimeProgressInfo(self.time, self.end_time, self.dt)
-        super().__init__(stopping_rule=reached_final_time, progress_info=self.progress_info, should_finalize=should_finalize)
+        super().__init__(stopping_rule=reached_final_time, progress_info=self.progress_info,
+                         should_finalize=should_finalize, display_progress_bar=display_progress_bar)
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
