@@ -120,7 +120,6 @@ class H1Conforming(FluidDiscretization):
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
-
         self.lf = LinearForm(self.fes)
         self.lf += self.rho * self.f * v * dx_neg
         self.lf += self.g * q * dx_neg
@@ -149,7 +148,6 @@ class H1Conforming(FluidDiscretization):
 
         basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - p * div(v) - q * div(u)) * dx_neg
 
-
         ghost_u = 1/h ** 2 * (u - u.Other()) * (v - v.Other()) * dw
         ghost_p = (p - p.Other()) * (q - q.Other()) * dw
 
@@ -169,7 +167,7 @@ class H1Conforming(FluidDiscretization):
         self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
                                                 facet_restriction=self.facets_ring, check_unused=False)
         self.stokes_op += self.stokes_term
-        self.stokes_op += (1e-6 * u * v) * dx_neg  # regularize for translation uniqueness
+        self.stokes_op += (1e-7 * u * v) * dx_neg  # regularize for translation uniqueness
         self.stokes_op.Assemble(reallocate=True)
 
     def AssembleConvection(self):
@@ -190,6 +188,10 @@ class H1Conforming(FluidDiscretization):
         dx_neg = self.lset.dx_neg
 
         self.mass = u * v * dx_neg
+        self.mass_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
+        self.mass_op += self.mass
+        self.mass_op.Assemble(reallocate=True)
+
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.m_star += self.rho * self.mass + self.dt * self.stokes_term
         if self.add_convection:
@@ -212,13 +214,12 @@ class H1Conforming(FluidDiscretization):
     def Step(self):
         if self.time is not None:
             self.time += self.dt
-
         self.AssembleLf()
-        if not self.add_convection:
-            res = self.lf.vec - self.stokes_op.mat * self.gfup.vec
-        else:
-            res = self.lf.vec - self.stokes_op.mat * self.gfup.vec - self.conv_op.mat * self.gfup.vec
-        self.gfup.vec.data += self.dt * self.inv * res
+        res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+
+        self.gfup.vec.data += self.inv * res
+
+
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
