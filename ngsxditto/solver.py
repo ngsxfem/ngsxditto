@@ -1,4 +1,4 @@
-from ngsolve import CoefficientFunction, Parameter
+from ngsolve import CoefficientFunction, Parameter, TaskManager
 from alive_progress import alive_bar
 from ngsxditto.stepper import *
 import typing
@@ -178,72 +178,73 @@ class Solver:
 
         with self.progress_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
-            while True:
-                for stepper_name in self.stepper_names:
-                    bar.text = "Current step: " + stepper_name
-
-                    entry = self.stepper_dict[stepper_name]
-                    stepper_object = entry["object"]
-                    step_frequency = entry["step_frequency"]
-                    time_frequency = entry["time_frequency"]
-
-                    should_run = False
-
-                    if step_frequency is not None:
-                        should_run = ((self.i_outer+1) % step_frequency == 0)
-
-                    elif time_frequency is not None and hasattr(self, "time"):
-                        last_time = entry["last_time"]
-                        if int(self.time.Get() // time_frequency) > int(last_time // time_frequency):
-                            entry["last_time"] = self.time.Get()
-                            should_run = True
-                    else:
-                        should_run = True
-
-                    if should_run:
-                        start_time = time.time()
-                        stepper_object.Step()
-                        end_time = time.time()
-                        entry["total_computation_time"] += (end_time - start_time)
-
-                self.i_inner += 1
-
-                if self.should_finalize() and should_run:
+            with TaskManager():
+                while True:
                     for stepper_name in self.stepper_names:
-                        entry = self.stepper_dict[stepper_name]
-                        stepper_object = self.stepper_dict[stepper_name]["object"]
-                        start_time = time.time()
-                        stepper_object.ValidateStep()
-                        end_time = time.time()
-                        entry["total_computation_time"] += (end_time - start_time)
+                        bar.text = "Current step: " + stepper_name
 
-                    self.i_outer += 1
-                    self.i_inner = 0
-                    self.progress_info.Increment()
-                    bar(self.progress_info.GetProgressInfo())
-
-                else:
-                    for stepper_name in self.stepper_names:
                         entry = self.stepper_dict[stepper_name]
                         stepper_object = entry["object"]
-                        start_time = time.time()
-                        stepper_object.RevertStep()
-                        end_time = time.time()
-                        entry["total_computation_time"] += (end_time - start_time)
+                        step_frequency = entry["step_frequency"]
+                        time_frequency = entry["time_frequency"]
 
-                if self.stopping_rule():
-                    break
+                        should_run = False
 
-            for stepper_name in self.stepper_names:
-                entry = self.stepper_dict[stepper_name]
-                stepper_object = entry["object"]
-                start_time = time.time()
-                stepper_object.AfterLoop()
-                end_time = time.time()
-                entry["total_computation_time"] += (end_time - start_time)
+                        if step_frequency is not None:
+                            should_run = ((self.i_outer+1) % step_frequency == 0)
 
-            for stepper_name in self.stepper_names:
-                print(f"{stepper_name}: {self.stepper_dict[stepper_name]['total_computation_time']}")
+                        elif time_frequency is not None and hasattr(self, "time"):
+                            last_time = entry["last_time"]
+                            if int(self.time.Get() // time_frequency) > int(last_time // time_frequency):
+                                entry["last_time"] = self.time.Get()
+                                should_run = True
+                        else:
+                            should_run = True
+
+                        if should_run:
+                            start_time = time.time()
+                            stepper_object.Step()
+                            end_time = time.time()
+                            entry["total_computation_time"] += (end_time - start_time)
+
+                    self.i_inner += 1
+
+                    if self.should_finalize() and should_run:
+                        self.progress_info.Increment()
+                        for stepper_name in self.stepper_names:
+                            entry = self.stepper_dict[stepper_name]
+                            stepper_object = self.stepper_dict[stepper_name]["object"]
+                            start_time = time.time()
+                            stepper_object.ValidateStep()
+                            end_time = time.time()
+                            entry["total_computation_time"] += (end_time - start_time)
+
+                        self.i_outer += 1
+                        self.i_inner = 0
+                        bar(self.progress_info.GetProgressInfo())
+
+                    else:
+                        for stepper_name in self.stepper_names:
+                            entry = self.stepper_dict[stepper_name]
+                            stepper_object = entry["object"]
+                            start_time = time.time()
+                            stepper_object.RevertStep()
+                            end_time = time.time()
+                            entry["total_computation_time"] += (end_time - start_time)
+
+                    if self.stopping_rule():
+                        break
+
+        for stepper_name in self.stepper_names:
+            entry = self.stepper_dict[stepper_name]
+            stepper_object = entry["object"]
+            start_time = time.time()
+            stepper_object.AfterLoop()
+            end_time = time.time()
+            entry["total_computation_time"] += (end_time - start_time)
+
+        for stepper_name in self.stepper_names:
+            print(f"{stepper_name}: {self.stepper_dict[stepper_name]['total_computation_time']}")
 
 
 

@@ -5,7 +5,11 @@ from ngsxditto import LevelSetGeometry
 from ngsxditto.stepper import *
 import numpy as np
 from typing import Sequence, Union, Optional
-from IPython.display import Image, display
+from IPython.display import Image, display, HTML, IFrame
+import tempfile
+import pyvista as pv
+
+import logging
 
 
 class Visualization(StatelessStepper):
@@ -70,8 +74,8 @@ class SphericityDiagram(Visualization):
         self.surface_volume_ratio = []
 
     def BeforeLoop(self):
-        self.time_list = []
-        self.surface_volume_ratio = []
+        self.time_list.append(self.time.Get())
+        self.surface_volume_ratio.append(self.lset.surface_area/self.lset.volume)
 
     def ValidateStep(self):
         self.time_list.append(self.time.Get())
@@ -143,6 +147,10 @@ class UnfittedNGSWebguiPlot(Visualization):
         self.gf_vis = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=4), multidim=0)
         self.gf_vis_tmp = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=4))
         self.vis_last_time = self.time.Get()
+        self.gf_vis_tmp.Set(
+            CF((self.lset.lsetp1, self.cf_neg, self.cf_pos, 0)))
+        self.gf_vis.AddMultiDimComponent(self.gf_vis_tmp.vec)
+
         self.vis_time_increment = (self.end_time - self.vis_last_time) / 16
 
     def ValidateStep(self):
@@ -232,6 +240,7 @@ class PyVistaAnimation(Visualization):
         export_on_enter : bool, optional
             Whether to export the data on entering the context manager (default: True).
         """
+
         super().__init__()
         self.lset = lset
         self.cf_neg = cf_neg
@@ -346,16 +355,9 @@ class PyVistaAnimation(Visualization):
 # probably the two cases could be two separate classes inheriting from a pyvista base class
 
 
-import logging
 
 try:
-    import tempfile
     import pyvista as pv
-    from ngsolve import VTKOutput  # Assuming NGSolve is installed
-    from typing import Sequence, Union, Optional
-
-    from IPython.display import HTML
-    from IPython.display import IFrame
 
     class PyVistaVisualizer:
         """
