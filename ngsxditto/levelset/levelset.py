@@ -232,10 +232,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
 
     def ComputeDifference2Intermediate(self):
-        intermediate_gfu =GridFunction(self.current.space)
-        intermediate_gfu.vec.data = self.intermediate
-
-        error = self.current - intermediate_gfu
+        error = self.current - self.intermediate
 
         interface_error = Integrate(error * error * self.dS, mesh=self.mesh) ** (1/2)
         return interface_error
