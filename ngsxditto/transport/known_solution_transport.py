@@ -35,6 +35,8 @@ class KnownSolutionTransport(BaseTransport):
         self.past = GridFunction(self.gfu.space)
         self.intermediate = GridFunction(self.gfu.space)
 
+        self.ValidateStep()
+
 
     def SetInitialValues(self, initial_values: CoefficientFunction=None, initial_time: float = 0.0):
         pass
@@ -49,9 +51,10 @@ class KnownSolutionTransport(BaseTransport):
         self.gfu.Set(self.true_solution)
 
     def Step(self):
-        if self.time is not None:
-            self.time += self.dt
+        #if self.time is not None:
+        self.time += self.dt
         self.gfu.Set(self.true_solution)
+        self.time -= self.dt    # time updates should happen in solver class
 
     @property
     def field(self):
