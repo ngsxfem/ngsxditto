@@ -228,6 +228,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         mass2 = u[1] * v[1] * dx_list[1]
         mass_list = [mass1, mass2]
 
+        self.mass_op = BilinearForm(self.fes)
+        self.mass_op += rhos[0] * mass1 + rhos[1] * mass2
+        self.mass_op.Assemble()
+
         self.m_star = BilinearForm(self.fes)
 
         for i in range(2):
@@ -265,11 +269,9 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         self.AssembleLf()
 
-        if not self.add_convection:
-            res = self.lf.vec - self.stokes_op.mat * self.gfup.vec
-        else:
-            res = self.lf.vec - self.stokes_op.mat * self.gfup.vec - self.conv_op.mat * self.gfup.vec
-        self.gfup.vec.data += self.dt * self.inv * res
+        res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+
+        self.gfup.vec.data += self.inv * res
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
