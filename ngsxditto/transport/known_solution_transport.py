@@ -23,13 +23,15 @@ class KnownSolutionTransport(BaseTransport):
         order: int
             The polynomial order of the space the solution is projected to.
         """
-        super().__init__(mesh=mesh, wind=None, inflow_values=None, dt=dt, time=time, order=order)
+        super().__init__(mesh=mesh, wind=None, inflow_values=None, dt=dt, order=order)
         self.true_solution = true_solution
         self.fes = H1(mesh, order=order)
         self.gfu = GridFunction(self.fes)
-        if self.time is not None:
-            self.time.Set(0)
         self.gfu.Set(self.true_solution)
+
+        self.true_time = time
+        if time is not None:
+            self.time = Parameter(self.true_time.Get())
 
         self.current = self.gfu
         self.past = GridFunction(self.gfu.space)
@@ -51,10 +53,14 @@ class KnownSolutionTransport(BaseTransport):
         self.gfu.Set(self.true_solution)
 
     def Step(self):
-        #if self.time is not None:
-        self.time += self.dt
+        if self.time is not None:
+            self.time += self.dt
         self.gfu.Set(self.true_solution)
-        self.time -= self.dt    # time updates should happen in solver class
+
+
+    def RevertStep(self):
+        super().RevertStep()
+        self.time -= self.dt
 
     @property
     def field(self):

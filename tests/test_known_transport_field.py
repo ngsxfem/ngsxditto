@@ -16,11 +16,11 @@ T_end = 1
 dt = 0.05
 
 def test_propagation():
-    transport = KnownSolutionTransport(mesh, true_circle, dt=dt, order=3)
-    transport.time = t
+    transport = KnownSolutionTransport(mesh, true_circle, dt=dt, order=3, time=t)
     t.Set(0)
 
     transport.Step()
+    transport.ValidateStep()
     assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-3    # only interpolation error
     transport.multistepper.RunFixedSteps(10)
     assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-3
