@@ -95,7 +95,8 @@ class Solver:
     def __init__(self, stopping_rule: typing.Callable[[], bool] = None,
                  progress_info: ProgressInfo = DummyProgressInfo(),
                  should_finalize: typing.Callable[[], bool] = None,
-                 display_progress_bar:bool=True
+                 display_progress_bar:bool=True,
+                 show_profiles:bool=True
                  ):
         """
         Initialize the solver with empty dictionary that can be filled with Stepper objects.
@@ -120,6 +121,7 @@ class Solver:
             def should_finalize():
                 return True
         self.should_finalize = should_finalize
+        self.show_profiles = show_profiles
 
         @contextmanager
         def dummy_bar(*args, **kwargs):
@@ -242,9 +244,9 @@ class Solver:
             stepper_object.AfterLoop()
             end_time = time.time()
             entry["total_computation_time"] += (end_time - start_time)
-
-        for stepper_name in self.stepper_names:
-            print(f"{stepper_name}: {self.stepper_dict[stepper_name]['total_computation_time']}")
+        if self.show_profiles:
+            for stepper_name in self.stepper_names:
+                print(f"{stepper_name}: {self.stepper_dict[stepper_name]['total_computation_time']}")
 
 
 
@@ -256,7 +258,8 @@ class TimeLoop(Solver):
                  dt : float = 0.1,
                  end_time : float = 1.0,
                  should_finalize: typing.Callable[[], bool] = None,
-                 display_progress_bar:bool=True
+                 display_progress_bar:bool=True,
+                 show_profiles: bool = True
                  ):
         """
         Initialize the timeloop with a time parameter, step-size and end time.
@@ -286,8 +289,10 @@ class TimeLoop(Solver):
 
 
         self.progress_info = TimeProgressInfo(self.time, self.end_time, self.dt)
+        self.show_profiles = show_profiles
         super().__init__(stopping_rule=reached_final_time, progress_info=self.progress_info,
-                         should_finalize=should_finalize, display_progress_bar=display_progress_bar)
+                         should_finalize=should_finalize, display_progress_bar=display_progress_bar,
+                         show_profiles=show_profiles)
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
