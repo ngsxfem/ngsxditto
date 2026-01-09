@@ -121,7 +121,7 @@ class H1Conforming(FluidDiscretization):
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
         self.lf = LinearForm(self.fes)
-        self.lf += self.rho * self.f * v * dx_neg
+        self.lf += self.f * v * dx_neg
         self.lf += self.g * q * dx_neg
 
         if self.surface_tension is not None:
@@ -130,7 +130,7 @@ class H1Conforming(FluidDiscretization):
         if self.if_dirichlet is not None:
             self.lf += (-self.nu * Grad(v) * n * self.if_dirichlet +
                         self.nu * self.nitsche_stab / h * self.if_dirichlet * v +
-                        q * n * self.if_dirichlet) * dS
+                        1/self.rho * q * n * self.if_dirichlet) * dS
 
         for (region, fct) in self.neumann.items():
             self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
@@ -146,7 +146,7 @@ class H1Conforming(FluidDiscretization):
         dS = self.lset.dS
         dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
 
-        basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - p * div(v) - q * div(u)) * dx_neg
+        basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - 1/self.rho * p * div(v) - 1/self.rho * q * div(u)) * dx_neg
 
         ghost_u = 1/h ** 2 * (u - u.Other()) * (v - v.Other()) * dw
         ghost_p = (p - p.Other()) * (q - q.Other()) * dw
@@ -157,7 +157,7 @@ class H1Conforming(FluidDiscretization):
         if self.if_dirichlet is not None:
             nitsche = (-grad(u) * n * v - grad(v) * n * u + self.nitsche_stab / h * u * v) * dS
             self.stokes_term += self.nu * nitsche
-            self.stokes_term += (p * v * n + q * u * n) * dS
+            self.stokes_term += 1/self.rho * (p * v * n + q * u * n) * dS
 
         if False:
             self.stokes_term += (p * s + q * r) * dx_neg
@@ -167,7 +167,6 @@ class H1Conforming(FluidDiscretization):
         self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
                                                 facet_restriction=self.facets_ring, check_unused=False)
         self.stokes_op += self.stokes_term
-        self.stokes_op += (1e-7 * u * v) * dx_neg  # regularize for translation uniqueness
         self.stokes_op.Assemble(reallocate=True)
 
     def AssembleConvection(self):
@@ -193,7 +192,7 @@ class H1Conforming(FluidDiscretization):
         self.mass_op.Assemble(reallocate=True)
 
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += self.rho * self.mass + self.dt * self.stokes_term
+        self.m_star += self.mass + self.dt * self.stokes_term
         if self.add_convection:
             self.m_star += self.dt * self.conv
         self.m_star.Assemble(reallocate=True)
@@ -206,8 +205,15 @@ class H1Conforming(FluidDiscretization):
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
         cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
         gfu.Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-        gfup.vec.data += (self.stokes_op.mat.Inverse(self.active_dofs & self.fes.FreeDofs(), inverse=direct_solver_nonspd) *
-                         (self.lf.vec - self.stokes_op.mat * gfup.vec))
+
+        (u, p, r), (v, q, s) = self.fes.TnT()
+        stationary_stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
+                                                facet_restriction=self.facets_ring, check_unused=False)
+        stationary_stokes_op += self.stokes_term
+        stationary_stokes_op += (1e-6 * u * v) * self.lset.dx_neg
+        stationary_stokes_op.Assemble(reallocate=True)
+        gfup.vec.data += (stationary_stokes_op.mat.Inverse(self.active_dofs & self.fes.FreeDofs(), inverse=direct_solver_nonspd) *
+                         (self.lf.vec - stationary_stokes_op.mat * gfup.vec))
         return gfup
 
 
