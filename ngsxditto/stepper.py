@@ -165,15 +165,21 @@ class FunctionCallStepper(StatelessStepper):
     relevant points of the solver loop.
     """
 
-    def __init__(self, step_function, before_loop_function=None, after_loop_function=None):
+    def __init__(self, step_function, validate_only=False, before_loop_function=None, after_loop_function=None):
         super().__init__()
         self.step_function = step_function
+        self.validate_only = validate_only
         self.BeforeLoop = before_loop_function or (lambda: None)
         self.AfterLoop = after_loop_function or (lambda: None)
 
 
     def Step(self):
-        self.step_function()
+        if not self.validate_only:
+            self.step_function()
+
+    def ValidateStep(self):
+        if self.validate_only:
+            self.step_function()
 
 
 from ngsolve import GridFunction

@@ -134,7 +134,7 @@ class Solver:
         self.should_finalize = should_finalize
 
 
-    def Register(self, stepper_object, name: str=None, step_frequency: int=None, time_frequency: float=None):
+    def Register(self, stepper_object, name: str=None, step_frequency: int=None, time_frequency: float=None, validate_only:bool=False):
         """
         Registers a function with arguments that wil be called in the loop.
         Parameters:
@@ -156,13 +156,13 @@ class Solver:
             raise ValueError(f"Function name {name} already exists.")
 
         if callable(stepper_object):
-            stepper_object = FunctionCallStepper(stepper_object)
+            stepper_object = FunctionCallStepper(stepper_object, validate_only=validate_only)
 
         self.stepper_dict[name] = {"object": stepper_object,
                                    "step_frequency": step_frequency,
                                    "time_frequency": time_frequency,
                                    "total_computation_time": 0,
-                                    "last_time": 0}
+                                   "last_time": 0}
         self.stepper_names.append(name)
 
 
