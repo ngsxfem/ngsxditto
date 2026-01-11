@@ -6,16 +6,17 @@ from ngsolve import *
 from .discretization import FluidDiscretization
 from .params import FluidParameters, WallParameters
 from .h1_conforming import H1Conforming
+from ngsxditto.levelset import LevelSetGeometry
 
 
 class TaylorHood(H1Conforming):
     """
     This class represents Taylor-Hood elements.
     """
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset:LevelSetGeometry = None,
                  wall_params: WallParameters = None, if_dirichlet=None, add_convection:bool = False,
                  f: CoefficientFunction = None, g: CoefficientFunction=CF(0),
-                 surface_tension: CoefficientFunction = None, dt=None, nitsche_stab:int=100,
+                 surface_tension: CoefficientFunction = None, dt:float=None, nitsche_stab:int=100,
                  ghost_stab:int=1, extension_radius:float=0.2):
         """
         Initializes the Taylor-Hood discretization with the given parameters and levelset.

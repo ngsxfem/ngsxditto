@@ -12,11 +12,11 @@ class H1Conforming(FluidDiscretization):
     """
     This class handles all H1-conforming fluid discretizations.
     """
-    def __init__(self, mesh, fluid_params: FluidParameters, order=4, lset:LevelSetGeometry=None,
-                 wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None, add_convection:bool=False,
-                 f: CoefficientFunction = None, g: CoefficientFunction = CF(0),
-                 surface_tension: CoefficientFunction = None, dt=None,
-                 nitsche_stab:int=100, ghost_stab:int=1, extension_radius:float=0.2):
+    def __init__(self, mesh, fluid_params: FluidParameters, order:int, lset:LevelSetGeometry,
+                 wall_params: WallParameters, if_dirichlet:CoefficientFunction, add_convection:bool,
+                 f: CoefficientFunction, g: CoefficientFunction,
+                 surface_tension: CoefficientFunction, dt:float,
+                 nitsche_stab:int, ghost_stab:int, extension_radius:float):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:

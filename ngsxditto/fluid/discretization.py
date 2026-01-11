@@ -14,10 +14,10 @@ class FluidDiscretization(GFStepper):
     Base class for a discretized fluid.
     """
     DEFAULT_DT = 1e-3
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
-                 if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None, add_convection:bool = False,
-                 f:CoefficientFunction=None, g: CoefficientFunction=CF(0),
-                 surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int, lset:LevelSetGeometry,
+                 if_dirichlet:CoefficientFunction, wall_params: WallParameters, add_convection:bool,
+                 f:CoefficientFunction, g: CoefficientFunction,
+                 surface_tension:CoefficientFunction, dt:float, time: typing.Optional[Parameter]=None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, create a DummyLevelSet that covers the whole domain.

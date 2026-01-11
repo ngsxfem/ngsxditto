@@ -5,16 +5,18 @@ from ngsolve import *
 
 from .params import FluidParameters, WallParameters
 from .h1_conforming import H1Conforming
+from ngsxditto.levelset import LevelSetGeometry
+
 
 class ScottVogelius(H1Conforming):
     """
     This class represents Scott-Vogelius elements.
     """
 
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset=None,
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset:LevelSetGeometry=None,
                  wall_params: WallParameters = None,  if_dirichlet=None,
                  f: CoefficientFunction = None, g:CoefficientFunction=CF(0),
-                 surface_tension: CoefficientFunction = None, dt=None,
+                 surface_tension: CoefficientFunction = None, dt:float=None,
                  nitsche_stab=100, ghost_stab=20, extension_radius=0.2):
         """
         Initializes the Scott-Vogelius discretization with the given parameters and levelset.

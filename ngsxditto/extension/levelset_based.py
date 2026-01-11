@@ -9,7 +9,7 @@ class LevelsetBasedExtension(StatelessStepper):
     """
     Extends a vector field from an interface to the whole domain using a diffusion based algorithm.
     """
-    def __init__(self, lset:LevelSetGeometry, rhs=None, gamma:float=0.1, order:int=2, ghost_stab:int=2, dirichlet:str=".*",
+    def __init__(self, lset:LevelSetGeometry, rhs=None, gamma:float=0.1, order:int=2, ghost_stab:int=1, dirichlet:str=".*",
                  q: CoefficientFunction=CF(0)):
         """
         Initialise the diffusion based vector extension with the given parameters.
@@ -36,7 +36,6 @@ class LevelsetBasedExtension(StatelessStepper):
         self.dirichlet = dirichlet
         self.V = VectorH1(self.mesh, order=self.order, dirichlet=dirichlet, dgjumps=True)
         self.field = GridFunction(self.V)
-        self.current = self.field
         self.rhs = rhs
         self.q = q
 
@@ -75,5 +74,3 @@ class LevelsetBasedExtension(StatelessStepper):
         deformed_lsetp1_field.vec.data = a.mat.Inverse(self.V.FreeDofs(), inverse=direct_solver_spd) * f.vec
 
         self.field.Set(shifted_eval(deformed_lsetp1_field, back=self.lset.deformation, forth=None))
-
-
