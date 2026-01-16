@@ -211,15 +211,32 @@ class Solver:
 
                     self.i_inner += 1
 
-                    if self.should_finalize() and should_run:
+                    if self.should_finalize():
                         self.progress_info.Increment()
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
-                            stepper_object = self.stepper_dict[stepper_name]["object"]
-                            start_time = time.time()
-                            stepper_object.ValidateStep()
-                            end_time = time.time()
-                            entry["total_computation_time"] += (end_time - start_time)
+                            stepper_object = entry["object"]
+                            step_frequency = entry["step_frequency"]
+                            time_frequency = entry["time_frequency"]
+
+                            should_run = False
+
+                            if step_frequency is not None:
+                                should_run = ((self.i_outer + 1) % step_frequency == 0)
+
+                            elif time_frequency is not None and hasattr(self, "time"):
+                                last_time = entry["last_time"]
+                                if int(self.time.Get() // time_frequency) > int(last_time // time_frequency):
+                                    entry["last_time"] = self.time.Get()
+                                    should_run = True
+                            else:
+                                should_run = True
+                            if should_run:
+
+                                start_time = time.time()
+                                stepper_object.ValidateStep()
+                                end_time = time.time()
+                                entry["total_computation_time"] += (end_time - start_time)
 
                         self.i_outer += 1
                         self.i_inner = 0
