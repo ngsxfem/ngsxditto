@@ -162,7 +162,7 @@ class Solver:
                                    "step_frequency": step_frequency,
                                    "time_frequency": time_frequency,
                                    "total_computation_time": 0,
-                                   "last_time": 0}
+                                   "next_trigger": 0}
         self.stepper_names.append(name)
 
 
@@ -170,6 +170,7 @@ class Solver:
         """
         Executes all 'Step' functions of the objects that were registered.
         """
+        should_run_dict = {}
         for stepper_name in self.stepper_names:
             entry = self.stepper_dict[stepper_name]
             stepper_object =entry["object"]
@@ -177,33 +178,35 @@ class Solver:
             stepper_object.BeforeLoop()
             end_time = time.time()
             entry["total_computation_time"] += (end_time - start_time)
+            should_run_dict[stepper_name] = True
 
         with self.progress_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
             with TaskManager():
                 while True:
+
                     for stepper_name in self.stepper_names:
                         bar.text = "Current step: " + stepper_name
 
                         entry = self.stepper_dict[stepper_name]
-                        stepper_object = entry["object"]
-                        step_frequency = entry["step_frequency"]
-                        time_frequency = entry["time_frequency"]
 
                         should_run = False
+                        if entry["step_frequency"] is not None:
+                            should_run = (self.i_outer % entry["step_frequency"] == 0)
 
-                        if step_frequency is not None:
-                            should_run = ((self.i_outer+1) % step_frequency == 0)
-
-                        elif time_frequency is not None and hasattr(self, "time"):
-                            last_time = entry["last_time"]
-                            if int(self.time.Get() // time_frequency) > int(last_time // time_frequency):
-                                entry["last_time"] = self.time.Get()
+                        elif entry["time_frequency"] is not None and hasattr(self, "time"):
+                            if self.time.Get() + 1e-8 >= entry["next_trigger"]:
                                 should_run = True
+
                         else:
                             should_run = True
 
-                        if should_run:
+                        should_run_dict[stepper_name] = should_run
+
+                    for stepper_name in self.stepper_names:
+                        entry = self.stepper_dict[stepper_name]
+                        stepper_object = entry["object"]
+                        if should_run_dict[stepper_name]:
                             start_time = time.time()
                             stepper_object.Step()
                             end_time = time.time()
@@ -212,32 +215,19 @@ class Solver:
                     self.i_inner += 1
 
                     if self.should_finalize():
-                        self.progress_info.Increment()
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
-                            step_frequency = entry["step_frequency"]
-                            time_frequency = entry["time_frequency"]
 
-                            should_run = False
-
-                            if step_frequency is not None:
-                                should_run = ((self.i_outer + 1) % step_frequency == 0)
-
-                            elif time_frequency is not None and hasattr(self, "time"):
-                                last_time = entry["last_time"]
-                                if int(self.time.Get() // time_frequency) > int(last_time // time_frequency):
-                                    entry["last_time"] = self.time.Get()
-                                    should_run = True
-                            else:
-                                should_run = True
-                            if should_run:
-
+                            if should_run_dict[stepper_name]:
                                 start_time = time.time()
                                 stepper_object.ValidateStep()
                                 end_time = time.time()
                                 entry["total_computation_time"] += (end_time - start_time)
+                                if entry["time_frequency"] is not None:
+                                    entry["next_trigger"] += entry["time_frequency"]
 
+                        self.progress_info.Increment()
                         self.i_outer += 1
                         self.i_inner = 0
                         bar(self.progress_info.GetProgressInfo())
@@ -246,10 +236,11 @@ class Solver:
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
-                            start_time = time.time()
-                            stepper_object.RevertStep()
-                            end_time = time.time()
-                            entry["total_computation_time"] += (end_time - start_time)
+                            if should_run_dict[stepper_name]:
+                                start_time = time.time()
+                                stepper_object.RevertStep()
+                                end_time = time.time()
+                                entry["total_computation_time"] += (end_time - start_time)
 
                     if self.stopping_rule():
                         break
@@ -314,48 +305,3 @@ class TimeLoop(Solver):
     def SetTimeStepSize(self, dt):
         self.dt = dt
         self.progress_info.SetTimeStepSize(dt)
-
-
-
-from time import sleep
-if __name__ == "__main__":
-
-    list_i = [3]
-
-    def increase(list_i):
-        list_i[0] += 1
-    
-    def print_i():
-        print(list_i[0])
-
-
-    def i_too_large():
-        return list_i[0] >= 10
-
-    def sleep1():
-        sleep(0.1)
-
-    def progress_i():
-        return list_i[0]/10
-
-    solver = Solver(stopping_rule=i_too_large, progress_info=progress_i)
-    solver.Register(increase,list_i, name="increase list_i")
-    solver.Register(print_i, name="print list_i")
-    solver.Register(sleep1, name="sleep 1")
-
-    solver()
-
-    t = Parameter(0)
-    tl = TimeLoop(time=t, end_time=10)
-    def print_time():
-        print("time is: " + str(tl.time.Get()))
-    tl.Register(print_time, name="print time")
-    tl.Register(sleep1, name="sleep 1")
-
-    def increase_dt():
-        tl.dt = tl.dt * 1.1
-
-    tl.Register(increase_dt, name="increase dt")
-
-    tl.dt = 0.5
-    tl()
