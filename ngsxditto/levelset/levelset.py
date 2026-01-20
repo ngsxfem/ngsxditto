@@ -79,10 +79,14 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.transport.ValidateStep()
         super().ValidateStep()
 
-    def RevertStep(self):
-        self.transport.RevertStep()
+    def AcceptIntermediate(self):
+        self.transport.AcceptIntermediate()
         self.intermediate.vec.data = self.current.vec
         self.current.vec.data = self.past.vec
+
+    def RevertStep(self):
+        self.transport.RevertStep()
+        super().AcceptIntermediate()
 
 
     @classmethod

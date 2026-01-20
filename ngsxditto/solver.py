@@ -95,6 +95,7 @@ class Solver:
     def __init__(self, stopping_rule: typing.Callable[[], bool] = None,
                  progress_info: ProgressInfo = DummyProgressInfo(),
                  should_finalize: typing.Callable[[], bool] = None,
+                 should_revert: typing.Callable[[], bool] = None,
                  display_progress_bar:bool=True,
                  show_profiles:bool=True
                  ):
@@ -120,7 +121,11 @@ class Solver:
         if should_finalize is None:
             def should_finalize():
                 return True
+        if should_revert is None:
+            def should_revert():
+                return False
         self.should_finalize = should_finalize
+        self.should_revert = should_revert
         self.show_profiles = show_profiles
 
         @contextmanager
@@ -133,8 +138,11 @@ class Solver:
     def SetFinalizeRule(self, should_finalize:typing.Callable[[], bool]):
         self.should_finalize = should_finalize
 
+    def SetRevertRule(self, should_revert:typing.Callable[[], bool]):
+        self.should_revert = should_revert
 
-    def Register(self, stepper_object, name: str=None, step_frequency: int=None, time_frequency: float=None, validate_only:bool=False):
+
+    def Register(self, stepper_object, name: str=None, step_frequency: int=None, time_frequency: float=None, as_validate:bool=False):
         """
         Registers a function with arguments that wil be called in the loop.
         Parameters:
@@ -156,7 +164,7 @@ class Solver:
             raise ValueError(f"Function name {name} already exists.")
 
         if callable(stepper_object):
-            stepper_object = FunctionCallStepper(stepper_object, validate_only=validate_only)
+            stepper_object = FunctionCallStepper(stepper_object, as_validate=as_validate)
 
         self.stepper_dict[name] = {"object": stepper_object,
                                    "step_frequency": step_frequency,
@@ -173,7 +181,7 @@ class Solver:
         should_run_dict = {}
         for stepper_name in self.stepper_names:
             entry = self.stepper_dict[stepper_name]
-            stepper_object =entry["object"]
+            stepper_object = entry["object"]
             start_time = time.time()
             stepper_object.BeforeLoop()
             end_time = time.time()
@@ -215,6 +223,8 @@ class Solver:
                     self.i_inner += 1
 
                     if self.should_finalize():
+                        self.progress_info.Increment()
+
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
@@ -227,7 +237,20 @@ class Solver:
                                 if entry["time_frequency"] is not None:
                                     entry["next_trigger"] += entry["time_frequency"]
 
-                        self.progress_info.Increment()
+                        self.i_outer += 1
+                        self.i_inner = 0
+                        bar(self.progress_info.GetProgressInfo())
+
+                    elif self.should_revert():
+                        for stepper_name in self.stepper_names:
+                            entry = self.stepper_dict[stepper_name]
+                            stepper_object = entry["object"]
+
+                            if should_run_dict[stepper_name]:
+                                start_time = time.time()
+                                stepper_object.RevertStep()
+                                end_time = time.time()
+                                entry["total_computation_time"] += (end_time - start_time)
                         self.i_outer += 1
                         self.i_inner = 0
                         bar(self.progress_info.GetProgressInfo())
@@ -238,7 +261,7 @@ class Solver:
                             stepper_object = entry["object"]
                             if should_run_dict[stepper_name]:
                                 start_time = time.time()
-                                stepper_object.RevertStep()
+                                stepper_object.AcceptIntermediate()
                                 end_time = time.time()
                                 entry["total_computation_time"] += (end_time - start_time)
 
@@ -266,6 +289,7 @@ class TimeLoop(Solver):
                  dt : float = 0.1,
                  end_time : float = 1.0,
                  should_finalize: typing.Callable[[], bool] = None,
+                 should_revert: typing.Callable[[], bool] = None,
                  display_progress_bar:bool=True,
                  show_profiles: bool = True
                  ):
@@ -299,7 +323,7 @@ class TimeLoop(Solver):
         self.progress_info = TimeProgressInfo(self.time, self.end_time, self.dt)
         self.show_profiles = show_profiles
         super().__init__(stopping_rule=reached_final_time, progress_info=self.progress_info,
-                         should_finalize=should_finalize, display_progress_bar=display_progress_bar,
+                         should_finalize=should_finalize, should_revert=should_revert, display_progress_bar=display_progress_bar,
                          show_profiles=show_profiles)
 
     def SetTimeStepSize(self, dt):

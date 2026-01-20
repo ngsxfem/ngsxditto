@@ -57,6 +57,9 @@ class KnownSolutionTransport(BaseTransport):
             self.time += self.dt
         self.gfu.Set(self.true_solution)
 
+    def AcceptIntermediate(self):
+        super().AcceptIntermediate()
+        self.time -= self.dt
 
     def RevertStep(self):
         super().RevertStep()

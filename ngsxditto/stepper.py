@@ -45,9 +45,16 @@ class Stepper(ABC):
         pass
 
     @abstractmethod
-    def RevertStep(self):
+    def AcceptIntermediate(self):
         """
         Is called at the end of each inner loop step if the inner loop continues.
+        """
+
+    @abstractmethod
+    def RevertStep(self):
+        """
+        Is called at the end of the outer loop if the criterion to ValidateStep() is not fulfilled.
+        Resets the states to before the loop.
         """
         pass
 
@@ -101,12 +108,18 @@ class StatefulStepper(Stepper):
         """
         pass
 
-
-    def RevertStep(self):
+    def AcceptIntermediate(self):
         """
         Is called at the end of each inner loop step if the inner loop continues.
         The 'current' state is copied to the 'intermediate' state.
         The 'past' state stays unaffected.
+        """
+        pass
+
+    def RevertStep(self):
+        """
+        Is called at the end of the outer loop if the criterion to ValidateStep() is not fulfilled.
+        The 'current' and 'intermediate' state are reset to the 'past' state.
         """
         pass
 
@@ -158,6 +171,9 @@ class StatelessStepper(Stepper):
     def RevertStep(self):
         pass
 
+    def AcceptIntermediate(self):
+        pass
+
 
 class FunctionCallStepper(StatelessStepper):
     """
@@ -165,20 +181,20 @@ class FunctionCallStepper(StatelessStepper):
     relevant points of the solver loop.
     """
 
-    def __init__(self, step_function, validate_only=False, before_loop_function=None, after_loop_function=None):
+    def __init__(self, step_function, as_validate=False, before_loop_function=None, after_loop_function=None):
         super().__init__()
         self.step_function = step_function
-        self.validate_only = validate_only
+        self.as_validate = as_validate
         self.BeforeLoop = before_loop_function or (lambda: None)
         self.AfterLoop = after_loop_function or (lambda: None)
 
 
     def Step(self):
-        if not self.validate_only:
+        if not self.as_validate:
             self.step_function()
 
     def ValidateStep(self):
-        if self.validate_only:
+        if self.as_validate:
             self.step_function()
 
 
@@ -210,7 +226,7 @@ class GFStepper(StatefulStepper):
         self._past.vec.data = self._current.vec
         self._intermediate.vec.data = self._current.vec
 
-    def RevertStep(self):
+    def AcceptIntermediate(self):
         """
         Copy current -> intermediate, past stays unchanged
         """
@@ -220,6 +236,21 @@ class GFStepper(StatefulStepper):
             raise ValueError("intermediate state not initialized")
 
         self._intermediate.vec.data = self._current.vec
+
+    def RevertStep(self):
+        """
+        Copy current -> past, intermediate -> past
+        """
+        if self._current is None:
+            raise ValueError("current state not set")
+        if self._intermediate is None:
+            raise ValueError("intermediate state not initialized")
+        if self._past is None:
+            raise ValueError("past state not set")
+
+        self._intermediate.vec.data = self._past.vec
+        self._current.vec.data = self._past.vec
+
 
     def ComputeDifference2Intermediate(self) -> float:
         """
