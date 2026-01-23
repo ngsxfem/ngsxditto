@@ -1,91 +1,10 @@
 from ngsolve import CoefficientFunction, Parameter, TaskManager
 from alive_progress import alive_bar
 from ngsxditto.stepper import *
+from ngsxditto.progress_info import *
 import typing
 import time
 from contextlib import contextmanager
-
-
-
-class ProgressInfo:
-    """
-    This class keeps track of the progress.
-    """
-    def __init__(self):
-        pass
-
-    def GetProgressInfo(self):
-        raise NotImplementedError("GetProgressInfo not implemented in base class")
-
-    def Increment(self):
-        raise NotImplementedError("Increment not implemented in base class")
-
-class DummyProgressInfo(ProgressInfo):
-    """
-    Always returns 0 and can not be incremented.
-    """
-    def __init__(self):
-        super().__init__()
-        pass
-
-    def GetProgressInfo(self):
-        return 0
-
-    def Increment(self):
-        pass
-
-class TimeProgressInfo(ProgressInfo):
-    """
-    In this class the progress is defined by elapsed time.
-    """
-    def __init__(self, time:Parameter, end_time: float, dt:float):
-        """
-        Initialize the time progress info.
-        Parameters:
-        -----------
-        time : Parameter
-            The parameter that keeps track of the time.
-        end_time : float
-            The time when the progress is 1 (100%).
-        dt : float
-            The time-step size
-        """
-        super().__init__()
-        self.time = time
-        self.start_time = self.time.Get()
-        self.end_time = end_time
-        self.dt = dt
-
-    def GetProgressInfo(self):
-        """
-        Returns:
-        --------
-        float:
-            The progress info defined by where the time parameter lies between start and end time.
-        """
-        return (self.time.Get() - self.start_time) / (self.end_time - self.start_time)
-
-    def Increment(self):
-        """
-        Increase the time parameter by dt.
-        """
-        self.time.Set(self.time.Get() + self.dt)
-
-    def SetTimeStepSize(self, dt):
-        self.dt = dt
-
-
-class IterationProgressInfo(ProgressInfo):
-    def __init__(self, n_end: int=10, n_start: int=0):
-        super().__init__()
-        self.n = self.n_start =  n_start
-        self.n_end = n_end
-
-    def GetProgressInfo(self):
-        return (self.n - self.n_start) / (self.n_end - self.n_start)
-
-    def Increment(self):
-        self.n += 1
 
 
 class Solver:
@@ -186,12 +105,15 @@ class Solver:
             stepper_object.BeforeLoop()
             end_time = time.time()
             entry["total_computation_time"] += (end_time - start_time)
+            if entry["time_frequency"] is not None:
+                entry["next_trigger"] += entry["time_frequency"]
             should_run_dict[stepper_name] = True
 
         with self.progress_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
             with TaskManager():
                 while True:
+                    self.progress_info.Step()
 
                     for stepper_name in self.stepper_names:
                         bar.text = "Current step: " + stepper_name
@@ -200,7 +122,7 @@ class Solver:
 
                         should_run = False
                         if entry["step_frequency"] is not None:
-                            should_run = (self.i_outer % entry["step_frequency"] == 0)
+                            should_run = ((self.i_outer + 1) % entry["step_frequency"] == 0)
 
                         elif entry["time_frequency"] is not None and hasattr(self, "time"):
                             if self.time.Get() + 1e-8 >= entry["next_trigger"]:
@@ -223,8 +145,8 @@ class Solver:
                     self.i_inner += 1
 
                     if self.should_finalize():
-                        self.progress_info.Increment()
-
+                        #self.progress_info.Increment()
+                        self.progress_info.ValidateStep()
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
@@ -242,6 +164,7 @@ class Solver:
                         bar(self.progress_info.GetProgressInfo())
 
                     elif self.should_revert():
+                        self.progress_info.RevertStep()
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
@@ -256,6 +179,7 @@ class Solver:
                         bar(self.progress_info.GetProgressInfo())
 
                     else:
+                        self.progress_info.AcceptIntermediate()
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]

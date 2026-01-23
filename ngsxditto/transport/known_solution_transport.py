@@ -30,8 +30,6 @@ class KnownSolutionTransport(BaseTransport):
         self.gfu.Set(self.true_solution)
 
         self.time = time
-        #if time is not None:
-        #    self.time = Parameter(self.true_time.Get())
 
         self.current = self.gfu
         self.past = GridFunction(self.gfu.space)
@@ -39,24 +37,14 @@ class KnownSolutionTransport(BaseTransport):
 
         self.ValidateStep()
 
-
     def SetInitialValues(self, initial_values: CoefficientFunction=None, initial_time: float = 0.0):
         pass
-
 
     def SetTimeStepSize(self, dt: float):
         self.dt = dt
 
-
-    #def SetTime(self, time):
-    #    self.time.Set(time)
-    #    self.gfu.Set(self.true_solution)
-
     def Step(self):
-        if self.time is not None:
-            self.time += self.dt
         self.gfu.Set(self.true_solution)
-        self.time -= self.dt
 
     def AcceptIntermediate(self):
         super().AcceptIntermediate()
@@ -64,6 +52,9 @@ class KnownSolutionTransport(BaseTransport):
     def RevertStep(self):
         super().RevertStep()
 
+    def ValidateStep(self):
+        super().ValidateStep()
+    
     @property
     def field(self):
         return self.gfu
