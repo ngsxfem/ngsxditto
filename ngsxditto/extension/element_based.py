@@ -114,8 +114,6 @@ class ElementBasedExtensionOperator(BaseMatrix):
             self.activefacets[:] = GetFacetsWithNeighborTypes(self.mesh, a= self.filtered_support_or_target,
                                                               b= self.filtered_support_or_target,
                                                               bnd_val_a=False, bnd_val_b=False, use_and=True)
-
-
         else:
             self.filtered_target[:] = self.targetelems
             self.filtered_support[:] = self.supportelems

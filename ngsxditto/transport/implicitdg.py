@@ -11,7 +11,7 @@ class ImplicitDGTransport(BaseTransport):
     This class propagates a function along a given velocity field (wind) using an implicit Euler discretization
     in time and the DG method as space discretization. ### TODO: Trefftz or HDG?
     """
-    def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order: int=2, source=None, 
+    def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order: int=2, source=None,
                  active_elements: typing.Optional[BitArray] = None):
         """
         Initializes the transport object with the given parameters.
@@ -52,11 +52,10 @@ class ImplicitDGTransport(BaseTransport):
         self.bnd_facets_ind = GridFunction(FacetFESpace(mesh,order=0))
         self.nobnd_facets_ind = IfPos(self.bnd_facets_ind, 0, 1)
 
-        self.wind = wind
         if wind is not None:
             self.SetWind(wind)
 
-    
+
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
         if self.time is not None:
             self.time.Set(initial_time)
