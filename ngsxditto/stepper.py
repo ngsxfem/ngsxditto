@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Any
+from ngsxditto.profiles_and_timing import *
 
 
-class Stepper(ABC):
+
+class Stepper(ABC, Timed):
     """
     Abstract base class for steppers in solver loops.
 
@@ -11,12 +13,40 @@ class Stepper(ABC):
     within such a solver loop. Additionally, it can `revert` or `validate`
     the step based on some criterion defined in the solver object.
     """
+    auto_time = True
+    _exclude = {"__init__"}
 
-    def __init__(self):
-        """
-        Initialize the stepper object.
-        """
-        pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        if not cls.auto_time:
+            return
+
+        for name, attr in cls.__dict__.items():
+            if (
+                callable(attr)
+                and not name.startswith("_")
+                and name not in cls._exclude
+            ):
+                if getattr(attr, "_timed_section", False):
+                    continue
+                setattr(cls, name, cls._wrap_total(attr))
+
+    @staticmethod
+    def _wrap_total(fn):
+        # guard against double-wrapping
+        if getattr(fn, "_timed_total", False):
+            return fn
+
+        def wrapper(self, *args, **kwargs):
+            exclusive = getattr(self, "_solver", None) is not None
+            with self.timer(section="__total__", exclusive=exclusive):
+                return fn(self, *args, **kwargs)
+
+        wrapper._timed_total = True
+        return wrapper
 
     # --- Lifecycle hooks --------------------------------------------------------
     def BeforeLoop(self):

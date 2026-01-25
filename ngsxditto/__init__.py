@@ -19,3 +19,4 @@ from .visualization import *
 from .stepper import *
 from .two_phase import *
 from .progress_info import *
+from .profiles_and_timing import *

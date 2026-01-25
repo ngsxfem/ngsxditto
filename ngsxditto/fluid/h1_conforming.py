@@ -104,6 +104,10 @@ class H1Conforming(FluidDiscretization):
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
 
     def InitializeForms(self):
+        self.AssembleAllForms()
+        self.InvertTimeStepping()
+
+    def AssembleAllForms(self):
         self.AssembleLf()
 
         if self.add_convection:
@@ -111,7 +115,7 @@ class H1Conforming(FluidDiscretization):
 
         self.AssembleStokes()
 
-        self.AssembleInvertTimeStepping()
+        self.AssembleTimeStepping()
 
     def AssembleLf(self):
         (u, p, r), (v, q, s) = self.fes.TnT()
@@ -181,8 +185,7 @@ class H1Conforming(FluidDiscretization):
         self.conv_op += self.conv
         self.conv_op.Assemble(reallocate=True)
 
-
-    def AssembleInvertTimeStepping(self):
+    def AssembleTimeStepping(self):
         (u, p, r), (v, q, s) = self.fes.TnT()
         dx_neg = self.lset.dx_neg
 
@@ -197,7 +200,9 @@ class H1Conforming(FluidDiscretization):
             self.m_star += self.dt * self.conv
         self.m_star.Assemble(reallocate=True)
 
+    def InvertTimeStepping(self):
         self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs(), inverse=direct_solver_nonspd)
+
 
     def SolveStokes(self):
         gfup = GridFunction(self.fes)

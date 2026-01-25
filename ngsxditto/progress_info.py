@@ -7,6 +7,7 @@ class ProgressInfo(StatefulStepper):
     """
     This class keeps track of the progress.
     """
+    auto_time = False
     def __init__(self):
         super().__init__()
 

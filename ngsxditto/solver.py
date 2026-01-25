@@ -75,7 +75,6 @@ class Solver:
         time_frequency: float
             The function will always be called the first time a new multiple of `time_frequency` is exceeded.
         """
-
         if name is None:
             name = "unnamed_call_" + str(len(self.stepper_names))
 
@@ -88,9 +87,9 @@ class Solver:
         self.stepper_dict[name] = {"object": stepper_object,
                                    "step_frequency": step_frequency,
                                    "time_frequency": time_frequency,
-                                   "total_computation_time": 0,
                                    "next_trigger": 0}
         self.stepper_names.append(name)
+        stepper_object._solver = self
 
 
     def __call__(self):
@@ -101,10 +100,8 @@ class Solver:
         for stepper_name in self.stepper_names:
             entry = self.stepper_dict[stepper_name]
             stepper_object = entry["object"]
-            start_time = time.time()
+            stepper_object.reset_times()
             stepper_object.BeforeLoop()
-            end_time = time.time()
-            entry["total_computation_time"] += (end_time - start_time)
             if entry["time_frequency"] is not None:
                 entry["next_trigger"] += entry["time_frequency"]
             should_run_dict[stepper_name] = True
@@ -137,10 +134,7 @@ class Solver:
                         entry = self.stepper_dict[stepper_name]
                         stepper_object = entry["object"]
                         if should_run_dict[stepper_name]:
-                            start_time = time.time()
                             stepper_object.Step()
-                            end_time = time.time()
-                            entry["total_computation_time"] += (end_time - start_time)
 
                     self.i_inner += 1
 
@@ -152,10 +146,7 @@ class Solver:
                             stepper_object = entry["object"]
 
                             if should_run_dict[stepper_name]:
-                                start_time = time.time()
                                 stepper_object.ValidateStep()
-                                end_time = time.time()
-                                entry["total_computation_time"] += (end_time - start_time)
                                 if entry["time_frequency"] is not None:
                                     entry["next_trigger"] += entry["time_frequency"]
 
@@ -170,10 +161,7 @@ class Solver:
                             stepper_object = entry["object"]
 
                             if should_run_dict[stepper_name]:
-                                start_time = time.time()
                                 stepper_object.RevertStep()
-                                end_time = time.time()
-                                entry["total_computation_time"] += (end_time - start_time)
                         self.i_outer += 1
                         self.i_inner = 0
                         bar(self.progress_info.GetProgressInfo())
@@ -184,10 +172,7 @@ class Solver:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
                             if should_run_dict[stepper_name]:
-                                start_time = time.time()
                                 stepper_object.AcceptIntermediate()
-                                end_time = time.time()
-                                entry["total_computation_time"] += (end_time - start_time)
 
                     if self.stopping_rule():
                         break
@@ -195,13 +180,16 @@ class Solver:
         for stepper_name in self.stepper_names:
             entry = self.stepper_dict[stepper_name]
             stepper_object = entry["object"]
-            start_time = time.time()
             stepper_object.AfterLoop()
-            end_time = time.time()
-            entry["total_computation_time"] += (end_time - start_time)
         if self.show_profiles:
             for stepper_name in self.stepper_names:
-                print(f"{stepper_name}: {self.stepper_dict[stepper_name]['total_computation_time']}")
+                entry = self.stepper_dict[stepper_name]
+                time_dict = entry["object"].times
+                print(f"{stepper_name}: {time_dict['__total__']}")
+                if len(entry["object"].times) > 1:
+                    for key, value in time_dict.items():
+                        if key != "__total__":
+                            print(f"    {key}: {value}")
 
 
 
