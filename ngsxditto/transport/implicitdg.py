@@ -68,15 +68,18 @@ class ImplicitDGTransport(BaseTransport):
         n = specialcf.normal(self.mesh.dim)
 
         self.bfa = RestrictedBilinearForm(self.fes, element_restriction=self.active_elements,
-                                          facet_restriction=self.active_facets)
+                                          facet_restriction=self.active_facets, check_unused=False)
         self.bfa += u * v * dx(definedonelements=self.active_elements)
         self.bfa += self.dt*(v * (wind | grad(u))).Compile() * dx(definedonelements=self.active_elements, bonus_intorder=1) # ! bonus_intorder=1 important, because integration order would be too low otherwise
         self.bfa += self.dt*(- IfPos((wind|n), 0, (wind|n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
 
         self.lf = LinearForm(self.fes)
-        self.lf += ( self.past * v).Compile() * dx(definedonelements=self.active_elements)
-        self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.past * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
-        #self.lf += -(IfPos((wind|n), 0, (wind|n) * self.inflow_values * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
+        # self.lf += ( self.past * v).Compile() * dx(definedonelements=self.active_elements)
+        # self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.past * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
+
+        self.lf += ( self.inflow_values * v).Compile() * dx(definedonelements=self.active_elements)
+        self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.inflow_values * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
+
         ### TODO: test agains dx(skeleton=True)
 
     def SetTimeStepSize(self, dt: float):
@@ -90,7 +93,6 @@ class ImplicitDGTransport(BaseTransport):
         self.bnd_facets_ind.vec[self.bnd_facets] = 1
 
         self.active_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=self.active_elements, use_and=False) ##todo
-
 
         self.bfa.Assemble(reallocate=True)
         self.lf.Assemble()
