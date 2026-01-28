@@ -64,7 +64,6 @@ class ImplicitDGTransport(BaseTransport):
 
     def SetWind(self, wind: CoefficientFunction):
         u, v = self.gfu.space.TnT()
-        fes = self.fes
         n = specialcf.normal(self.mesh.dim)
 
         self.bfa = RestrictedBilinearForm(self.fes, element_restriction=self.active_elements,
@@ -87,21 +86,23 @@ class ImplicitDGTransport(BaseTransport):
 
 
     def Step(self):
+        self.active_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=self.active_elements, use_and=False) ##todo
         self.bnd_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=~self.active_elements,
                                                         bnd_val_a=False, bnd_val_b=True)
         self.bnd_facets_ind.vec[:] = 0
         self.bnd_facets_ind.vec[self.bnd_facets] = 1
 
-        self.active_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=self.active_elements, use_and=False) ##todo
 
-        self.bfa.Assemble(reallocate=True)
-        self.lf.Assemble()
+        with TaskManager():
+            self.bfa.Assemble(reallocate=True)
+            self.lf.Assemble()
 
         if self.time is not None:
             self.time.Set(self.time.Get() + self.dt)
 
         freedofs = GetDofsOfElements(self.fes, self.active_elements)
-        self.gfu.vec.data = self.bfa.mat.Inverse(freedofs = freedofs, inverse = direct_solver_nonspd) * self.lf.vec
+        with TaskManager():
+            self.gfu.vec.data = self.bfa.mat.Inverse(freedofs = freedofs, inverse = direct_solver_nonspd) * self.lf.vec
 
     @property
     def field(self):
