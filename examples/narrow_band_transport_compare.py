@@ -53,6 +53,8 @@ old_lset.Set(sqrt((x-0.6)**2+(y-0.5)**2) - 0.15)
 cont_vis = GridFunction(levelset.field.space, multidim=0)
 oldcont_vis = GridFunction(old_lset.space, multidim=0)
 olddisc_vis = GridFunction(levelset.transport.past.space, multidim=0)
+olddiff_vis = GridFunction(levelset.field.space, multidim=0)
+diff_gf = GridFunction(levelset.field.space)
 
 # Draw(transport.past, mesh, "udisc_past", height=f'{plot_height}px', width=f'{1.5*plot_height}px')
 # Draw(old_lset, mesh, "ucont_past", height=f'{plot_height}px', width=f'{1.5*plot_height}px')
@@ -82,6 +84,8 @@ def SaveToDraw():
 	cont_vis.AddMultiDimComponent(levelset.field.vec)
 	oldcont_vis.AddMultiDimComponent(old_lset.vec)
 	olddisc_vis.AddMultiDimComponent(levelset.transport.past.vec)
+	diff_gf.Set(levelset.transport.past - old_lset, definedonelements=transport_elems)
+	olddiff_vis.AddMultiDimComponent(diff_gf.vec)
 
 def Finish():
 	global value_ds, value_dx
@@ -110,8 +114,7 @@ time_loop()
 print(f"Difference to old code = {np.abs(value_ds - 9.720120260330926) + np.abs(value_dx - 0.9684255662101534)}")
 # Draw(cont_vis, mesh, height=f'{plot_height}px', width=f'{1.5*plot_height}px')
 Draw(oldcont_vis, mesh, height=f'{plot_height}px', width=f'{1.5*plot_height}px')
-Draw(olddisc_vis, mesh, height=f'{plot_height}px', width=f'{1.5*plot_height}px',
-	 min=-0.15, max=0.7)
+Draw(olddiff_vis, mesh, height=f'{plot_height}px', width=f'{1.5*plot_height}px')
 
 
 # %%
