@@ -6,6 +6,7 @@ from .params import FluidParameters, WallParameters
 from ngsxditto.levelset import *
 from ngsxditto.multistepper import MultiStepper
 from ngsxditto.stepper import *
+from xfem import *
 import typing
 
 
@@ -120,6 +121,10 @@ class FluidDiscretization(GFStepper):
         self.InitializeSpaces()
         self.ApplyBoundaryConditions()
         self.UpdateActiveDofs()
+        self.lset.lsetadap.ProjectOnUpdate([self.current.components[0], self.current.components[1],
+                                            self.intermediate.components[0], self.intermediate.components[1],
+                                            self.past.components[0], self.past.components[1]], update_domain=self.els_outer)
+
         self.InitializeForms()
         self.SetInitialValues(initial_velocity, initial_pressure)
 

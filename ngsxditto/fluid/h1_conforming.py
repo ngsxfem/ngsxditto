@@ -152,7 +152,7 @@ class H1Conforming(FluidDiscretization):
 
         basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - 1/self.rho * p * div(v) - 1/self.rho * q * div(u)) * dx_neg
 
-        ghost_u = 1/h ** 2 * (u - u.Other()) * (v - v.Other()) * dw
+        ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
         ghost_p = (p - p.Other()) * (q - q.Other()) * dw
 
         ghost_penalty = (self.nu + 1/self.nu)* self.ghost_stab * self.extension_radius * ghost_u - 1/self.nu *self.ghost_stab * ghost_p
@@ -226,9 +226,20 @@ class H1Conforming(FluidDiscretization):
         if self.time is not None:
             self.time += self.dt
         self.AssembleLf()
-        res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
 
-        self.gfup.vec.data += self.inv * res
+        #res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+        #self.gfup.vec.data += self.inv * res
+
+        gfup_copy = self.gfup.vec.CreateVector()
+        gfup_copy.data = self.gfup.vec
+
+        self.gfup.vec[:] = 0
+        self.ApplyBoundaryConditions()
+
+        uD = self.gfup.vec.CreateVector()
+        uD.data = self.gfup.vec
+
+        self.gfup.vec.data += self.inv * (self.mass_op.mat*gfup_copy + self.dt * self.lf.vec - self.m_star.mat * uD)
 
 
 
