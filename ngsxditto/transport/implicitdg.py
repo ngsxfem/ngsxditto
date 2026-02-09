@@ -52,6 +52,7 @@ class ImplicitDGTransport(BaseTransport):
         self.bnd_facets_ind = GridFunction(FacetFESpace(mesh,order=0))
         self.nobnd_facets_ind = IfPos(self.bnd_facets_ind, 0, 1)
 
+        self.inflow_values = inflow_values if inflow_values else self.past   # if no inflow values are given, we use the past solution
         if wind is not None:
             self.SetWind(wind)
 
@@ -73,10 +74,7 @@ class ImplicitDGTransport(BaseTransport):
         self.bfa += self.dt*(- IfPos((wind|n), 0, (wind|n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
 
         self.lf = LinearForm(self.fes)
-        # self.lf += ( self.past * v).Compile() * dx(definedonelements=self.active_elements)
-        # self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.past * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
-
-        self.lf += ( self.inflow_values * v).Compile() * dx(definedonelements=self.active_elements)
+        self.lf += ( self.past * v).Compile() * dx(definedonelements=self.active_elements)
         self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.inflow_values * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
 
         ### TODO: test agains dx(skeleton=True)
