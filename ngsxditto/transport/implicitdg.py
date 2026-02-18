@@ -44,15 +44,18 @@ class ImplicitDGTransport(BaseTransport):
         else:
             self.active_elements = active_elements
 
+
         self.gfu = GridFunction(self.fes)
         self.current = self.gfu
         self.past = GridFunction(self.gfu.space)
         self.intermediate = GridFunction(self.gfu.space)
+        self.past_cont = GridFunction(H1(mesh, order=order, dgjumps=True))
 
         self.bnd_facets_ind = GridFunction(FacetFESpace(mesh,order=0))
         self.nobnd_facets_ind = IfPos(self.bnd_facets_ind, 0, 1)
 
-        self.inflow_values = inflow_values if inflow_values else self.past   # if no inflow values are given, we use the past solution
+        self.inflow_values = inflow_values if inflow_values else self.past_cont   # if no inflow values are given, we use the past solution
+
         if wind is not None:
             self.SetWind(wind)
 
@@ -61,6 +64,7 @@ class ImplicitDGTransport(BaseTransport):
         if self.time is not None:
             self.time.Set(initial_time)
         self.gfu.Set (initial_values) #, definedonelements=self.active_elements)
+        self.past_cont.Set (initial_values)
         self.ValidateStep()
 
     def SetWind(self, wind: CoefficientFunction):
@@ -74,7 +78,7 @@ class ImplicitDGTransport(BaseTransport):
         self.bfa += self.dt*(- IfPos((wind|n), 0, (wind|n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
 
         self.lf = LinearForm(self.fes)
-        self.lf += ( self.past * v).Compile() * dx(definedonelements=self.active_elements)
+        self.lf += ( self.past_cont * v).Compile() * dx(definedonelements=self.active_elements)
         self.lf += -self.dt*(IfPos((wind|n), 0, (wind|n) * self.inflow_values * v * self.bnd_facets_ind)).Compile() * dx(definedonelements=self.active_elements, element_boundary=True, bonus_intorder=1)  # integral on boundary facets
 
         ### TODO: test agains dx(skeleton=True)
@@ -82,14 +86,12 @@ class ImplicitDGTransport(BaseTransport):
     def SetTimeStepSize(self, dt: float):
         self.dt = dt
 
-
     def Step(self):
         self.active_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=self.active_elements, use_and=False) ##todo
         self.bnd_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=~self.active_elements,
                                                         bnd_val_a=False, bnd_val_b=True)
         self.bnd_facets_ind.vec[:] = 0
         self.bnd_facets_ind.vec[self.bnd_facets] = 1
-
 
         with TaskManager():
             self.bfa.Assemble(reallocate=True)

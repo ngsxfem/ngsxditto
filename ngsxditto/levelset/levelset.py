@@ -84,6 +84,9 @@ class LevelSetGeometry(OnUpdateCallbacks, StatelessStepper):
         self.transport.ValidateStep()
         self.lsetstepper.ValidateStep()
 
+        if hasattr(self.transport, 'past_cont'):
+            self.transport.past_cont.vec.data = self.field.vec
+
     def RevertStep(self):
         self.transport.RevertStep()
         self.lsetstepper.RevertStep()
@@ -91,7 +94,7 @@ class LevelSetGeometry(OnUpdateCallbacks, StatelessStepper):
     @classmethod
     def from_cf(cls, cf : CoefficientFunction, mesh : Mesh, order : int = 1 ):
         """
-            Initializes a LevelSetGeometry from a CoefficientFunction using a NoTransport 
+            Initializes a LevelSetGeometry from a CoefficientFunction using a NoTransport
             object for the transport
         """
         return cls(transport=NoTransport(mesh, order=order), initial_levelset=cf)
@@ -160,14 +163,14 @@ class LevelSetGeometry(OnUpdateCallbacks, StatelessStepper):
         Projects the transport field to the continuous level set.
         """
         if whole_mesh or self.transport.active_elements is None:
-            self.lset_cont.Set(self.transport.field)   
+            self.lset_cont.Set(self.transport.field)
         else:
             # first take values on active elements
             self.lset_cont.Set(self.transport.field, definedonelements=self.transport.active_elements)
             # take values from old lset on the remainder **without** changing the active elements.
             outer_cont_dofs = ~GetDofsOfElements(self.fes_cont, self.transport.active_elements)
             self.lset_cont_tmp.Set(self.lsetstepper.past, definedonelements=~self.transport.active_elements)
-            self.lset_cont.vec.data += Projector(outer_cont_dofs,range=True) * self.lset_cont_tmp.vec 
+            self.lset_cont.vec.data += Projector(outer_cont_dofs,range=True) * self.lset_cont_tmp.vec
 
     def Step(self):
         """
@@ -238,4 +241,3 @@ class LevelSetGeometry(OnUpdateCallbacks, StatelessStepper):
 
         interface_error = Integrate(error * error * self.dS, mesh=self.mesh) ** (1/2)
         return interface_error
-
