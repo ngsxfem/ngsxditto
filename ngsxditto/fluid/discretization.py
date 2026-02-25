@@ -6,6 +6,7 @@ from .params import FluidParameters, WallParameters
 from ngsxditto.levelset import *
 from ngsxditto.multistepper import MultiStepper
 from ngsxditto.stepper import *
+from xfem import *
 import typing
 
 
@@ -14,10 +15,10 @@ class FluidDiscretization(GFStepper):
     Base class for a discretized fluid.
     """
     DEFAULT_DT = 1e-3
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
-                 if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None,
-                 f:CoefficientFunction=None, g: CoefficientFunction=CF(0),
-                 surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int, lset:LevelSetGeometry,
+                 if_dirichlet:CoefficientFunction, wall_params: WallParameters, add_convection:bool,
+                 f:CoefficientFunction, g: CoefficientFunction,
+                 surface_tension:CoefficientFunction, dt:float, time: typing.Optional[Parameter]=None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, create a DummyLevelSet that covers the whole domain.
@@ -52,6 +53,7 @@ class FluidDiscretization(GFStepper):
         self.fluid_params = fluid_params
         self.order = order
         self.if_dirichlet = if_dirichlet
+        self.add_convection = add_convection
 
         if lset is None:
             self.lset = DummyLevelSet(mesh)
@@ -94,7 +96,7 @@ class FluidDiscretization(GFStepper):
 
 
     def Initialize(self, dirichlet:dict=None, neumann:dict=None,
-                   initial_velocity:CoefficientFunction=None,
+                   initial_velocity:CoefficientFunction=CF((0, 0)),
                    initial_pressure:CoefficientFunction=CF(0)):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
@@ -119,9 +121,12 @@ class FluidDiscretization(GFStepper):
         self.InitializeSpaces()
         self.ApplyBoundaryConditions()
         self.UpdateActiveDofs()
+        self.lset.lsetadap.ProjectOnUpdate([self.current.components[0], self.current.components[1],
+                                            self.intermediate.components[0], self.intermediate.components[1],
+                                            self.past.components[0], self.past.components[1]], update_domain=self.els_outer)
+
         self.InitializeForms()
-        if initial_velocity is not None:
-            self.SetInitialValues(initial_velocity, initial_pressure)
+        self.SetInitialValues(initial_velocity, initial_pressure)
 
 
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
@@ -193,9 +198,9 @@ class FluidDiscretization(GFStepper):
         """
         self.lset = lset
         if self.UpdateActiveDofs not in lset.callbacks:
-            lset.callbacks.append(self.UpdateActiveDofs)
+            self.lset.callbacks.append(self.UpdateActiveDofs)
         if self.InitializeForms not in lset.callbacks:
-            lset.callbacks.append(self.InitializeForms)
+            self.lset.callbacks.append(self.InitializeForms)
 
 
     def SolveStokes(self):
@@ -222,7 +227,7 @@ class FluidDiscretization(GFStepper):
         return difference in velocity L2(Omega_tilde) norm where
         Omega_tilde is the background mesh
         """
-        return Integrate((self.current.components[0] - self.intermediate.components[0])**2 * dx,
+        return Integrate((self.current.components[0] - self.intermediate.components[0])**2 * self.lset.dx_neg,
                          self.mesh)**(1/2)
 
 

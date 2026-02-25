@@ -36,7 +36,7 @@ def test_solver_with_inner_loop():
 
     fill_list_stepper = FunctionCallStepper(step_function=fill_list, before_loop_function=add_first_element,
                                             after_loop_function=add_last_element)
-    fill_list_stepper.RevertStep = lambda: n_list.pop()
+    fill_list_stepper.AcceptIntermediate = lambda: n_list.pop()
     solver.Register(fill_list_stepper)
     solver.Register(lambda: print(solver.i_outer, solver.i_inner))
 

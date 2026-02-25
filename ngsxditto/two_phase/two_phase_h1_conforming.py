@@ -15,7 +15,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
     def __init__(self, mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order=4,
                  lset:LevelSetGeometry=None,wall_params: WallParameters = None, if_dirichlet:CoefficientFunction=None,
                  f1: CoefficientFunction = None, f2: CoefficientFunction = None,  g1: CoefficientFunction = CF(0),
-                 g2: CoefficientFunction = CF(0),surface_tension: CoefficientFunction = None, dt=None,
+                 g2: CoefficientFunction = CF(0), add_convection:bool=False,
+                 surface_tension: CoefficientFunction = None, dt=None,
                  nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2):
         """
         Initializes the fluid discretization with the given parameters and levelset.
@@ -55,7 +56,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             Radius around the zero levelset on which the domain is extended.
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order, lset=lset,
-                         wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2,
+                         wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, add_convection=add_convection,
                          surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet)
 
         self.els_outer = None
@@ -112,11 +113,19 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
 
     def InitializeForms(self):
-        u, p, r = self.fes.TrialFunction()
+        self.AssembleLf()
+
+        if self.add_convection:
+            self.AssembleConvection()
+
+        self.AssembleStokes()
+
+        self.AssembleInvertTimeStepping()
+
+
+    def AssembleLf(self):
         v, q, s = self.fes.TestFunction()
 
-        h = specialcf.mesh_size
-        n = self.lset.n
         rhos = [self.rho1, self.rho2]
         nus = [self.nu1, self.nu2]
         dx_neg = self.lset.dx_neg
@@ -125,14 +134,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         f_list = [self.f1, self.f2]
         g_list = [self.g1, self.g2]
         dS = self.lset.dS
-        mass1 = u[0] * v[0] * dx_list[0]
-        mass2 = u[1] * v[1] * dx_list[1]
-        mass_list = [mass1, mass2]
-
-        surface_tension_list = [self.fluid1_params.surface_tension_coeff, self.fluid2_params.surface_tension_coeff]
-
         kappaminus = CutRatioGF(self.lset.cutinfo)
         kappa = (kappaminus, 1 - kappaminus)
+
+        surface_tension_list = [self.fluid1_params.surface_tension_coeff, self.fluid2_params.surface_tension_coeff]
 
         self.lf = LinearForm(self.fes)
         for i in range(2):
@@ -148,23 +153,35 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.lf.Assemble()
 
 
-        self.a = BilinearForm(self.fes)
+    def AssembleStokes(self):
+        u, p, r = self.fes.TrialFunction()
+        v, q, s = self.fes.TestFunction()
+
+        h = specialcf.mesh_size
+        n = self.lset.n
+        nus = [self.nu1, self.nu2]
+        dx_neg = self.lset.dx_neg
+        dx_pos = self.lset.dx_pos
+        dx_list = [dx_neg, dx_pos]
+        dS = self.lset.dS
+
+
+        kappaminus = CutRatioGF(self.lset.cutinfo)
+        kappa = (kappaminus, 1 - kappaminus)
         dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
-        stokes_list = []
+
+        self.stokes_term = 0
         for i in range(2):
             basic_stokes = (nus[i] * InnerProduct(grad(u[i]), grad(v[i])) - p[i] * div(v[i]) - q[i] * div(u[i])) * dx_list[i]
 
             ghost_u = 1/h**2 * (u[i] - u[i].Other()) * (v[i] - v[i].Other()) * dw
             ghost_p = (p[i] - p[i].Other()) * (q[i] - q[i].Other()) * dw
-            #ghost_penalty = self.ghost_stab * ghost_u - self.ghost_stab * ghost_p
-            ghost_penalty = (self.ghost_stab * nus[i] * ghost_u - self.ghost_stab * 1 / nus[i] * ghost_p +
-                             self.ghost_stab * 1 / nus[i] * ghost_u)
+            ghost_penalty = self.ghost_stab * ghost_u - self.ghost_stab * ghost_p
+            #ghost_penalty = (self.ghost_stab * nus[i] * ghost_u - self.ghost_stab * 1 / nus[i] * ghost_p +
+            #                 self.ghost_stab * 1 / nus[i] * ghost_u)
 
             pressure_stab = (r * q[i] + s * p[i]) * dx_list[i]
-            stokes = basic_stokes + ghost_penalty #+ pressure_stab
-            stokes_list.append(stokes)
-            self.a += stokes
-
+            self.stokes_term += basic_stokes + ghost_penalty #+ pressure_stab
 
         nitsche = (-(kappa[0]*nus[0]*grad(u[0]) * n + kappa[1] * nus[1]*grad(u[1]) * n) * (v[0] - v[1]) -
                    (kappa[0]*nus[0]*grad(v[0]) * n + kappa[1] * nus[1]*grad(v[1]) * n) * (u[0] - u[1]) +
@@ -173,27 +190,62 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         bnd_terms = (((kappa[0] * p[0] + kappa[1] * p[1]) * (v[0] - v[1]) * n) * dS +
                      ((kappa[0] * q[0] + kappa[1] * q[1]) * (u[0] - u[1]) * n) * dS)
 
-        self.a += nitsche
-        self.a += bnd_terms
+        self.stokes_term += nitsche + bnd_terms
 
-        self.a.Assemble()
+        self.stokes_op = BilinearForm(self.fes)
+        self.stokes_op += self.stokes_term
+        self.stokes_op.Assemble()
+
+
+    def AssembleConvection(self):
+        u, p, r = self.fes.TrialFunction()
+        v, q, s = self.fes.TestFunction()
+        dx_neg = self.lset.dx_neg
+        dx_pos = self.lset.dx_pos
+        dx_list = [dx_neg, dx_pos]
+
+        self.conv = 0
+        for i in range(2):
+            self.conv += (grad(u[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
+            self.conv += (grad(self.intermediate.components[0].components[i]) * u[i]) * v[i] * dx_list[i]
+            self.conv -= (grad(self.intermediate.components[0].components[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
+
+        self.conv_op = BilinearForm(self.fes)
+        self.conv_op += self.conv
+        self.conv_op.Assemble()
+
+
+    def AssembleInvertTimeStepping(self):
+        u, p, r = self.fes.TrialFunction()
+        v, q, s = self.fes.TestFunction()
+
+        rhos = [self.rho1, self.rho2]
+        dx_neg = self.lset.dx_neg
+        dx_pos = self.lset.dx_pos
+        dx_list = [dx_neg, dx_pos]
+
+        mass1 = u[0] * v[0] * dx_list[0]
+        mass2 = u[1] * v[1] * dx_list[1]
+        mass_list = [mass1, mass2]
+
+        self.mass_op = BilinearForm(self.fes)
+        self.mass_op += rhos[0] * mass1 + rhos[1] * mass2
+        self.mass_op.Assemble()
 
         self.m_star = BilinearForm(self.fes)
 
         for i in range(2):
             self.m_star += rhos[i] * mass_list[i]
-            self.m_star += self.dt * stokes_list[i]
-            #self.m_star += self.dt * (r * q[i] + s * p[i]) * dx_list[i]
 
-        self.m_star += self.dt * nitsche
-        self.m_star += self.dt * bnd_terms
+        self.m_star += self.dt * self.stokes_term
+        if self.add_convection:
+            self.m_star += self.dt * self.conv
 
         self.m_star.Assemble()
 
         freedofs = self.fes.FreeDofs()
         #freedofs &= CompoundBitArray([self.active_u_dofs_1, self.active_p_dofs_1,
         #                              self.active_u_dofs_2, self.active_p_dofs_2])
-
         self.inv = self.m_star.mat.Inverse(freedofs=freedofs, inverse=direct_solver_nonspd)
 
 
@@ -206,7 +258,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
         gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
-        gfup.vec.data += self.a.mat.Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd) * (self.lf.vec - self.a.mat * gfup.vec)
+        gfup.vec.data += self.stokes_op.mat.Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd) * (self.lf.vec - self.stokes_op.mat * gfup.vec)
 
         return gfup
 
@@ -215,10 +267,12 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         if self.time is not None:
             self.time += self.dt
 
-        self.InitializeForms()
-        res = self.lf.vec - self.a.mat * self.gfup.vec
-        self.gfup.vec.data += self.dt * self.inv * res
+        self.AssembleLf()
 
+        res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+
+        self.gfup.vec.data += self.inv * res
 
     def SetTimeStepSize(self, dt):
-        raise(NotImplementedError("Not yet Implemented"))
+        self.dt = dt
+        self.AssembleInvertTimeStepping()

@@ -7,6 +7,10 @@ class NoTransport(BaseTransport):
         super().__init__(mesh=mesh, wind=None, inflow_values=None, order=order)
         self.fes = H1(mesh, order=order)
         self.gfu = GridFunction(self.fes)
+        self.current = self.gfu
+        self.past = GridFunction(self.gfu.space)
+        self.intermediate = GridFunction(self.gfu.space)
+
 
     def SetInitialValues(self, initial_values: CoefficientFunction=None, initial_time: float = 0.0):
         self.gfu.Set(initial_values)

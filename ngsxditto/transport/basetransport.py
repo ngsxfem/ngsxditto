@@ -45,7 +45,11 @@ class BaseTransport(GFStepper):
         self.source = source
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
-        self.active_elements = active_elements
+        if active_elements is None:
+            self.active_elements = BitArray(mesh.ne)
+            self.active_elements[:] = True
+        else:
+            self.active_elements = active_elements
 
 
     def SetInitialValues(self, initial_values: CoefficientFunction, initial_time: float = 0.0):
@@ -84,9 +88,13 @@ class BaseTransport(GFStepper):
         raise NotImplementedError("UpdateStates not implemented")
 
 
+    def AcceptIntermediate(self):
+        self.intermediate.vec.data = self.current.vec
+        self.current.vec.data = self.past.vec
+
     @property
     def field(self):
         """
-        Returns a **continuous** level-set field. This can be the GridFunction (or a part of it)
+        Returns a level-set field. This can be the GridFunction (or a part of it)
         """
         raise NotImplementedError("field not implemented")

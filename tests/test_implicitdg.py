@@ -1,12 +1,13 @@
-from ngsxditto import *
+from ngsxditto import LevelSetGeometry, TimeLoop
+from ngsxditto.transport import *
+from ngsxditto.extension import ElementBasedExtension
 from ngsolve import *
 from netgen.geom2d import SplineGeometry
 from xfem.lsetcurv import *
-from xfem.utils import *
+from xfem import *
 import pytest
 
 
-# Example: Rotating circle
 domain = SplineGeometry()
 domain.AddCircle((0,0), 1)
 mesh = Mesh(domain.GenerateMesh(maxh=0.2))
@@ -18,19 +19,20 @@ T_end = 1
 dt = 0.02
 
 
-def test_propagation():
-    transport = ImplicitSUPGTransport(mesh, wind, inflow_values=None, dt=dt, order=2)
+def test_global_propagation():
+    transport = ImplicitDGTransport(mesh, wind, inflow_values=None, dt=dt, order=2)
     transport.time = t
+    t.Set(0)
     transport.SetInitialValues(true_circle)
-
     while transport.time < T_end:
         transport.Step()
         transport.ValidateStep()
+    l2_error = Integrate((transport.gfu - true_circle)**2, mesh)**(1/2)
+    assert l2_error < 1e-2
 
-    assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-2
 
 def test_change_parameters():
-    transport = ImplicitSUPGTransport(mesh, wind, inflow_values=None, dt=dt, order=2)
+    transport = ImplicitDGTransport(mesh, wind, inflow_values=None, dt=dt, order=2)
     transport.time = t
     t.Set(0)
     transport.SetInitialValues(true_circle)
@@ -39,7 +41,6 @@ def test_change_parameters():
         transport.Step()
         transport.ValidateStep()
 
-    assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-2
 
     transport.SetTimeStepSize(0.01)
 
@@ -48,7 +49,7 @@ def test_change_parameters():
         transport.ValidateStep()
 
     assert pytest.approx(transport.time.Get()) == 0.3
-    assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1/2) < 1e-2
+    assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
 
     transport.SetWind(-wind)
 
@@ -57,9 +58,7 @@ def test_change_parameters():
         transport.ValidateStep()
 
     t.Set(0)
-    assert Integrate((transport.field - true_circle)**2, mesh)**(1/2) < 1e-2
-
-
+    assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
 
 
 def test_narrow_band_propagation():
@@ -74,7 +73,7 @@ def test_narrow_band_propagation():
     target_elems = BitArray(mesh.ne)
     target_elems[:] = True
 
-    transport = ImplicitSUPGTransport(mesh, wind=wind, inflow_values=None, dt=dt, order=1,
+    transport = ImplicitDGTransport(mesh, wind=wind, inflow_values=None, dt=dt, order=1,
                                     active_elements=transport_elems)
 
     levelset = LevelSetGeometry(transport)
@@ -97,4 +96,3 @@ def test_narrow_band_propagation():
 
     l2_error = Integrate((reduced_field - reduced_true_sol)**2, mesh)**(1/2)
     assert l2_error < 1e-1
-

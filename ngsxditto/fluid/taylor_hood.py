@@ -6,23 +6,25 @@ from ngsolve import *
 from .discretization import FluidDiscretization
 from .params import FluidParameters, WallParameters
 from .h1_conforming import H1Conforming
+from ngsxditto.levelset import LevelSetGeometry
 
 
 class TaylorHood(H1Conforming):
     """
     This class represents Taylor-Hood elements.
     """
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset = None,
-                 wall_params: WallParameters = None, if_dirichlet=None,
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int = 4, lset:LevelSetGeometry = None,
+                 wall_params: WallParameters = None, if_dirichlet=None, add_convection:bool = False,
                  f: CoefficientFunction = None, g: CoefficientFunction=CF(0),
-                 surface_tension: CoefficientFunction = None, dt=None, nitsche_stab:int=100,
-                 ghost_stab:int=20, extension_radius:float=0.2):
+                 surface_tension: CoefficientFunction = None, dt:float=None, nitsche_stab:int=100,
+                 ghost_stab:int=1, extension_radius:float=0.2):
         """
         Initializes the Taylor-Hood discretization with the given parameters and levelset.
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, if_dirichlet=if_dirichlet, lset=lset,
-                         wall_params=wall_params, f=f, g=g, surface_tension=surface_tension, dt=dt,
-                         nitsche_stab=nitsche_stab, ghost_stab=ghost_stab, extension_radius=extension_radius)
+                         wall_params=wall_params, add_convection=add_convection, f=f, g=g,
+                         surface_tension=surface_tension, dt=dt, nitsche_stab=nitsche_stab, ghost_stab=ghost_stab,
+                         extension_radius=extension_radius)
         self.V = None
         self.Q = None
 

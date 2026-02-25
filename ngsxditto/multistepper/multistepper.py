@@ -18,11 +18,12 @@ class MultiStepper:
 
     def RunFixedSteps(self, n):
         """
-        Applies the OneStep function of the object a given number of times..
+        Applies the OneStep function of the object a given number of times.
         """
         with alive_bar(n, force_tty=True, title="Time stepping: ", bar='smooth') as bar:
             for _ in range(n):
                 self.object.Step()
+                self.object.ValidateStep()
                 bar()
 
     def RunUntilTime(self, end_time):
@@ -34,6 +35,7 @@ class MultiStepper:
             with alive_bar(manual=True, force_tty=True, title="Time stepping: ", bar='smooth') as bar:
                 while self.object.time.Get() < end_time:
                     self.object.Step()
+                    self.object.ValidateStep()
                     bar((self.object.time.Get()-start_time)/(end_time-start_time))
 
         else:

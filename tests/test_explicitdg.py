@@ -1,7 +1,8 @@
-from ngsxditto.transport import *
+from ngsxditto import *
 from ngsolve import *
 from netgen.geom2d import SplineGeometry
 from xfem.lsetcurv import *
+from xfem.utils import *
 import pytest
 
 
@@ -24,6 +25,7 @@ def test_propagation_with_trace():
     transport.SetInitialValues(true_circle)
     while transport.time < T_end:
         transport.Step()
+        transport.ValidateStep()
 
     assert Integrate((transport.gfu - true_circle)**2, mesh)**(1/2) < 1e-2
 
@@ -35,6 +37,7 @@ def test_propagation_without_trace():
 
     while transport.time < T_end:
         transport.Step()
+        transport.ValidateStep()
 
     assert Integrate((transport.gfu - true_circle)**2, mesh)**(1/2) < 1e-2
 
@@ -47,6 +50,7 @@ def test_change_parameters():
 
     for _ in range(10):
         transport.Step()
+        transport.ValidateStep()
 
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
 
@@ -54,6 +58,7 @@ def test_change_parameters():
 
     for _ in range(10):
         transport.Step()
+        transport.ValidateStep()
 
     assert pytest.approx(transport.time.Get()) == 0.3
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
@@ -62,10 +67,47 @@ def test_change_parameters():
 
     for _ in range(30):
         transport.Step()
+        transport.ValidateStep()
 
     t.Set(0)
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
 
 
+
+def test_narrow_band_propagation():
+    t.Set(0)
+    transport_elems = BitArray(mesh.ne)
+    transport_elems[:] = True
+    support_elems = BitArray(mesh.ne)
+
+    adj = AdjacencyMatrix(mesh, "vertex")
+
+
+    target_elems = BitArray(mesh.ne)
+    target_elems[:] = True
+
+    transport = ExplicitDGTransport(mesh, wind=wind, inflow_values=None, dt=dt, order=1, compile=False, usetrace=False,
+                                    active_elements=transport_elems)
+
+    levelset = LevelSetGeometry(transport)
+    levelset.Initialize(true_circle)
+
+    def UpdateElemMarker():
+        support_elems[:] = AddNeighborhood(levelset.hasif, adj, layers=1, inplace=False)
+        transport_elems[:] = AddNeighborhood(levelset.hasif, adj, layers=3, inplace=False)
+
+    ebext = ElementBasedExtension(transport.past, support_elems, transport_elems)
+
+    time_loop = TimeLoop(time=t, dt=dt, end_time=T_end)
+    time_loop.Register(UpdateElemMarker, name="udpate transport elements")
+    time_loop.Register(ebext, name="element based level set extension")
+    time_loop.Register(levelset, name="levelset")
+    time_loop()
+
+    reduced_field = transport.field * BitArrayCF(support_elems)
+    reduced_true_sol = true_circle * BitArrayCF(support_elems)
+
+    l2_error = Integrate((reduced_field - reduced_true_sol)**2, mesh)**(1/2)
+    assert l2_error < 1e-1
 
 
