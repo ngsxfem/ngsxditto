@@ -66,22 +66,15 @@ class ImplicitDGTransport(BaseTransport):
         self.past_cont.Set (initial_values)
         self.ValidateStep()
 
-
-    def UpdateForms(self):
+    def SetWind(self, wind: CoefficientFunction):
         u, v = self.gfu.space.TnT()
         n = specialcf.normal(self.mesh.dim)
 
         self.bfa = RestrictedBilinearForm(self.fes, element_restriction=self.active_elements,
                                           facet_restriction=self.active_facets, check_unused=False)
         self.bfa += u * v * dx(definedonelements=self.active_elements)
-        self.bfa += self.dt*(v * (self.wind * grad(u))).Compile() * dx(definedonelements=self.active_elements, bonus_intorder=1) # ! bonus_intorder=1 important, because integration order would be too low otherwise
-        skeleton_form1 = False
-        if skeleton_form1:
-            self.bfa += self.dt*( - (self.wind*n) * (u-self.nobnd_facets_ind *u.Other()) * IfPos((self.wind*n), v.Other(), v) ).Compile() * dx(skeleton=True,definedonelements=self.inner_facets)
-            self.bfa += self.dt*( - (self.wind*n) * u * IfPos((self.wind*n), v.Other(), v) ).Compile() * dx(skeleton=True,definedonelements=self.bnd_facets)
-            ####ds-skeleton terms are missing ?!
-        else:
-            self.bfa += self.dt*(- IfPos((self.wind*n), 0, (self.wind*n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
+        self.bfa += self.dt*(v * (wind | grad(u))).Compile() * dx(definedonelements=self.active_elements, bonus_intorder=1) # ! bonus_intorder=1 important, because integration order would be too low otherwise
+        self.bfa += self.dt*(- IfPos((wind|n), 0, (wind|n) * (u - self.nobnd_facets_ind *u.Other())) * v).Compile() * dx(element_boundary=True, definedonelements=self.active_elements)
 
         self.lf = LinearForm(self.fes)
         self.lf += ( self.past_cont * v).Compile() * dx(definedonelements=self.active_elements)

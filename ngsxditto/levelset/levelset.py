@@ -165,14 +165,11 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         """
         if whole_mesh or self.transport.active_elements is None:
             self.lset_cont.Set(self.transport.field)
-            self.lset_cont.Set(self.transport.field)
         else:
             # first take values on active elements
             self.lset_cont.Set(self.transport.field, definedonelements=self.transport.active_elements)
             # take values from old lset on the remainder **without** changing the active elements.
             outer_cont_dofs = ~GetDofsOfElements(self.fes_cont, self.transport.active_elements)
-            self.lset_cont_tmp.Set(self.lsetstepper.past, definedonelements=~self.transport.active_elements)
-            self.lset_cont.vec.data += Projector(outer_cont_dofs,range=True) * self.lset_cont_tmp.vec
             self.lset_cont_tmp.Set(self.past, definedonelements=~self.transport.active_elements)
             self.lset_cont.vec.data += Projector(outer_cont_dofs,range=True) * self.lset_cont_tmp.vec
 
