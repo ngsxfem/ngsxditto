@@ -151,9 +151,9 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         """
         Updates the integrators of the level set.
         """
-        self.dx_neg = dCut(levelset=self.lsetp1, domain_type=NEG, definedonelements=self.hasneg, deformation=self.deformation)
-        self.dx_pos = dCut(levelset=self.lsetp1, domain_type=POS, definedonelements=self.haspos, deformation=self.deformation)
-        self.dS = dCut(levelset=self.lsetp1, domain_type=IF, definedonelements=self.hasif, deformation=self.deformation)
+        self.dx_neg = dCut(levelset=self.lsetp1, domain_type=NEG, definedonelements=self.hasneg, deformation=self.deformation)#, order=self.transport.order)
+        self.dx_pos = dCut(levelset=self.lsetp1, domain_type=POS, definedonelements=self.haspos, deformation=self.deformation)#, order=self.transport.order)
+        self.dS = dCut(levelset=self.lsetp1, domain_type=IF, definedonelements=self.hasif, deformation=self.deformation)#, order=self.transport.order)
 
     def ProjectToContinuous(self, whole_mesh=False):
         """
@@ -179,8 +179,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.steps_since_last_redistancing += 1
         self.RedistanceIfNecessary()
         self.UpdateLinearApproximation()
-        self.UpdateDeformation()
         self.UpdateCutInfo()
+        self.UpdateDeformation()
 
         self.ProcessCallbacks()
 
@@ -224,11 +224,13 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
     @property
     def surface_area(self):
-        return Integrate(CF(1) * self.dS, self.mesh)
+        return Integrate(CF(1) * dCut(levelset=self.lsetp1, domain_type=IF, definedonelements=self.hasif,
+                                      deformation=self.deformation, order=self.transport.order), self.mesh)
+
 
     @property
     def volume(self):
-        return Integrate(CF(1) * self.dx_neg, self.mesh)
+        return Integrate(CF(1) * dCut(levelset=self.lsetp1, domain_type=NEG, definedonelements=self.hasneg, deformation=self.deformation, order=self.transport.order), self.mesh)
 
     @property
     def field(self):
