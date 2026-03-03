@@ -79,10 +79,14 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.transport.ValidateStep()
         super().ValidateStep()
 
+        if hasattr(self.transport, 'past_cont'):
+            self.transport.past_cont.vec.data = self.field.vec
+
     def AcceptIntermediate(self):
         self.transport.AcceptIntermediate()
         self.intermediate.vec.data = self.current.vec
         self.current.vec.data = self.past.vec
+
 
     def RevertStep(self):
         self.transport.RevertStep()
@@ -92,7 +96,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
     @classmethod
     def from_cf(cls, cf : CoefficientFunction, mesh : Mesh, order : int = 1 ):
         """
-            Initializes a LevelSetGeometry from a CoefficientFunction using a NoTransport 
+            Initializes a LevelSetGeometry from a CoefficientFunction using a NoTransport
             object for the transport
         """
         return cls(transport=NoTransport(mesh, order=order), initial_levelset=cf)
@@ -242,4 +246,3 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
         interface_error = Integrate(error * error * self.dS, mesh=self.mesh) ** (1/2)
         return interface_error
-

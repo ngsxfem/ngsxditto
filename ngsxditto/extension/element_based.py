@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class ElementBasedExtensionOperator(BaseMatrix):
     """
-    A linear operator that extends a vector of a field from a submesh 
-    to another submesh using  a harmonic extension based on 
+    A linear operator that extends a vector of a field from a submesh
+    to another submesh using  a harmonic extension based on
     a ghost-penalty(-like) bilinear form which yields a smooth extensions.
 
     Before application of the operator the extension needs to be updated
@@ -114,8 +114,6 @@ class ElementBasedExtensionOperator(BaseMatrix):
             self.activefacets[:] = GetFacetsWithNeighborTypes(self.mesh, a= self.filtered_support_or_target,
                                                               b= self.filtered_support_or_target,
                                                               bnd_val_a=False, bnd_val_b=False, use_and=True)
-
-
         else:
             self.filtered_target[:] = self.targetelems
             self.filtered_support[:] = self.supportelems
