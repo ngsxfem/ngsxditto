@@ -14,7 +14,7 @@ class MeanCurvatureSolver(StatelessStepper):
 
     def __init__(self, mesh: Mesh, order: int = 1,
                  lset=None, own_cutinfo=False, own_lsetadap=False,
-                 gp_param: Union[None, float, CoefficientFunction] = specialcf.mesh_size):
+                 gp_param: Union[None, float, CoefficientFunction] = 1):
         """
         Initialize the mean curvature solver with a mesh discretization parameters, 
         and (if existing anyway) lsetadap and cutinfo
@@ -118,9 +118,9 @@ class MeanCurvatureSolver(StatelessStepper):
         # bilinear form
         a = RestrictedBilinearForm(self.X, element_restriction=ifels, 
                                    facet_restriction=facets, check_unused=False)
-        a += u*v * ds + h * (grad(u) * n) * (grad(v) * n) * dX
+        a += u*v * ds + h*(grad(u) * n) * (grad(v) * n) * dX
         if self.gp_param is not None:
-            a += self.gp_param * (u-u.Other()) * (v-v.Other()) * dw
+            a += self.gp_param * (1/h) * (u-u.Other()) * (v-v.Other()) * dw
         a.Assemble()
 
         # linear form
