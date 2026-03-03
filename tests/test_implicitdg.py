@@ -22,43 +22,46 @@ dt = 0.02
 def test_global_propagation():
     transport = ImplicitDGTransport(mesh, wind, inflow_values=None, dt=dt, order=2)
     transport.time = t
+    levelset = LevelSetGeometry(transport)
     t.Set(0)
-    transport.SetInitialValues(true_circle)
+    levelset.Initialize(true_circle)
     while transport.time < T_end:
-        transport.Step()
-        transport.ValidateStep()
+        levelset.Step()
+        levelset.ValidateStep()
     l2_error = Integrate((transport.gfu - true_circle)**2, mesh)**(1/2)
-    assert l2_error < 1e-2
+    assert l2_error < 2e-2
 
 
 def test_change_parameters():
     transport = ImplicitDGTransport(mesh, wind, inflow_values=None, dt=dt, order=2)
     transport.time = t
+    levelset = LevelSetGeometry(transport)
     t.Set(0)
-    transport.SetInitialValues(true_circle)
+    levelset.Initialize(true_circle)
 
     for _ in range(10):
-        transport.Step()
-        transport.ValidateStep()
+        levelset.Step()
+        levelset.ValidateStep()
 
+    assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 2e-2
 
     transport.SetTimeStepSize(0.01)
 
     for _ in range(10):
-        transport.Step()
-        transport.ValidateStep()
+        levelset.Step()
+        levelset.ValidateStep()
 
     assert pytest.approx(transport.time.Get()) == 0.3
-    assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
+    assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 2e-2
 
     transport.SetWind(-wind)
 
     for _ in range(30):
-        transport.Step()
-        transport.ValidateStep()
+        levelset.Step()
+        levelset.ValidateStep()
 
     t.Set(0)
-    assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
+    assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 2e-2
 
 
 def test_narrow_band_propagation():

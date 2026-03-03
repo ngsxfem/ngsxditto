@@ -84,6 +84,7 @@ class ImplicitDGTransport(BaseTransport):
 
     def SetTimeStepSize(self, dt: float):
         self.dt = dt
+        self.SetWind(self.wind)
 
     def Step(self):
         self.active_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=self.active_elements, use_and=False) ##todo
