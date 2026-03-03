@@ -20,7 +20,8 @@ class NoTransport(BaseTransport):
         raise NotImplementedError("SetTime not implemented for NoTransport.")
 
     def Step(self):
-        raise NotImplementedError("UpdateStates not implemented for NoTransport.")
+        pass
+        #raise NotImplementedError("UpdateStates not implemented for NoTransport.")
 
     @property
     def field(self):
