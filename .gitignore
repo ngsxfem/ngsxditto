@@ -11,3 +11,4 @@ workspace.code-workspace
 local/**
 examples/.jupyter_ystore.db
 ngsxditto.egg-info/**
+.local
