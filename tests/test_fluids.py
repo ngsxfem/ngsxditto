@@ -26,7 +26,7 @@ f = CF((pi * (2 * pi ** 2 * nu * sin(pi * y) * cos(pi * x) - sin(pi * x) * cos(p
 def test_fitted_stokes(fluid_type):
     dirichlet = {"left|right|bottom|top": true_solution_u}
 
-    fluid = fluid_type(mesh, order=order, fluid_params=fluid_params, f=f)
+    fluid = fluid_type(mesh, order=order, fluid_params=fluid_params, f=f, add_number_space=True)
     fluid.Initialize(dirichlet=dirichlet)
 
     sol = fluid.SolveStokes()
@@ -51,7 +51,7 @@ def test_unfitted_stokes(fluid_type):
     levelset.Initialize(levelset_function)
 
     fluid = fluid_type(mesh, fluid_params, f=f, lset=levelset, if_dirichlet=true_solution_u, order=order,
-                       ghost_stab=1, nitsche_stab=100)
+                       ghost_stab=1, nitsche_stab=100, add_number_space=True)
 
 
     fluid.Initialize()
