@@ -173,6 +173,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
             self.lset_cont_tmp.Set(self.past, definedonelements=~self.transport.active_elements)
             self.lset_cont.vec.data += Projector(outer_cont_dofs,range=True) * self.lset_cont_tmp.vec
 
+    @timed_method
     def Step(self):
         """
         Evolves the level set one step with the transport scheme. Automatically updates cut info and integrators.

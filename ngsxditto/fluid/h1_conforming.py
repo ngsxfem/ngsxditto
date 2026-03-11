@@ -150,6 +150,7 @@ class H1Conforming(FluidDiscretization):
 
         self.lf.Assemble()
 
+    @timed_method
     def AssembleStokes(self):
         trial, test = self.fes.TnT()
 
@@ -203,7 +204,6 @@ class H1Conforming(FluidDiscretization):
         self.stokes_op += self.stokes_term
         self.stokes_op.Assemble(reallocate=True)
 
-
     def AssembleConvection(self):
         trial, test = self.fes.TnT()
         u, p = trial[0], trial[1]
@@ -219,6 +219,7 @@ class H1Conforming(FluidDiscretization):
         self.conv_op += self.conv
         self.conv_op.Assemble(reallocate=True)
 
+    @timed_method
     def AssembleTimeStepping(self):
         trial, test = self.fes.TnT()
         u, p = trial[0], trial[1]
@@ -237,6 +238,7 @@ class H1Conforming(FluidDiscretization):
             self.m_star += self.dt * self.conv
         self.m_star.Assemble(reallocate=True)
 
+    @timed_method
     def InvertTimeStepping(self):
         self.inv = self.m_star.mat.Inverse(freedofs=self.active_dofs & self.fes.FreeDofs(), inverse=direct_solver_nonspd)
 
@@ -261,7 +263,7 @@ class H1Conforming(FluidDiscretization):
                          (self.lf.vec - stationary_stokes_op.mat * gfup.vec))
         return gfup
 
-
+    @timed_method
     def Step(self):
         if self.time is not None:
             self.time += self.dt

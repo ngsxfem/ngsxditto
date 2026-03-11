@@ -5,7 +5,7 @@ from collections import defaultdict
 
 
 
-def timed_method(name=None):
+def timed_method(fn=None, name=None):
     def decorator(fn):
         if name:
             section = name
@@ -19,6 +19,8 @@ def timed_method(name=None):
                 return fn(self, *args, **kwargs)
         wrapper._timed_section = True
         return wrapper
+    if fn is not None:
+        return decorator(fn)
     return decorator
 
 _current_object = threading.local()
