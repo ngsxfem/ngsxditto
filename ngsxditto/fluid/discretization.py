@@ -18,7 +18,7 @@ class FluidDiscretization(GFStepper):
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int, lset:LevelSetGeometry,
                  if_dirichlet:CoefficientFunction, wall_params: WallParameters, add_convection:bool,
                  f:CoefficientFunction, g: CoefficientFunction, surface_tension:CoefficientFunction, dt:float,
-                 derivative_jumps:bool, time: typing.Optional[Parameter]=None,
+                 derivative_jumps:bool, add_number_space:bool, time: typing.Optional[Parameter]=None
                  ):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
@@ -58,6 +58,9 @@ class FluidDiscretization(GFStepper):
         self.derivative_jumps = derivative_jumps
         if derivative_jumps and order > 2:
             print("Warning: Derivative jump ghost penalty only implemented up to order 2. To use higher order ghost penalty set `derivative_jump=False`.")
+
+        self.add_number_space = add_number_space
+
         if lset is None:
             self.lset = DummyLevelSet(mesh)
         else:

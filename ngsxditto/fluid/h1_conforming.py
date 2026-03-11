@@ -16,7 +16,7 @@ class H1Conforming(FluidDiscretization):
                  wall_params: WallParameters, if_dirichlet:CoefficientFunction, add_convection:bool,
                  f: CoefficientFunction, g: CoefficientFunction,
                  surface_tension: CoefficientFunction, dt:float,
-                 nitsche_stab:int, ghost_stab:int, extension_radius:float, derivative_jumps:bool):
+                 nitsche_stab:int, ghost_stab:int, extension_radius:float, derivative_jumps:bool, add_number_space:bool):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -50,7 +50,7 @@ class H1Conforming(FluidDiscretization):
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
                          surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet, add_convection=add_convection,
-                         derivative_jumps=derivative_jumps)
+                         derivative_jumps=derivative_jumps, add_number_space=add_number_space)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
@@ -124,7 +124,10 @@ class H1Conforming(FluidDiscretization):
         self.AssembleTimeStepping()
 
     def AssembleLf(self):
-        (u, p, r), (v, q, s) = self.fes.TnT()
+        test = self.fes.TestFunction()
+        v, q = test[0], test[1]
+        s = test[2] if self.add_number_space else None
+
         h = specialcf.mesh_size
         n = self.lset.n
 
@@ -148,7 +151,13 @@ class H1Conforming(FluidDiscretization):
         self.lf.Assemble()
 
     def AssembleStokes(self):
-        (u, p, r), (v, q, s) = self.fes.TnT()
+        trial, test = self.fes.TnT()
+
+        u, p = trial[0], trial[1]
+        v, q = test[0], test[1]
+        r = trial[2] if self.add_number_space else None
+        s = test[2] if self.add_number_space else None
+
         h = specialcf.mesh_size
         n = self.lset.n
 
@@ -184,18 +193,22 @@ class H1Conforming(FluidDiscretization):
             self.stokes_term += self.nu * nitsche
             self.stokes_term += (p * v * n + q * u * n) * dS
 
-        if False:
+        if self.add_number_space:
             self.stokes_term += ((p * s + q * r) - (1e-8  * r * s)) * dx_neg
         else:
-            self.fes.FreeDofs()[-1] = False
+            self.stokes_term += 1e-10 * p * q * dx_neg
 
         self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
                                                 facet_restriction=self.facets_ring, check_unused=False)
         self.stokes_op += self.stokes_term
         self.stokes_op.Assemble(reallocate=True)
 
+
     def AssembleConvection(self):
-        (u, p, r), (v, q, s) = self.fes.TnT()
+        trial, test = self.fes.TnT()
+        u, p = trial[0], trial[1]
+        v, q = test[0], test[1]
+
         dx_neg = self.lset.dx_neg
 
         self.conv = ((grad(u) * self.intermediate.components[0]) * v * dx_neg +
@@ -207,7 +220,10 @@ class H1Conforming(FluidDiscretization):
         self.conv_op.Assemble(reallocate=True)
 
     def AssembleTimeStepping(self):
-        (u, p, r), (v, q, s) = self.fes.TnT()
+        trial, test = self.fes.TnT()
+        u, p = trial[0], trial[1]
+        v, q = test[0], test[1]
+
         dx_neg = self.lset.dx_neg
 
         self.mass = u * v * dx_neg
@@ -227,12 +243,15 @@ class H1Conforming(FluidDiscretization):
 
     def SolveStokes(self):
         gfup = GridFunction(self.fes)
-        gfu, gfp, gfn = gfup.components
+        gfu = gfup.components[0]
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
         cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
         gfu.Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 
-        (u, p, r), (v, q, s) = self.fes.TnT()
+        trial, test = self.fes.TnT()
+        u, p = trial[0], trial[1]
+        v, q = test[0], test[1]
+
         stationary_stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
                                                 facet_restriction=self.facets_ring, check_unused=False)
         stationary_stokes_op += self.stokes_term
