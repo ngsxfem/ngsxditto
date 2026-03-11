@@ -17,14 +17,14 @@ class TaylorHood(H1Conforming):
                  wall_params: WallParameters = None, if_dirichlet=None, add_convection:bool = False,
                  f: CoefficientFunction = None, g: CoefficientFunction=CF(0),
                  surface_tension: CoefficientFunction = None, dt:float=None, nitsche_stab:int=100,
-                 ghost_stab:int=1, extension_radius:float=0.2):
+                 ghost_stab:int=1, extension_radius:float=0.2, derivative_jumps=False):
         """
         Initializes the Taylor-Hood discretization with the given parameters and levelset.
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, if_dirichlet=if_dirichlet, lset=lset,
                          wall_params=wall_params, add_convection=add_convection, f=f, g=g,
                          surface_tension=surface_tension, dt=dt, nitsche_stab=nitsche_stab, ghost_stab=ghost_stab,
-                         extension_radius=extension_radius)
+                         extension_radius=extension_radius, derivative_jumps=derivative_jumps)
         self.V = None
         self.Q = None
 

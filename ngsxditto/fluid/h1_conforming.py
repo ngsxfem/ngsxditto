@@ -16,7 +16,7 @@ class H1Conforming(FluidDiscretization):
                  wall_params: WallParameters, if_dirichlet:CoefficientFunction, add_convection:bool,
                  f: CoefficientFunction, g: CoefficientFunction,
                  surface_tension: CoefficientFunction, dt:float,
-                 nitsche_stab:int, ghost_stab:int, extension_radius:float):
+                 nitsche_stab:int, ghost_stab:int, extension_radius:float, derivative_jumps:bool):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -49,7 +49,8 @@ class H1Conforming(FluidDiscretization):
             Radius of the zero levelset on which the domain is extended.
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
-                         surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet, add_convection=add_convection)
+                         surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet, add_convection=add_convection,
+                         derivative_jumps=derivative_jumps)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
@@ -66,6 +67,7 @@ class H1Conforming(FluidDiscretization):
         self.ci_main = CutInfo(self.mesh, self.lset.lsetp1)
         self.ci_inner = CutInfo(self.mesh, lsetp1_inner)
         self.ci_outer = CutInfo(self.mesh, lsetp1_outer)
+        self.EA = ElementAggregation(mesh)
 
 
     def SetLevelSet(self, lset):
@@ -76,8 +78,11 @@ class H1Conforming(FluidDiscretization):
 
 
     def SetInitialValues(self, initial_velocity, initial_pressure=CF(0), mean_pressure_fix=None):
+        self.mesh.SetDeformation(self.lset.deformation)
         self.gfu.Set(initial_velocity)
         self.gfp.Set(initial_pressure)
+        self.mesh.UnsetDeformation()
+
         self.ValidateStep()
 
 
@@ -99,9 +104,10 @@ class H1Conforming(FluidDiscretization):
         els_hasneg = self.ci_main.GetElementsOfType(HASNEG)
         self.els_outer = self.ci_outer.GetElementsOfType(HASNEG)
         els_inner = self.ci_inner.GetElementsOfType(NEG)
-        els_ring = self.els_outer & ~els_inner
-        self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
+        self.els_ring = self.els_outer & ~els_inner
+        self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=self.els_ring)
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
+        self.EA.Update(els_hasneg & ~self.lset.hasif, self.lset.hasif | (self.els_outer & ~ els_hasneg))
 
     def InitializeForms(self):
         self.AssembleAllForms()
@@ -132,9 +138,9 @@ class H1Conforming(FluidDiscretization):
             self.lf += -self.fluid_params.surface_tension_coeff * self.surface_tension * v * dS
 
         if self.if_dirichlet is not None:
-            self.lf += (-self.nu * Grad(v) * n * self.if_dirichlet +
+            self.lf += (-self.nu * grad(v) * n * self.if_dirichlet +
                         self.nu * self.nitsche_stab / h * self.if_dirichlet * v +
-                        1/self.rho * q * n * self.if_dirichlet) * dS
+                        q * n * self.if_dirichlet) * dS
 
         for (region, fct) in self.neumann.items():
             self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
@@ -148,23 +154,38 @@ class H1Conforming(FluidDiscretization):
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
-        dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
 
         basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - 1/self.rho * p * div(v) - 1/self.rho * q * div(u)) * dx_neg
 
-        ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
-        ghost_p = (p - p.Other()) * (q - q.Other()) * dw
+        if not self.derivative_jumps:
+            #dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
+            dw = dFacetPatch(definedonelements=self.EA.patch_interior_facets, deformation=self.lset.deformation)
 
-        ghost_penalty = (self.nu + 1/self.nu)* self.ghost_stab * self.extension_radius * ghost_u - 1/self.nu *self.ghost_stab * ghost_p
+            ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
+            ghost_p = (p - p.Other()) * (q - q.Other()) * dw
+
+        else:
+            dw = dx(skeleton=True, definedonelements=self.facets_ring, deformation=self.lset.deformation)
+            n_F = specialcf.normal(self.mesh.dim)
+            ghost_p = h**3 * InnerProduct((grad(p) - grad(p.Other())) * n_F, (grad(q) - grad(q.Other())) * n_F) * dw
+
+            ghost_u = h * InnerProduct((grad(u) - grad(u.Other())) * n_F, (grad(v) - grad(v.Other())) * n_F) * dw
+            if self.order >=1:
+                for i in range(self.mesh.dim):
+                    ghost_u += h**3 * InnerProduct(
+                        (u.Operator("hesse")[i] - u.Other().Operator("hesse")[i]) * n_F,
+                        (v.Operator("hesse")[i] - v.Other().Operator("hesse")[i]) * n_F) * dw
+
+        ghost_penalty = self.nu * self.ghost_stab * self.extension_radius * ghost_u - 1/self.nu * self.ghost_stab * ghost_p
 
         self.stokes_term = basic_stokes + ghost_penalty
         if self.if_dirichlet is not None:
             nitsche = (-grad(u) * n * v - grad(v) * n * u + self.nitsche_stab / h * u * v) * dS
             self.stokes_term += self.nu * nitsche
-            self.stokes_term += 1/self.rho * (p * v * n + q * u * n) * dS
+            self.stokes_term += (p * v * n + q * u * n) * dS
 
         if False:
-            self.stokes_term += (p * s + q * r) * dx_neg
+            self.stokes_term += ((p * s + q * r) - (1e-8  * r * s)) * dx_neg
         else:
             self.fes.FreeDofs()[-1] = False
 
@@ -227,19 +248,19 @@ class H1Conforming(FluidDiscretization):
             self.time += self.dt
         self.AssembleLf()
 
-        #res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
-        #self.gfup.vec.data += self.inv * res
+        res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+        self.gfup.vec.data += self.inv * res
 
-        gfup_copy = self.gfup.vec.CreateVector()
-        gfup_copy.data = self.gfup.vec
-
-        self.gfup.vec[:] = 0
-        self.ApplyBoundaryConditions()
-
-        uD = self.gfup.vec.CreateVector()
-        uD.data = self.gfup.vec
-
-        self.gfup.vec.data += self.inv * (self.mass_op.mat*gfup_copy + self.dt * self.lf.vec - self.m_star.mat * uD)
+        # gfup_copy = self.gfup.vec.CreateVector()
+        # gfup_copy.data = self.gfup.vec
+        #
+        # self.gfup.vec[:] = 0
+        # self.ApplyBoundaryConditions()
+        #
+        # uD = self.gfup.vec.CreateVector()
+        # uD.data = self.gfup.vec
+        #
+        # self.gfup.vec.data += self.inv * (self.mass_op.mat*gfup_copy + self.dt * self.lf.vec - self.m_star.mat * uD)
 
 
 
