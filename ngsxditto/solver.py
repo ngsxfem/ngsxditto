@@ -16,7 +16,8 @@ class Solver:
                  should_finalize: typing.Callable[[], bool] = None,
                  should_revert: typing.Callable[[], bool] = None,
                  display_progress_bar:bool=True,
-                 show_profiles:bool=True
+                 show_profiles:bool=True,
+                 pajetrace=0
                  ):
         """
         Initialize the solver with empty dictionary that can be filled with Stepper objects.
@@ -46,6 +47,7 @@ class Solver:
         self.should_finalize = should_finalize
         self.should_revert = should_revert
         self.show_profiles = show_profiles
+        self.pajetrace = pajetrace
 
         @contextmanager
         def dummy_bar(*args, **kwargs):
@@ -61,7 +63,7 @@ class Solver:
         self.should_revert = should_revert
 
 
-    def Register(self, stepper_object, name: str=None, step_frequency: int=None, time_frequency: float=None, as_validate:bool=False):
+    def Register(self, stepper_object, name: str=None, step_frequency: int=None, time_frequency: float=None, as_validate:bool=False, measure_time=None):
         """
         Registers a function with arguments that wil be called in the loop.
         Parameters:
@@ -83,6 +85,12 @@ class Solver:
 
         if callable(stepper_object):
             stepper_object = FunctionCallStepper(stepper_object, as_validate=as_validate)
+
+        if measure_time is not None:
+            if measure_time:
+                stepper_object.auto_time = True
+            if not measure_time:
+                stepper_object.auto_time = False
 
         self.stepper_dict[name] = {"object": stepper_object,
                                    "step_frequency": step_frequency,
@@ -108,7 +116,7 @@ class Solver:
 
         with self.progress_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
-            with TaskManager():
+            with TaskManager(pajetrace=self.pajetrace):
                 while True:
                     self.progress_info.Step()
 
@@ -183,13 +191,14 @@ class Solver:
             stepper_object.AfterLoop()
         if self.show_profiles:
             for stepper_name in self.stepper_names:
-                entry = self.stepper_dict[stepper_name]
-                time_dict = entry["object"].times
-                print(f"{stepper_name}: {time_dict['__total__']}")
-                if len(entry["object"].times) > 1:
-                    for key, value in time_dict.items():
-                        if key != "__total__":
-                            print(f"    {key}: {value}")
+                if self.stepper_dict[stepper_name]["object"].auto_time:
+                    entry = self.stepper_dict[stepper_name]
+                    time_dict = entry["object"].times
+                    print(f"{stepper_name}: {time_dict['__total__']}")
+                    if len(entry["object"].times) > 1:
+                        for key, value in time_dict.items():
+                            if key != "__total__":
+                                print(f"    {key}: {value}")
 
 
 
@@ -203,7 +212,8 @@ class TimeLoop(Solver):
                  should_finalize: typing.Callable[[], bool] = None,
                  should_revert: typing.Callable[[], bool] = None,
                  display_progress_bar:bool=True,
-                 show_profiles: bool = True
+                 show_profiles: bool = True,
+                 pajetrace: int = 0
                  ):
         """
         Initialize the timeloop with a time parameter, step-size and end time.
@@ -236,7 +246,7 @@ class TimeLoop(Solver):
         self.show_profiles = show_profiles
         super().__init__(stopping_rule=reached_final_time, progress_info=self.progress_info,
                          should_finalize=should_finalize, should_revert=should_revert, display_progress_bar=display_progress_bar,
-                         show_profiles=show_profiles)
+                         show_profiles=show_profiles, pajetrace=pajetrace)
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
