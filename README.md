@@ -60,3 +60,7 @@ The term “ditto” is used in a mathematical and descriptive context only.
 
 All artwork and visualizations are original and generative in nature.  
 No copyrighted Pokémon imagery or characters are used.
+
+## Contributors:
+
+Paul Schwering (Narrow band transport)
