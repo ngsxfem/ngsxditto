@@ -70,7 +70,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.dx_neg = None
         self.dx_pos = None
         self.dS = None
-        self.n = Normalize(grad(self.field))
+        self.n = Normalize(grad(self.lsetp1))
 
         if initial_levelset is not None:
             self.Initialize(initial_levelset)
