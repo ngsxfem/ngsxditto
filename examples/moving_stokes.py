@@ -57,7 +57,7 @@ fluid = TaylorHood(mesh, fluid_params, lset=levelset, dt=dt, if_dirichlet=CF((0,
 dirichlet = {"left": CF(((1-y)*(1+y), 0)), "top": CF((0, 0)), "bottom": CF((0, 0))}
 fluid.Initialize(dirichlet=dirichlet)
 sol = fluid.SolveStokes()
-gfu, gfp, gfn = sol.components
+gfu, gfp = sol.components
 fluid.SetInitialValues(gfu, gfp)
 ngw.Draw(IfPos(levelset.field, CF((0, 0)), fluid.gfu), mesh)
 ngw.Draw(IfPos(levelset.field, CF(0), fluid.gfp), mesh)

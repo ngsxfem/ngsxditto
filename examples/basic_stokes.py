@@ -71,7 +71,7 @@ fluid_params = FluidParameters(viscosity=1)
 # %%
 uin = CF((4*y*(1-y),0)) # parabolic inflow
 
-fluid = TaylorHood(mesh, order=order, fluid_params=fluid_params, f=CF((8, 0)))
+fluid = TaylorHood(mesh, order=order, fluid_params=fluid_params, f=CF((8, 0)), add_number_space=True)
 fluid.SetBoundaryConditions(dirichlet={"left|bottom|top": uin})
 fluid.InitializeSpaces()
 
