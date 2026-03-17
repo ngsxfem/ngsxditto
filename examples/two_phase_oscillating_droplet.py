@@ -46,7 +46,7 @@ fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=flui
 fluid.Initialize(dirichlet={".*": CF((0, 0))})
 fluid.ValidateStep()
 sol = fluid.SolveStokes()
-gfu, gfp, gfn = sol.components
+gfu, gfp = sol.components[0], sol.components[1]
 u_neg, u_pos = gfu.components
 p_neg, p_pos = gfp.components
 ngw.Draw(IfPos(levelset.lsetp1, u_pos, u_neg), mesh, "u")
