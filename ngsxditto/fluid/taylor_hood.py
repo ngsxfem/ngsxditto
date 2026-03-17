@@ -13,7 +13,7 @@ class TaylorHood(H1Conforming):
     """
     This class represents Taylor-Hood elements.
     """
-    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, dt:float, order: int = 4, lset:LevelSetGeometry = None,
+    def __init__(self, mesh: Mesh, fluid_params: FluidParameters, dt:float=1e-2, order: int = 4, lset:LevelSetGeometry = None,
                  wall_params: WallParameters = None, if_dirichlet=None, add_convection:bool = False,
                  f: CoefficientFunction = None, g: CoefficientFunction=CF(0),
                  surface_tension: CoefficientFunction = None, nitsche_stab:int=100,
