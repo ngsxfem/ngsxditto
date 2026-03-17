@@ -31,7 +31,7 @@ def test_two_phase_stokes():
     levelset = LevelSetGeometry.from_cf(levelset_function, mesh, order=2)
 
     fluid = TwoPhaseTaylorHood(mesh, fluid1_params, fluid2_params, order=order, lset=levelset,
-                               f1=f1, f2=f2, dt=0.1, ghost_stab=0)
+                               f1=f1, f2=f2, dt=0.1, ghost_stab=0, add_number_space=True)
     fluid.Initialize(dirichlet=dirichlet)
     sol = fluid.SolveStokes()
     gfu, gfp, gfn = sol.components
