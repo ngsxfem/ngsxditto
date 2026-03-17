@@ -15,7 +15,7 @@ def timed_method(fn=None, name=None):
         def wrapper(self, *args, **kwargs):
             # if object is registered in solver -> exclusive
             exclusive = getattr(self, "_solver", None) is not None
-            with self.timer(section, exclusive=exclusive):
+            with self.timer(section, exclusive=exclusive, timed_method=True):
                 return fn(self, *args, **kwargs)
         wrapper._timed_section = True
         return wrapper
@@ -32,7 +32,7 @@ class Timed:
         self._solver = None
 
     @contextmanager
-    def timer(self, section, exclusive=True):
+    def timer(self, section, exclusive=True, timed_method=False):
         now = time.perf_counter
         stack = getattr(_current_object, "stack", [])
         _current_object.stack = stack
@@ -41,7 +41,7 @@ class Timed:
 
         if exclusive:
             target_obj = self
-            target_section = stack[-1][1] if (stack and stack[-1][0] is self and stack[-1][1] != "__total__") else section
+            target_section = stack[-1][1] if (stack and stack[-1][0] is self and stack[-1][1] != "__total__" and not timed_method) else section
         else:
             # Use top of stack if exists, otherwise self
             target_obj = stack[-1][0] if stack else self
