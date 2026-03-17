@@ -7,12 +7,11 @@ class TwoPhaseDiscretization(GFStepper):
     """
     Base class for two-phase fluid discretizations.
     """
-    def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order: int = 4,
-                 lset = None, if_dirichlet:CoefficientFunction=None, wall_params: WallParameters = None,
-                 add_convection:bool = False,
-                 f1:CoefficientFunction=None, f2: CoefficientFunction=None,
-                 g1: CoefficientFunction=CF(0), g2: CoefficientFunction=CF(0),
-                 surface_tension:CoefficientFunction=None, dt=None, time: typing.Optional[Parameter] = None):
+    def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, dt:float, order: int,
+                 lset:LevelSetGeometry, if_dirichlet:CoefficientFunction, wall_params: WallParameters, add_convection:bool,
+                 f1:CoefficientFunction, f2: CoefficientFunction, g1: CoefficientFunction, g2: CoefficientFunction,
+                 surface_tension:CoefficientFunction, derivative_jumps:bool, add_number_space:bool,
+                 time: typing.Optional[Parameter] = None):
         """
         Creates a two-phase fluid discretization on the given mesh defined by the levelset.
         If no levelset is given, create a DummyLevelSet that covers the whole domain.
@@ -74,6 +73,8 @@ class TwoPhaseDiscretization(GFStepper):
             self.f2 = f2
         self.g1 = g1
         self.g2 = g2
+        self.derivative_jumps = derivative_jumps
+        self.add_number_space = add_number_space
         if surface_tension is None:
             self.surface_tension = default
         else:
@@ -147,6 +148,10 @@ class TwoPhaseDiscretization(GFStepper):
         self.InitializeCombinedSpace()
         self.InitializeGfu()
         self.ApplyBoundaryConditions()
+        self.lset.lsetadap.ProjectOnUpdate([self.current.components[i].components[j] for i in range(2) for j in range(2)] +
+                                           [self.intermediate.components[i].components[j] for i in range(2) for j in range(2)] +
+                                           [self.past.components[i].components[j] for i in range(2) for j in range(2)])
+
         self.InitializeForms()
         self.SetInitialValues(initial_velocity1, initial_velocity2, initial_pressure1, initial_pressure2)
 
