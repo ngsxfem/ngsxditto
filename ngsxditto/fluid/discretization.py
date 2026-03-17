@@ -14,7 +14,6 @@ class FluidDiscretization(GFStepper):
     """
     Base class for a discretized fluid.
     """
-    DEFAULT_DT = 1e-3
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int, lset:LevelSetGeometry,
                  if_dirichlet:CoefficientFunction, wall_params: WallParameters, add_convection:bool,
                  f:CoefficientFunction, g: CoefficientFunction, surface_tension:CoefficientFunction, dt:float,
@@ -81,19 +80,21 @@ class FluidDiscretization(GFStepper):
         self.gfu = None
         self.gfp = None
         self.gfn = None
+        self.stokes_term = None
         self.stokes_op = None
-        self.lf = None
         self.conv = None
+        self.conv_op = None
+        self.mass = None
+        self.mass_op = None
         self.m_star = None
         self.inv = None
-        self.mass = None
+        self.lf = None
         self.regularization = None
-        self.stokes_term = None
         self.fes = None
         self.dirichlet = None
         self.neumann = None
         self.dbnd = None
-        self.dt = dt if dt is not None else self.DEFAULT_DT
+        self.dt = dt
         self.nu = self.fluid_params["viscosity"]
         self.rho = self.fluid_params["density"]
         self.time = time

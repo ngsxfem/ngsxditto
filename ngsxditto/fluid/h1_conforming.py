@@ -104,8 +104,8 @@ class H1Conforming(FluidDiscretization):
         els_hasneg = self.ci_main.GetElementsOfType(HASNEG)
         self.els_outer = self.ci_outer.GetElementsOfType(HASNEG)
         els_inner = self.ci_inner.GetElementsOfType(NEG)
-        self.els_ring = self.els_outer & ~els_inner
-        self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=self.els_ring)
+        els_ring = self.els_outer & ~els_inner
+        self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
         self.EA.Update(els_hasneg & ~self.lset.hasif, self.lset.hasif | (self.els_outer & ~ els_hasneg))
 
@@ -180,11 +180,10 @@ class H1Conforming(FluidDiscretization):
             ghost_p = h**3 * InnerProduct((grad(p) - grad(p.Other())) * n_F, (grad(q) - grad(q.Other())) * n_F) * dw
 
             ghost_u = h * InnerProduct((grad(u) - grad(u.Other())) * n_F, (grad(v) - grad(v.Other())) * n_F) * dw
-            if self.order >=1:
-                for i in range(self.mesh.dim):
-                    ghost_u += h**3 * InnerProduct(
-                        (u.Operator("hesse")[i] - u.Other().Operator("hesse")[i]) * n_F,
-                        (v.Operator("hesse")[i] - v.Other().Operator("hesse")[i]) * n_F) * dw
+            for i in range(self.mesh.dim):
+                ghost_u += h**3 * InnerProduct(
+                    (u.Operator("hesse")[i] - u.Other().Operator("hesse")[i]) * n_F,
+                    (v.Operator("hesse")[i] - v.Other().Operator("hesse")[i]) * n_F) * dw
 
         ghost_penalty = self.nu * self.ghost_stab * self.extension_radius * ghost_u - 1/self.nu * self.ghost_stab * ghost_p
 
