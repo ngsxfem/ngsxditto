@@ -1,8 +1,10 @@
 from ngsolve import GridFunction
-from abc import ABC, abstractmethod
+#from abc import ABC, abstractmethod
+
+from ngsxditto.stepper import StatelessStepper
 
 
-class BaseRedistancing(ABC):
+class BaseRedistancing(StatelessStepper):
     """
     This class is responsible for the abstract implementation of redistancing functionality.
     """
@@ -10,7 +12,9 @@ class BaseRedistancing(ABC):
         """
         Initialize the redistancing algorithm by settingthe bandwidth.
         """
+        super().__init__()
         self.bandwidth = bandwidth
+        self.field = None
 
     def SetOrder(self, order:int):
         """
@@ -18,7 +22,9 @@ class BaseRedistancing(ABC):
         """
         raise NotImplementedError("SetOrder not implemented")
 
-    @abstractmethod
+    def SetField(self, field:GridFunction):
+        self.field = field
+
     def Redistance(self, phi: GridFunction):
         """
         Applies redistancing to the given function phi.
@@ -31,4 +37,5 @@ class BaseRedistancing(ABC):
         """
         raise NotImplementedError("Redistance not implemented for base class")
 
-
+    def Step(self):
+        self.Redistance(self.field)

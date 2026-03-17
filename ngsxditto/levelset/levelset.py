@@ -40,6 +40,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         if redistancing is not None:
             self.redistancing = redistancing
             self.redistancing.SetOrder(transport.order)
+            self.redistancing.SetField(self.transport.field)
         self.mesh = self.transport.mesh
         self.autoredistancing = autoredistancing
         self.steps_since_last_redistancing = 0
@@ -211,12 +212,13 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         else:
             return False
 
+    @timed_method
     def Redistance(self):
         """
         Applies the redistancing algorithm.
         """
         print("The next function is redistanced")
-        self.redistancing.Redistance(self.transport.field)
+        self.redistancing.Step()#Redistance(self.transport.field)
         self.ProjectToContinuous()
         self.steps_since_last_redistancing = 0
 
