@@ -141,7 +141,6 @@ class TwoPhaseDiscretization(GFStepper):
             initial_velocity1 = default
         if initial_velocity2 is None:
             initial_velocity2 = default
-
         self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
         self.InitializeBaseSpaces()
         self.UpdateActiveDofs()
@@ -151,10 +150,8 @@ class TwoPhaseDiscretization(GFStepper):
         self.lset.lsetadap.ProjectOnUpdate([self.current.components[i].components[j] for i in range(2) for j in range(2)] +
                                            [self.intermediate.components[i].components[j] for i in range(2) for j in range(2)] +
                                            [self.past.components[i].components[j] for i in range(2) for j in range(2)])
-
         self.InitializeForms()
         self.SetInitialValues(initial_velocity1, initial_velocity2, initial_pressure1, initial_pressure2)
-
 
     def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
         """
@@ -194,7 +191,8 @@ class TwoPhaseDiscretization(GFStepper):
         Applies the boundary conditions after they are set with SetBoundaryConditions and after the spaces
         are defined with InitializeSpaces.
         """
-        cf = self.mesh.BoundaryCF(self.dirichlet)
+        default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
+        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
         self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
         self.gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
 

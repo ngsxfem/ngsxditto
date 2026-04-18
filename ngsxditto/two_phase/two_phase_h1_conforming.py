@@ -146,7 +146,6 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         n = self.lset.n
 
         surface_tension_list = [self.fluid1_params.surface_tension_coeff, self.fluid2_params.surface_tension_coeff]
-
         self.lf = LinearForm(self.fes)
         for i in range(2):
             self.lf += f_list[i] * v[i] * dx_list[i]
