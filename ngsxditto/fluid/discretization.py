@@ -17,7 +17,7 @@ class FluidDiscretization(GFStepper):
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int, lset:LevelSetGeometry,
                  if_dirichlet:CoefficientFunction, wall_params: WallParameters, add_convection:bool,
                  f:CoefficientFunction, g: CoefficientFunction, surface_tension:CoefficientFunction, dt:float,
-                 derivative_jumps:bool, add_number_space:bool, time: typing.Optional[Parameter]=None
+                 derivative_jumps:bool, add_number_space:bool, time_order:int, time: typing.Optional[Parameter]=None
                  ):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
@@ -52,6 +52,7 @@ class FluidDiscretization(GFStepper):
         self.mesh = mesh
         self.fluid_params = fluid_params
         self.order = order
+        self.time_order = time_order
         self.if_dirichlet = if_dirichlet
         self.add_convection = add_convection
         self.derivative_jumps = derivative_jumps
@@ -101,6 +102,8 @@ class FluidDiscretization(GFStepper):
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
 
+        self.ancient = None    # older state for bdf2
+
 
     def Initialize(self, dirichlet:dict=None, neumann:dict=None,
                    initial_velocity:CoefficientFunction=CF((0, 0)),
@@ -130,7 +133,8 @@ class FluidDiscretization(GFStepper):
         self.UpdateActiveDofs()
         self.lset.lsetadap.ProjectOnUpdate([self.current.components[0], self.current.components[1],
                                             self.intermediate.components[0], self.intermediate.components[1],
-                                            self.past.components[0], self.past.components[1]], update_domain=self.els_outer)
+                                            self.past.components[0], self.past.components[1],
+                                            self.ancient.components[0], self.ancient.components[1]], update_domain=self.els_outer)
 
         self.InitializeForms()
         self.SetInitialValues(initial_velocity, initial_pressure)
@@ -241,3 +245,7 @@ class FluidDiscretization(GFStepper):
     def Step(self):
         raise NotImplementedError("Step not implemented in base class.")
 
+
+    def ValidateStep(self):
+        self.ancient.vec.data = self.past.vec
+        super().ValidateStep()

@@ -16,7 +16,8 @@ class H1Conforming(FluidDiscretization):
                  wall_params: WallParameters, if_dirichlet:CoefficientFunction, add_convection:bool,
                  f: CoefficientFunction, g: CoefficientFunction,
                  surface_tension: CoefficientFunction, dt:float,
-                 nitsche_stab:int, ghost_stab:int, extension_radius:float, derivative_jumps:bool, add_number_space:bool):
+                 nitsche_stab:int, ghost_stab:int, extension_radius:float, derivative_jumps:bool, add_number_space:bool,
+                 time_order:int):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -50,7 +51,7 @@ class H1Conforming(FluidDiscretization):
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
                          surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet, add_convection=add_convection,
-                         derivative_jumps=derivative_jumps, add_number_space=add_number_space)
+                         derivative_jumps=derivative_jumps, add_number_space=add_number_space, time_order=time_order)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
@@ -267,8 +268,17 @@ class H1Conforming(FluidDiscretization):
         if self.time is not None:
             self.time += self.dt
         self.AssembleLf()
+        if self.time_order == 1:
+            res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+            self.gfup.vec.data += self.inv * res
 
-        res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+        elif self.time_order >= 2:
+            res = (4/3) * self.mass_op.mat * self.past.vec \
+                  - (1/3) * self.mass_op.mat * self.ancient.vec \
+                  + (2/3) * self.dt * self.lf.vec \
+                  - self.m_star.mat * self.gfup.vec
+            if self.time_order > 2:
+                print("Time order only implemented up to 2. Using second order instead.")
         self.gfup.vec.data += self.inv * res
 
         # gfup_copy = self.gfup.vec.CreateVector()
