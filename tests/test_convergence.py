@@ -66,7 +66,6 @@ def test_stokes_convergence():
     r = pi / 2
     levelset_function = (x ** 2 + y ** 2) ** (1 / 2) - r
     grad_pressure = CF((sin(2 * x) * 0.5 * exp(-4 * nu * t), sin(2 * y) * 0.5 * exp(-4 * nu * t)))
-    fig, (ax1, ax2) = plt.subplots(2)
 
     for order in order_list:
         max_error_list_u = []
@@ -77,9 +76,10 @@ def test_stokes_convergence():
             t.Set(0)
             levelset = LevelSetGeometry.from_cf(levelset_function, order=order, mesh=mesh)
             fluid_params = FluidParameters(viscosity=nu)
-            fluid = TaylorHood(mesh, fluid_params, lset=levelset, order=order, dt=dt, if_dirichlet=true_velocity,
+            fluid = TaylorHood(mesh, fluid_params, lset=levelset, order=order, dt=dt,
                                f=grad_pressure, add_convection=False, ghost_stab=1e-3, nitsche_stab=200,
                                extension_radius=0.2, add_number_space=True)
+            fluid.SetInnerBoundaryCondition(true_velocity)
             fluid.Initialize(initial_velocity=true_velocity)
 
             value_list_u = [Integrate((fluid.gfu - true_velocity) ** 2 * levelset.dx_neg, mesh) ** (1 / 2)]
