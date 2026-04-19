@@ -49,9 +49,9 @@ def test_unfitted_stokes(fluid_type):
     levelset = LevelSetGeometry(transport)
     levelset.Initialize(levelset_function)
 
-    fluid = fluid_type(mesh, fluid_params, f=f, lset=levelset, order=order,
+    fluid = fluid_type(mesh, fluid_params, f=f, lset=levelset, order=3,
                        ghost_stab=1, nitsche_stab=100, add_number_space=True)
-
+    fluid.SetInnerBoundaryCondition(true_solution_u)
 
     fluid.Initialize()
     sol = fluid.SolveStokes()
