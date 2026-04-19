@@ -32,9 +32,9 @@ class TaylorHood(H1Conforming):
 
 
     def InitializeSpaces(self):
-        if self.dbnd is None:
+        if self.boundary_registry.dbnd is None:
             raise TypeError("self.dbnd is still None. Set Boundary conditions first.")
-        self.V = VectorH1(self.mesh, order=self.order, dirichlet=self.dbnd)
+        self.V = VectorH1(self.mesh, order=self.order, dirichlet=self.boundary_registry.dbnd)
         self.Q = H1(self.mesh, order=self.order - 1)
         if self.add_number_space:
             self.fes = FESpace([self.V, self.Q, NumberSpace(self.mesh)], dgjumps=True)
@@ -49,3 +49,18 @@ class TaylorHood(H1Conforming):
         self.past = GridFunction(self.fes)
         self.intermediate = GridFunction(self.fes)
         self.ancient = GridFunction(self.fes)
+
+    def InitializeGridFunctions(self):
+        self.gfup = GridFunction(self.fes)
+
+        if self.add_number_space:
+            self.gfu, self.gfp, self.gfn = self.gfup.components
+
+        else:
+            self.gfu, self.gfp = self.gfup.components
+
+        self.current = self.gfup
+        self.past = GridFunction(self.fes)
+        self.intermediate = GridFunction(self.fes)
+        self.ancient = GridFunction(self.fes)
+

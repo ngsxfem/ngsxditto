@@ -130,7 +130,8 @@ class H1Conforming(FluidDiscretization):
         s = test[2] if self.add_number_space else None
 
         h = specialcf.mesh_size
-        n = self.lset.n
+        n_bnd = specialcf.normal(self.mesh.dim)
+        n_lset = self.lset.n
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
@@ -141,12 +142,25 @@ class H1Conforming(FluidDiscretization):
         if self.surface_tension is not None:
             self.lf += -self.fluid_params.surface_tension_coeff * self.surface_tension * v * dS
 
-        if self.if_dirichlet is not None:
-            self.lf += (-self.nu * grad(v) * n * self.if_dirichlet +
-                        self.nu * self.nitsche_stab / h * self.if_dirichlet * v +
-                        q * n * self.if_dirichlet) * dS
+        for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
+            if region != "interface":
+                self.lf += (-self.nu * (grad(v).Trace() * n_bnd) * n_bnd * values
+                            + self.nu * self.nitsche_stab/h * (v * n_bnd) * values) * ds(definedon=self.mesh.Boundaries(region))
+            else:
+                self.lf += (-self.nu * (grad(v).Trace() * n_lset) * n_lset * values
+                            + self.nu * self.nitsche_stab / h * (v * n_lset) * values) * dS
 
-        for (region, fct) in self.neumann.items():
+        for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
+            if region != "interface":
+                self.lf += (-self.nu * grad(v) * n_bnd * values +
+                            self.nu * self.nitsche_stab / h * values * v +
+                            q * n_bnd * values) * ds(definedon=self.mesh.Boundaries(region))
+            else:
+                self.lf += (-self.nu * grad(v) * n_lset * values +
+                            self.nu * self.nitsche_stab / h * values * v +
+                            q * n_lset * values) * dS
+
+        for (region, fct) in self.boundary_registry.strong_neumann_dict.items():
             self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
 
         self.lf.Assemble()
@@ -161,7 +175,8 @@ class H1Conforming(FluidDiscretization):
         s = test[2] if self.add_number_space else None
 
         h = specialcf.mesh_size
-        n = self.lset.n
+        n_bnd = specialcf.normal(self.mesh.dim)
+        n_lset = self.lset.n
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
@@ -189,10 +204,36 @@ class H1Conforming(FluidDiscretization):
         ghost_penalty = self.nu * self.ghost_stab * self.extension_radius * ghost_u - 1/self.nu * self.ghost_stab * ghost_p
 
         self.stokes_term = basic_stokes + ghost_penalty
-        if self.if_dirichlet is not None:
-            nitsche = (-grad(u) * n * v - grad(v) * n * u + self.nitsche_stab / h * u * v) * dS
-            self.stokes_term += self.nu * nitsche
-            self.stokes_term += (p * v * n + q * u * n) * dS
+
+        for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
+            if region != "interface":
+                un = u * n_bnd
+                vn = v * n_bnd
+
+                nitsche = (-(grad(u).Trace() * n_bnd) * n_bnd * vn - (grad(v).Trace() * n_bnd) * n_bnd * un
+                          + self.nitsche_stab / h * un * vn) * ds(definedon=self.mesh.Boundaries(region))
+                self.stokes_term += self.nu * nitsche
+                self.stokes_term += (q * u * n_bnd + p * v * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
+            else:
+                un = u * n_lset
+                vn = v * n_lset
+
+                nitsche = (-(grad(u).Trace() * n_lset) * n_lset * vn - (grad(v).Trace() * n_lset) * n_lset * un
+                          + self.nitsche_stab / h * un * vn) * dS
+                self.stokes_term += self.nu * nitsche
+                self.stokes_term += (q * u * n_lset + p * v * n_lset) * dS
+
+
+        for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
+            if region != "interface":
+                nitsche = (-grad(u).Trace() * n_bnd * v - grad(v).Trace() * n_bnd * u + self.nitsche_stab / h * u * v)  * ds(definedon=self.mesh.Boundaries(region))
+                self.stokes_term += self.nu * nitsche
+                self.stokes_term += (p * v * n_bnd + q * u * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
+
+            else:
+                nitsche = (-grad(u) * n_lset * v - grad(v) * n_lset * u + self.nitsche_stab / h * u * v) * dS
+                self.stokes_term += self.nu * nitsche
+                self.stokes_term += (p * v * n_lset + q * u * n_lset) * dS
 
         if self.add_number_space:
             self.stokes_term += ((p * s + q * r) - (1e-8  * r * s)) * dx_neg
@@ -247,8 +288,8 @@ class H1Conforming(FluidDiscretization):
         gfup = GridFunction(self.fes)
         gfu = gfup.components[0]
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
-        gfu.Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+        cf = self.mesh.BoundaryCF(self.boundary_registry.strong_dirichlet_dict, default=default)
+        gfu.Set(cf, definedon=self.mesh.Boundaries(self.boundary_registry.dbnd))
 
         trial, test = self.fes.TnT()
         u, p = trial[0], trial[1]
@@ -277,9 +318,10 @@ class H1Conforming(FluidDiscretization):
                   - (1/3) * self.mass_op.mat * self.ancient.vec \
                   + (2/3) * self.dt * self.lf.vec \
                   - self.m_star.mat * self.gfup.vec
+            self.gfup.vec.data += self.inv * res
+
             if self.time_order > 2:
                 print("Time order only implemented up to 2. Using second order instead.")
-        self.gfup.vec.data += self.inv * res
 
         # gfup_copy = self.gfup.vec.CreateVector()
         # gfup_copy.data = self.gfup.vec
@@ -291,7 +333,6 @@ class H1Conforming(FluidDiscretization):
         # uD.data = self.gfup.vec
         #
         # self.gfup.vec.data += self.inv * (self.mass_op.mat*gfup_copy + self.dt * self.lf.vec - self.m_star.mat * uD)
-
 
 
     def SetTimeStepSize(self, dt):

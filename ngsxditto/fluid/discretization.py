@@ -3,6 +3,7 @@ This file handles fluid discretizations.
 """
 from ngsolve import *
 from .params import FluidParameters, WallParameters
+from .boundary_registry import *
 from ngsxditto.levelset import *
 from ngsxditto.multistepper import MultiStepper
 from ngsxditto.stepper import *
@@ -103,10 +104,10 @@ class FluidDiscretization(GFStepper):
         self.multistepper.SetObject(self)
 
         self.ancient = None    # older state for bdf2
+        self.boundary_registry = BoundaryRegistry()
 
 
-    def Initialize(self, dirichlet:dict=None, neumann:dict=None,
-                   initial_velocity:CoefficientFunction=CF((0, 0)),
+    def Initialize(self, initial_velocity:CoefficientFunction=CF((0, 0)),
                    initial_pressure:CoefficientFunction=CF(0)):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
@@ -127,8 +128,8 @@ class FluidDiscretization(GFStepper):
         initial_pressure: CoefficientFunction
             The initial pressure field
         """
-        self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
         self.InitializeSpaces()
+        self.InitializeGridFunctions()
         self.ApplyBoundaryConditions()
         self.UpdateActiveDofs()
         self.lset.lsetadap.ProjectOnUpdate([self.current.components[0], self.current.components[1],
@@ -139,29 +140,15 @@ class FluidDiscretization(GFStepper):
         self.InitializeForms()
         self.SetInitialValues(initial_velocity, initial_pressure)
 
+    def SetOuterBoundaryCondition(self, condition:BoundaryCondition):
+        self.boundary_registry.AddBoundaryCondition(condition)
 
-    def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
-        """
-        Set the dirichlet and neumann boundary conditions for your problem.
+    def SetInnerBoundaryCondition(self, condition:typing.Union[NitscheVelocityBC, CoefficientFunction]):
+        if isinstance(condition, NitscheVelocityBC):
+            self.boundary_registry.AddBoundaryCondition(condition=condition)
 
-        Parameters:
-        -----------
-        dirichlet: dict
-            A dictionary with dirichlet boundary conditions of the form
-            {"region (str)": function (CoefficientFunction), ...}
-        neumann: dict
-            A dictionary with neumann boundary conditions of the form
-            {"region (str)": function (CoefficientFunction), ...}
-        """
-        if dirichlet is None:
-            dirichlet = {}
-
-        if neumann is None:
-            neumann = {}
-
-        self.dirichlet = dirichlet
-        self.neumann = neumann
-        self.dbnd = "|".join(dirichlet.keys())
+        if isinstance(condition, CoefficientFunction):
+            self.boundary_registry.AddBoundaryCondition(condition=NitscheVelocityBC(region="interface", values=condition))
 
 
     def SetInitialValues(self, initial_velocity:CoefficientFunction, initial_pressure:CoefficientFunction=CF(0),
@@ -178,8 +165,8 @@ class FluidDiscretization(GFStepper):
         are defined with InitializeSpaces.
         """
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
-        self.gfu.Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+        cf = self.mesh.BoundaryCF(self.boundary_registry.strong_dirichlet_dict, default=default)
+        self.gfu.Set(cf, definedon=self.mesh.Boundaries(self.boundary_registry.dbnd))
 
 
     def InitializeSpaces(self):
@@ -187,6 +174,12 @@ class FluidDiscretization(GFStepper):
         Initializes the Finite element spaces.
         """
         raise NotImplementedError("InitializeSpaces not implemented in base class.")
+
+    def InitializeGridFunctions(self):
+        """
+        Initializes the grid functions.
+        """
+        raise NotImplementedError("InitializeGridFunctions not implemented in base class.")
 
 
     def UpdateActiveDofs(self):
