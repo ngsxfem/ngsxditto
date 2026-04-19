@@ -16,7 +16,7 @@ class FluidDiscretization(GFStepper):
     Base class for a discretized fluid.
     """
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int, lset:LevelSetGeometry,
-                 if_dirichlet:CoefficientFunction, wall_params: WallParameters, add_convection:bool,
+                 wall_params: WallParameters, add_convection:bool,
                  f:CoefficientFunction, g: CoefficientFunction, surface_tension:CoefficientFunction, dt:float,
                  derivative_jumps:bool, add_number_space:bool, time_order:int, time: typing.Optional[Parameter]=None
                  ):
@@ -34,8 +34,6 @@ class FluidDiscretization(GFStepper):
             the polynomial order
         lset: LevelsetGeometry
             The levelset that characterizes the unfitted domain.
-        if_dirichlet: CoefficientFunction
-            Dirichlet boundary condition of the unfitted domain.
         wall_params: WallParameters
             wall parameters for contact problems
         f: CoefficientFunction
@@ -54,7 +52,6 @@ class FluidDiscretization(GFStepper):
         self.fluid_params = fluid_params
         self.order = order
         self.time_order = time_order
-        self.if_dirichlet = if_dirichlet
         self.add_convection = add_convection
         self.derivative_jumps = derivative_jumps
         if derivative_jumps and order > 2:

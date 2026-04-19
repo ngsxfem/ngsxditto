@@ -13,11 +13,9 @@ class H1Conforming(FluidDiscretization):
     This class handles all H1-conforming fluid discretizations.
     """
     def __init__(self, mesh, fluid_params: FluidParameters, order:int, lset:LevelSetGeometry,
-                 wall_params: WallParameters, if_dirichlet:CoefficientFunction, add_convection:bool,
-                 f: CoefficientFunction, g: CoefficientFunction,
-                 surface_tension: CoefficientFunction, dt:float,
-                 nitsche_stab:int, ghost_stab:int, extension_radius:float, derivative_jumps:bool, add_number_space:bool,
-                 time_order:int):
+                 wall_params: WallParameters, add_convection:bool, f: CoefficientFunction, g: CoefficientFunction,
+                 surface_tension: CoefficientFunction, dt:float, nitsche_stab:int, ghost_stab:int,
+                 extension_radius:float, derivative_jumps:bool, add_number_space:bool, time_order:int):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -32,8 +30,6 @@ class H1Conforming(FluidDiscretization):
             The levelset that characterizes the unfitted domain.
         wall_params: WallParameters
             wall parameters for contact problems
-        if_dirichlet: CoefficientFunction
-            Dirichlet boundary condition of the unfitted domain.
         f: CoefficientFunction
             The force term
         g: CoefficientFunction
@@ -50,7 +46,7 @@ class H1Conforming(FluidDiscretization):
             Radius of the zero levelset on which the domain is extended.
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
-                         surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet, add_convection=add_convection,
+                         surface_tension=surface_tension, dt=dt, add_convection=add_convection,
                          derivative_jumps=derivative_jumps, add_number_space=add_number_space, time_order=time_order)
         self.active_dofs=None
         self.els_outer = None
