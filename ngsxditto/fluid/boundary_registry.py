@@ -43,7 +43,7 @@ class BoundaryRegistry:
             if self.dbnd == "":
                 self.dbnd = condition.region
             else:
-                self.dbnd = "|".join([self.dbnd, condition.values])
+                self.dbnd = "|".join([self.dbnd, condition.region])
 
         elif isinstance(condition, StrongNeumannBC):
             self.all_bc_dict[condition.region] = {"function": condition.values, "type": StrongNeumannBC.__name__}

@@ -160,8 +160,8 @@ class H1Conforming(FluidDiscretization):
                             self.nu * self.nitsche_stab / h * values * v +
                             q * n_lset * values) * dS
 
-        for (region, fct) in self.boundary_registry.strong_neumann_dict.items():
-            self.lf += self.nu * fct * v * dx(definedon=self.mesh.Boundaries(region))
+        for (region, values) in self.boundary_registry.strong_neumann_dict.items():
+            self.lf += self.nu * values * v * dx(definedon=self.mesh.Boundaries(region))
 
         self.lf.Assemble()
 
