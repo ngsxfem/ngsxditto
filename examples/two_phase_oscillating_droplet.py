@@ -28,21 +28,22 @@ domain.edges.Max(Y).name = "top"
 mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.15))
 
 # %%
-dt = 0.03
+dt = 0.05
+order = 2
 t = Parameter(0)
 starting_levelset = (5*x**2 + y**2)**(1/2) - 2.0/3.0
-transport = ExplicitDGTransport(mesh, dt=dt, order=2, compile=False)
+transport = ExplicitDGTransport(mesh, dt=dt, order=order, compile=False)
 levelset = LevelSetGeometry(transport)
 levelset.Initialize(starting_levelset)
 
 # %%
-fluid1_params = FluidParameters(viscosity=2e-2, surface_tension_coeff=1)
-fluid2_params = FluidParameters(viscosity=2e-2)
+fluid1_params = FluidParameters(viscosity=1e-2, surface_tension_coeff=0.2)
+fluid2_params = FluidParameters(viscosity=1e-3)
 
-mean_curvature = MeanCurvatureSolver(mesh, order=2, lset=levelset)
+mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
-fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset, surface_tension=mean_curvature.H, dt=dt, order=3,
-                           ghost_stab=0.001, nitsche_stab=100)
+fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset, surface_tension=mean_curvature.H, dt=dt, order=order + 1,
+                           ghost_stab=1, nitsche_stab=100)
 fluid.Initialize(dirichlet={".*": CF((0, 0))})
 fluid.ValidateStep()
 sol = fluid.SolveStokes()
@@ -53,12 +54,12 @@ ngw.Draw(IfPos(levelset.lsetp1, u_pos, u_neg), mesh, "u")
 ngw.Draw(IfPos(levelset.lsetp1, p_pos, p_neg), mesh, "u")
 
 # %%
-velocity_extension = LevelsetBasedExtension(levelset)
+velocity_extension = LevelsetBasedExtension(levelset, gamma=1e-3, order=order)
 
 velocity_extension.SetRhs(fluid.gfu.components[0])
 levelset.transport.SetWind(velocity_extension.field)
 
-end_time = 1
+end_time = 2
 
 time_loop = TimeLoop(time=t, dt=dt, end_time=end_time)
 
@@ -78,4 +79,3 @@ time_loop.Register(mean_curvature, name="mean curvature")
 time_loop.Register(sphericity, name="sphericity")
 time_loop.Register(animation, name="animation")
 time_loop()
-

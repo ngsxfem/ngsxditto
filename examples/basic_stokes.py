@@ -72,9 +72,8 @@ fluid_params = FluidParameters(viscosity=1)
 uin = CF((4*y*(1-y),0)) # parabolic inflow
 
 fluid = TaylorHood(mesh, order=order, fluid_params=fluid_params, f=CF((8, 0)), add_number_space=True)
-fluid.SetBoundaryConditions(dirichlet={"left|bottom|top": uin})
+fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="left|bottom|top", values=uin))
 fluid.InitializeSpaces()
-
 # %% [markdown]
 # Next up, we want to initialize and assemble the variational formulation.
 # To this end, we need to also pass the right hand side.
@@ -113,11 +112,10 @@ stress = IfPos(y-0.5, CF((4*y*(1-y),0)), CF((-4*y*(1-y),0)))
 # We can now update our boundary conditions to realize the explained behaviour and assemble the linear system.
 
 # %%
-fluid.SetBoundaryConditions(dirichlet={"left|right": uD}, neumann={"top|bottom": stress})
-fluid.InitializeSpaces()
-fluid.f = CF((0,8))
-fluid.InitializeForms()
-
+fluid = TaylorHood(mesh, order=order, fluid_params=fluid_params, f=CF((0, 8)), add_number_space=True)
+fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="left|right", values=uD))
+fluid.SetOuterBoundaryCondition(StrongNeumannBC(region="top|bottom", values=stress))
+fluid.Initialize()
 # %% [markdown]
 # Finally, we can solve the system.
 

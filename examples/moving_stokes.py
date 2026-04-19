@@ -41,27 +41,30 @@ mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.15))
 
 # %%
 dt = 0.05
+order = 2
 t = Parameter(0)
 starting_levelset = -((x**2 + (y+0.5-t)**2)**(1/2) - 0.5)
-transport = KnownSolutionTransport(mesh, starting_levelset, dt=dt)
+transport = KnownSolutionTransport(mesh, starting_levelset, dt=dt, order=order)
 levelset = LevelSetGeometry(transport)
 levelset.Initialize(starting_levelset)
 ngw.Draw(levelset.field)
-
 # %% [markdown]
 # We define the fluid and solve the stationary Stokes problem for the starting levelset position.
 
 # %%
 fluid_params = FluidParameters(viscosity=1e-1)
-fluid = TaylorHood(mesh, fluid_params, lset=levelset, dt=dt, if_dirichlet=CF((0, 0)))
-dirichlet = {"left": CF(((1-y)*(1+y), 0)), "top": CF((0, 0)), "bottom": CF((0, 0))}
-fluid.Initialize(dirichlet=dirichlet)
+fluid = TaylorHood(mesh, fluid_params, order=order, lset=levelset, dt=dt, if_dirichlet=CF((0, 0)))
+
+fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="left", values=CF(((1-y)*(1+y), 0))))
+fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="top|bottom", values=CF((0, 0))))
+fluid.SetInnerBoundaryCondition(CF((0, 0)))
+
+fluid.Initialize()
 sol = fluid.SolveStokes()
 gfu, gfp = sol.components
 fluid.SetInitialValues(gfu, gfp)
 ngw.Draw(IfPos(levelset.field, CF((0, 0)), fluid.gfu), mesh)
 ngw.Draw(IfPos(levelset.field, CF(0), fluid.gfp), mesh)
-
 # %%
 end_time = 1
 
