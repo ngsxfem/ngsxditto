@@ -268,11 +268,11 @@ class H1Conforming(FluidDiscretization):
         self.mass_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.mass_op += self.mass
         self.mass_op.Assemble(reallocate=True)
-
+        coef = 2/3 if self.time_order == 2 else 1
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += self.mass + self.dt * self.stokes_term
+        self.m_star += self.mass + coef * self.dt * self.stokes_term
         if self.add_convection:
-            self.m_star += self.dt * self.conv
+            self.m_star += coef * self.dt * self.conv
         self.m_star.Assemble(reallocate=True)
 
     @timed_method
