@@ -15,10 +15,12 @@ In the following we collect examples that were computed with `ngsxditto`.
 
    basic_stokes.ipynb
 
-   schaefer_turek.ipynb
-
    moving_stokes.ipynb
 
    oscillating_droplet.ipynb
+
+   two_phase_oscillating_droplet.ipynb
+
+   swaying_water.ipynb
 
 

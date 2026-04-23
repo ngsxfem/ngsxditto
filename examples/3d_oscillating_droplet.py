@@ -22,20 +22,19 @@ loggingSlider("ngsxditto", default_level="DEBUG") # ngsxditto
 
 # %% [markdown]
 # In this example we start with an elliptic droplet. The surface tension force deforms it as it strives to minimize the surface. In other words it will always try to form the droplet towards a cirlce. Due to the viscosity however it will slightly overcorrect such that a wobbling movement occurs. The following PDE describes this problem:
-#
+# $$
 # \begin{align*}
-# \rho \partial_t \mathbf{u} 
+# \rho \partial_t \mathbf{u}
 #   - \operatorname{div}(2 \mu \varepsilon(\mathbf{u})) + \nabla p &= 0
 #   && \text{in } {\Omega(t)} \\
 # \nabla \cdot \mathbf{u} &= 0
 #   && \text{in } {\Omega(t)} \\
-# \boldsymbol{\sigma} \cdot \mathbf{n}_\Gamma &= { \tau \kappa \mathbf{n}_\Gamma}
+# \boldsymbol{\sigma} \cdot \mathbf{n}_\Gamma &= {\tau \kappa \mathbf{n}_\Gamma}
 #   && \text{on } {\Gamma(t)} \\
 #   { \mathbf{u} \cdot \mathbf{n}_\Gamma} &{= \mathcal{V}_\Gamma} && \text{on } {\Gamma(t)}
 # \end{align*}
-#
-# where $\tau$ is a surface tension coefficient, $\kappa$ is the mean curvature and $\mathcal{V}_\Gamma$ is the velocity of the interface in normal dircetion.
-
+# $$
+# where $\tau$ is a surface tension coefficient, $\kappa$ is the mean curvature and $\mathcal{V}_\Gamma$ is the velocity of the interface in normal direction.
 # %% [markdown]
 # First we import the necessary modules and create the mesh
 

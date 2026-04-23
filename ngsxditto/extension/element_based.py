@@ -153,7 +153,7 @@ class ElementBasedExtension(StatelessStepper):
     A stateless stepper that extends a given GridFunction(s) from a support to a target domain using an `ElementBasedExtensionOperator`.
 
     Parameters:
-    ----------
+    -----------
     gfs: GridFunction | List[GridFunction]
         The GridFunction(s) to be extended.
 

@@ -101,8 +101,9 @@ class Stepper(ABC, Timed):
 
 class StatefulStepper(Stepper):
     """
-    Additionally to the step functions theStatefulStepper provides
+    Additionally to the step functions the StatefulStepper provides
     state handling via properties:
+
      * a `past` state,
      * an `intermediate` state and
      * a `current` state.
@@ -113,6 +114,7 @@ class StatefulStepper(Stepper):
     and memory management is completely up to the subclass.
 
     The role of these properties:
+
      * the "past" state is the state before an outer loop step,
        typically the past in a time step loop
      * the "intermediate" state is the state before an inner loop step.

@@ -66,6 +66,7 @@ class Solver:
     def Register(self, stepper_object, name: str=None, step_frequency: int=None, time_frequency: float=None, as_validate:bool=False, measure_time=None):
         """
         Registers a function with arguments that wil be called in the loop.
+
         Parameters:
         -----------
         stepper_object: Stepper

@@ -15,8 +15,9 @@ class OnUpdateCallbacks:
     def AddCallback(self, func, index:int=None):
         """
         Adds a callback to the callback list.
+
         Parameters:
-        ----------
+        -----------
         func: callable
             The function to add.
         index: int
