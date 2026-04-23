@@ -12,7 +12,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
     This class handles all two-phase H1-conforming fluid discretizations.
     """
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order:int,
-                 lset:LevelSetGeometry, wall_params: WallParameters, if_dirichlet:CoefficientFunction,
+                 lset:LevelSetGeometry, wall_params: WallParameters, time_order:int,
                  f1: CoefficientFunction, f2: CoefficientFunction,  g1: CoefficientFunction,
                  g2: CoefficientFunction, add_convection:bool,
                  surface_tension: CoefficientFunction, dt:float, nitsche_stab:int, ghost_stab:int, extension_radius:float,
@@ -33,8 +33,6 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             The levelset that characterizes the unfitted domain.
         wall_params: WallParameters
             wall parameters for contact problems
-        if_dirichlet: CoefficientFunction
-            Dirichlet boundary condition of the unfitted domain.
         f1: CoefficientFunction
             The force term of the first phase.
         f2: CoefficientFunction
@@ -56,7 +54,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order, lset=lset,
                          wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, add_convection=add_convection,
-                         surface_tension=surface_tension, dt=dt, if_dirichlet=if_dirichlet,
+                         surface_tension=surface_tension, dt=dt, time_order=time_order,
                          derivative_jumps=derivative_jumps, add_number_space=add_number_space)
 
         self.els_outer = None
@@ -143,16 +141,36 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         dS = self.lset.dS
         kappaminus = CutRatioGF(self.lset.cutinfo)
         kappa = (kappaminus, 1 - kappaminus)
-        n = self.lset.n
+        h = specialcf.mesh_size
+        n_bnd = specialcf.normal(self.mesh.dim)
+        n_lset = self.lset.n
 
         surface_tension_list = [self.fluid1_params.surface_tension_coeff, self.fluid2_params.surface_tension_coeff]
         self.lf = LinearForm(self.fes)
         for i in range(2):
             self.lf += f_list[i] * v[i] * dx_list[i]
             self.lf += g_list[i] * q[i] * dx_list[i]
+            for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
+                if region != "interface":
+                    self.lf += (-nus[i] * (grad(v[i]).Trace() * n_bnd) * n_bnd * values
+                                + nus[i] * self.nitsche_stab / h * (v[i] * n_bnd) * values) * ds(
+                        definedon=self.mesh.Boundaries(region))
+                else:
+                    self.lf += (-nus[i] * (grad(v[i]).Trace() * n_lset) * n_lset * values
+                                + nus[i] * self.nitsche_stab / h * (v[i] * n_lset) * values) * dS
 
-            for (region, fct) in self.neumann.items():
-                self.lf += nus[i] * fct * v[i] * dx(definedon=self.mesh.Boundaries(region))
+            for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
+                if region != "interface":
+                    self.lf += (-nus[i] * grad(v[i]) * n_bnd * values +
+                                nus[i] * self.nitsche_stab / h * values * v[i] +
+                                q[i] * n_bnd * values) * ds(definedon=self.mesh.Boundaries(region))
+                else:
+                    self.lf += (-nus[i] * grad(v[i]) * n_lset * values +
+                                nus[i] * self.nitsche_stab / h * values * v[i] +
+                                q[i] * n_lset * values) * dS
+
+            for (region, values) in self.boundary_registry.strong_neumann_dict.items():
+                self.lf += nus[i] * values * v[i] * dx(definedon=self.mesh.Boundaries(region))
 
         if self.surface_tension is not None:
             self.lf += -surface_tension_list[0] * self.surface_tension * (kappa[1] * v[0] + kappa[0] * v[1]) * dS
@@ -168,7 +186,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         s = test[2] if self.add_number_space else None
 
         h = specialcf.mesh_size
-        n = self.lset.n
+        n_bnd = specialcf.normal(self.mesh.dim)
+        n_lset = self.lset.n
         nus = [self.nu1, self.nu2]
         rhos = [self.rho1, self.rho2]
         dx_neg = self.lset.dx_neg
@@ -202,21 +221,50 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                         (u[i].Operator("hesse")[j] - u[i].Other().Operator("hesse")[j]) * n_F,
                         (v[i].Operator("hesse")[j] - v[i].Other().Operator("hesse")[j]) * n_F) * dw
 
-            #ghost_penalty = self.ghost_stab * ghost_u - self.ghost_stab * ghost_p
             ghost_penalty = (self.ghost_stab * ghost_u - self.ghost_stab * ghost_p)
+
+            for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
+                if region != "interface":
+                    un = u[i] * n_bnd
+                    vn = v[i] * n_bnd
+
+                    nitsche = (-(grad(u[i]).Trace() * n_bnd) * n_bnd * vn - (grad(v[i]).Trace() * n_bnd) * n_bnd * un
+                               + self.nitsche_stab / h * un * vn) * ds(definedon=self.mesh.Boundaries(region))
+                    self.stokes_term += nus[i] * nitsche
+                    self.stokes_term += (q[i] * u[i] * n_bnd + p[i] * v[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
+                else:
+                    un = u[i] * n_lset
+                    vn = v[i] * n_lset
+
+                    nitsche = (-(grad(u[i]).Trace() * n_lset) * n_lset * vn - (grad(v[i]).Trace() * n_lset) * n_lset * un
+                               + self.nitsche_stab / h * un * vn) * dS
+                    self.stokes_term += nus[i] * nitsche
+                    self.stokes_term += (q[i] * u[i] * n_lset + p[i] * v[i] * n_lset) * dS
+
+            for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
+                if region != "interface":
+                    nitsche = (-grad(u[i]).Trace() * n_bnd * v[i] - grad(v[i]).Trace() * n_bnd * u[i] +
+                               self.nitsche_stab / h * u[i] * v[i]) * ds(definedon=self.mesh.Boundaries(region))
+                    self.stokes_term += nus[i] * nitsche
+                    self.stokes_term += (p[i] * v[i] * n_bnd + q[i] * u[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
+
+                else:
+                    nitsche = (-grad(u[i]) * n_lset * v[i] - grad(v[i]) * n_lset * u[i] + self.nitsche_stab / h * u[i] * v[i]) * dS
+                    self.stokes_term += nus[i] * nitsche
+                    self.stokes_term += (p[i] * v[i] * n_lset + q[i] * u[i] * n_lset) * dS
+
             if self.add_number_space:
                 pressure_stab = (r[i] * q[i] + s[i] * p[i]) * dx_list[i]
             else:
                 pressure_stab = 1e-10 * p[i] * q[i] * dx_list[i]
             self.stokes_term += basic_stokes + ghost_penalty + pressure_stab
 
-        nitsche = (-(kappa[0]*nus[0]*grad(u[0]) * n + kappa[1] * nus[1]*grad(u[1]) * n) * (v[0] - v[1]) -
-                   (kappa[0]*nus[0]*grad(v[0]) * n + kappa[1] * nus[1]*grad(v[1]) * n) * (u[0] - u[1]) +
-                   #self.nitsche_stab / h * (u[0] - u[1]) * (v[0] - v[1])) * dS
+        nitsche = (-(kappa[0]*nus[0]*grad(u[0]) * n_lset + kappa[1] * nus[1]*grad(u[1]) * n_lset) * (v[0] - v[1]) -
+                   (kappa[0]*nus[0]*grad(v[0]) * n_lset + kappa[1] * nus[1]*grad(v[1]) * n_lset) * (u[0] - u[1]) +
                    self.nitsche_stab * (kappa[0] * nus[0] + kappa[1] * nus[1]) / h * (u[0] - u[1]) * (v[0] - v[1])) * dS
 
-        bnd_terms = (((1/rhos[0] * kappa[0] * p[0] + 1/rhos[1] * kappa[1] * p[1]) * (v[0] - v[1]) * n) * dS +
-                     ((1/rhos[0] * kappa[0] * q[0] + 1/rhos[1] * kappa[1] * q[1]) * (u[0] - u[1]) * n) * dS)
+        bnd_terms = (((1/rhos[0] * kappa[0] * p[0] + 1/rhos[1] * kappa[1] * p[1]) * (v[0] - v[1]) * n_lset) * dS +
+                     ((1/rhos[0] * kappa[0] * q[0] + 1/rhos[1] * kappa[1] * q[1]) * (u[0] - u[1]) * n_lset) * dS)
         self.stokes_term += nitsche + bnd_terms
 
         self.stokes_op = BilinearForm(self.fes)
@@ -261,15 +309,15 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.mass_op = BilinearForm(self.fes)
         self.mass_op += mass1 + mass2
         self.mass_op.Assemble()
-
+        coef = 2/3 if self.time_order == 2 else 1
         self.m_star = BilinearForm(self.fes)
 
         for i in range(2):
-            self.m_star += rhos[i] * mass_list[i]
+            self.m_star += mass_list[i]
 
-        self.m_star += self.dt * self.stokes_term
+        self.m_star += coef * self.dt * self.stokes_term
         if self.add_convection:
-            self.m_star += self.dt * self.conv
+            self.m_star += coef * self.dt * self.conv
 
         self.m_star.Assemble()
 
@@ -283,9 +331,9 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         gfup = GridFunction(self.fes)
         gfu, gfp = gfup.components[0], gfup.components[1]
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
-        gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-        gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+        cf = self.mesh.BoundaryCF(self.boundary_registry.strong_dirichlet_dict, default=default)
+        gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.boundary_registry.dbnd))
+        gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.boundary_registry.dbnd))
 
         gfup.vec.data += self.stokes_op.mat.DeleteZeroElements(1e-100).Inverse(self.fes.FreeDofs(), inverse=direct_solver_nonspd) * (self.lf.vec - self.stokes_op.mat * gfup.vec)
 
@@ -298,8 +346,16 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         self.AssembleLf()
 
-        res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
-        self.gfup.vec.data += self.inv * res
+        if self.time_order == 1:
+            res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+            self.gfup.vec.data += self.inv * res
+
+        elif self.time_order >= 2:
+            res = (4/3) * self.mass_op.mat * self.past.vec \
+                  - (1/3) * self.mass_op.mat * self.ancient.vec \
+                  + (2/3) * self.dt * self.lf.vec \
+                  - self.m_star.mat * self.gfup.vec
+            self.gfup.vec.data += self.inv * res
 
         # gfup_copy = self.gfup.vec.CreateVector()
         # gfup_copy.data = self.gfup.vec

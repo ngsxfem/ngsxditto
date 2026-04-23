@@ -1,9 +1,8 @@
 """
 This file handles fluid discretizations.
 """
-from ngsolve import *
 from .params import FluidParameters, WallParameters
-from .boundary_registry import *
+from ngsxditto.boundary_registry import *
 from ngsxditto.levelset import *
 from ngsxditto.multistepper import MultiStepper
 from ngsxditto.stepper import *

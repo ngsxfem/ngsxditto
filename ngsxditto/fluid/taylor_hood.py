@@ -45,11 +45,6 @@ class TaylorHood(H1Conforming):
             self.gfup = GridFunction(self.fes)
             self.gfu, self.gfp = self.gfup.components
 
-        self.current = self.gfup
-        self.past = GridFunction(self.fes)
-        self.intermediate = GridFunction(self.fes)
-        self.ancient = GridFunction(self.fes)
-
     def InitializeGridFunctions(self):
         self.gfup = GridFunction(self.fes)
 

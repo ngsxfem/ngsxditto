@@ -8,7 +8,7 @@ class TwoPhaseDiscretization(GFStepper):
     Base class for two-phase fluid discretizations.
     """
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, dt:float, order: int,
-                 lset:LevelSetGeometry, if_dirichlet:CoefficientFunction, wall_params: WallParameters, add_convection:bool,
+                 lset:LevelSetGeometry, wall_params: WallParameters, add_convection:bool, time_order:int,
                  f1:CoefficientFunction, f2: CoefficientFunction, g1: CoefficientFunction, g2: CoefficientFunction,
                  surface_tension:CoefficientFunction, derivative_jumps:bool, add_number_space:bool,
                  time: typing.Optional[Parameter] = None):
@@ -28,8 +28,6 @@ class TwoPhaseDiscretization(GFStepper):
             the polynomial order
         lset: LevelsetGeometry
             The levelset that characterizes the unfitted domain.
-        if_dirichlet: CoefficientFunction
-            Dirichlet boundary condition of the unfitted domain.
         wall_params: WallParameters
             wall parameters for contact problems
         f1: CoefficientFunction
@@ -53,6 +51,10 @@ class TwoPhaseDiscretization(GFStepper):
         self.fluid1_params = fluid1_params
         self.fluid2_params = fluid2_params
         self.order = order
+        self.time_order = time_order
+        if self.time_order > 2:
+            print("Time order only implemented up to 2. Using second order instead.")
+
         if lset is None:
             self.lset = DummyLevelSet(mesh)
         else:
@@ -60,7 +62,6 @@ class TwoPhaseDiscretization(GFStepper):
 
         self.add_convection = add_convection
 
-        self.if_dirichlet = if_dirichlet
         self.wall_params = wall_params
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
         if f1 is None:
@@ -104,9 +105,12 @@ class TwoPhaseDiscretization(GFStepper):
         self.time = time
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
+        self.ancient = None    # older state for bdf2
+
+        self.boundary_registry = BoundaryRegistry()
 
 
-    def Initialize(self, dirichlet:dict=None, neumann:dict=None,
+    def Initialize(self,
                    initial_velocity1:CoefficientFunction=None,
                    initial_velocity2: CoefficientFunction = None,
                    initial_pressure1:CoefficientFunction=CF(0),
@@ -120,12 +124,6 @@ class TwoPhaseDiscretization(GFStepper):
 
         Parameters:
         -----------
-        dirichlet: dict
-            A dictionary with dirichlet boundary conditions of the form
-            {"region (str)": function (CoefficientFunction), ...}
-        neumann: dict
-            A dictionary with neumann boundary conditions of the form
-            {"region (str)": function (CoefficientFunction), ...}
         initial_velocity1: CoefficientFunction
             The initial velocity of the fluid in \Omega^{-}.
         initial_velocity2: CoefficientFunction
@@ -141,7 +139,6 @@ class TwoPhaseDiscretization(GFStepper):
             initial_velocity1 = default
         if initial_velocity2 is None:
             initial_velocity2 = default
-        self.SetBoundaryConditions(dirichlet=dirichlet, neumann=neumann)
         self.InitializeBaseSpaces()
         self.UpdateActiveDofs()
         self.InitializeCombinedSpace()
@@ -149,32 +146,20 @@ class TwoPhaseDiscretization(GFStepper):
         self.ApplyBoundaryConditions()
         self.lset.lsetadap.ProjectOnUpdate([self.current.components[i].components[j] for i in range(2) for j in range(2)] +
                                            [self.intermediate.components[i].components[j] for i in range(2) for j in range(2)] +
-                                           [self.past.components[i].components[j] for i in range(2) for j in range(2)])
+                                           [self.past.components[i].components[j] for i in range(2) for j in range(2)] +
+                                           [self.ancient.components[i].components[j] for i in range(2) for j in range(2)])
         self.InitializeForms()
         self.SetInitialValues(initial_velocity1, initial_velocity2, initial_pressure1, initial_pressure2)
 
-    def SetBoundaryConditions(self, dirichlet:dict=None, neumann:dict=None):
-        """
-        Set the dirichlet and neumann boundary conditions for your problem.
+    def SetOuterBoundaryCondition(self, condition:BoundaryCondition):
+        self.boundary_registry.AddBoundaryCondition(condition)
 
-        Parameters:
-        -----------
-        dirichlet: dict
-            A dictionary with dirichlet boundary conditions of the form
-            {"region (str)": function (CoefficientFunction), ...}
-        neumann: dict
-            A dictionary with neumann boundary conditions of the form
-            {"region (str)": function (CoefficientFunction), ...}
-        """
-        if dirichlet is None:
-            dirichlet = {}
+    def SetInnerBoundaryCondition(self, condition:typing.Union[NitscheVelocityBC, CoefficientFunction]):
+        if isinstance(condition, NitscheVelocityBC):
+            self.boundary_registry.AddBoundaryCondition(condition=condition)
 
-        if neumann is None:
-            neumann = {}
-
-        self.dirichlet = dirichlet
-        self.neumann = neumann
-        self.dbnd = "|".join(dirichlet.keys())
+        if isinstance(condition, CoefficientFunction):
+            self.boundary_registry.AddBoundaryCondition(condition=NitscheVelocityBC(region="interface", values=condition))
 
 
     def SetInitialValues(self, initial_velocity1:CoefficientFunction, initial_velocity2:CoefficientFunction,
@@ -192,9 +177,9 @@ class TwoPhaseDiscretization(GFStepper):
         are defined with InitializeSpaces.
         """
         default = CF((0,0)) if self.mesh.dim == 2 else CF((0,0,0))
-        cf = self.mesh.BoundaryCF(self.dirichlet, default=default)
-        self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
-        self.gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.dbnd))
+        cf = self.mesh.BoundaryCF(self.boundary_registry.strong_dirichlet_dict, default=default)
+        self.gfu.components[0].Set(cf, definedon=self.mesh.Boundaries(self.boundary_registry.dbnd))
+        self.gfu.components[1].Set(cf, definedon=self.mesh.Boundaries(self.boundary_registry.dbnd))
 
 
     def InitializeSpaces(self):
@@ -248,3 +233,7 @@ class TwoPhaseDiscretization(GFStepper):
 
     def Step(self):
         raise NotImplementedError("Step only implemented in subclasses.")
+
+    def ValidateStep(self):
+        self.ancient.vec.data = self.past.vec
+        super().ValidateStep()

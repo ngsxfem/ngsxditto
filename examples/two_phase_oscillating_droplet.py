@@ -42,9 +42,9 @@ fluid2_params = FluidParameters(viscosity=1e-3)
 
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
-fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset, surface_tension=mean_curvature.H, dt=dt, order=order + 1,
-                           ghost_stab=1, nitsche_stab=100)
-fluid.Initialize(dirichlet={".*": CF((0, 0))})
+fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset, surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, nitsche_stab=100)
+fluid.SetOuterBoundaryCondition(StrongDirichletBC(region=".*", values=CF((0, 0))))
+fluid.Initialize()
 fluid.ValidateStep()
 sol = fluid.SolveStokes()
 gfu, gfp = sol.components[0], sol.components[1]
