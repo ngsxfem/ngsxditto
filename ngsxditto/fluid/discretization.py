@@ -52,6 +52,9 @@ class FluidDiscretization(GFStepper):
         self.fluid_params = fluid_params
         self.order = order
         self.time_order = time_order
+        if self.time_order > 2:
+            print("Time order only implemented up to 2. Using second order instead.")
+
         self.add_convection = add_convection
         self.derivative_jumps = derivative_jumps
         if derivative_jumps and order > 2:
@@ -88,7 +91,6 @@ class FluidDiscretization(GFStepper):
         self.m_star = None
         self.inv = None
         self.lf = None
-        self.regularization = None
         self.fes = None
         self.dirichlet = None
         self.neumann = None
@@ -132,7 +134,8 @@ class FluidDiscretization(GFStepper):
         self.lset.lsetadap.ProjectOnUpdate([self.current.components[0], self.current.components[1],
                                             self.intermediate.components[0], self.intermediate.components[1],
                                             self.past.components[0], self.past.components[1],
-                                            self.ancient.components[0], self.ancient.components[1]], update_domain=self.els_outer)
+                                            self.ancient.components[0], self.ancient.components[1]],
+                                           update_domain=self.els_outer)
 
         self.InitializeForms()
         self.SetInitialValues(initial_velocity, initial_pressure)

@@ -316,8 +316,6 @@ class H1Conforming(FluidDiscretization):
                   - self.m_star.mat * self.gfup.vec
             self.gfup.vec.data += self.inv * res
 
-            if self.time_order > 2:
-                print("Time order only implemented up to 2. Using second order instead.")
 
         # gfup_copy = self.gfup.vec.CreateVector()
         # gfup_copy.data = self.gfup.vec
