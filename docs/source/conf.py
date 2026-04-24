@@ -54,3 +54,4 @@ if os.path.exists(htmlcov_dir):
     shutil.rmtree(coverage_target, ignore_errors=True)
     shutil.copytree(htmlcov_dir, coverage_target)
 
+nbsphinx_allow_errors = True
