@@ -11,6 +11,7 @@ build_src:
         - source .venv/bin/activate
         - pip3 install -r docs/requirements.txt
         - pip3 install pyvista 
+        - pip3 install mkl
         - pip3 install .
         - python3 -c "import ngsxditto"
     needs: []
