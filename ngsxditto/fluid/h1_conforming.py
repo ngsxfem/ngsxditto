@@ -15,7 +15,7 @@ class H1Conforming(FluidDiscretization):
     def __init__(self, mesh, fluid_params: FluidParameters, order:int, lset:LevelSetGeometry,
                  wall_params: WallParameters, add_convection:bool, f: CoefficientFunction, g: CoefficientFunction,
                  surface_tension: CoefficientFunction, dt:float, nitsche_stab:int, ghost_stab:int,
-                 extension_radius:float, derivative_jumps:bool, add_number_space:bool, time_order:int):
+                 extension_radius:float, derivative_jumps:bool, add_number_space:bool, time_order:int, use_supg:bool):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -47,7 +47,8 @@ class H1Conforming(FluidDiscretization):
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
                          surface_tension=surface_tension, dt=dt, add_convection=add_convection,
-                         derivative_jumps=derivative_jumps, add_number_space=add_number_space, time_order=time_order)
+                         derivative_jumps=derivative_jumps, add_number_space=add_number_space, time_order=time_order,
+                         use_supg=use_supg)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
@@ -247,10 +248,18 @@ class H1Conforming(FluidDiscretization):
         v, q = test[0], test[1]
 
         dx_neg = self.lset.dx_neg
+        u_approx = self.intermediate.components[0]
 
-        self.conv = ((grad(u) * self.intermediate.components[0]) * v * dx_neg +
-                     (grad(self.intermediate.components[0]) * u) * v * dx_neg -
-                     (grad(self.intermediate.components[0]) * self.intermediate.components[0]) * v * dx_neg)
+        self.conv = (grad(u) * u_approx) * v * dx_neg + (grad(u_approx) * u) * v * dx_neg - (grad(u_approx) * u_approx) * v * dx_neg
+
+        if self.use_supg:
+            h = specialcf.mesh_size
+            W = L2(self.mesh, order=0)
+            gamma_gfu = GridFunction(W)
+            gamma_gfu.Set(h / (2 * Norm(u_approx) + 1e-8))
+            gamma_cf = CoefficientFunction(gamma_gfu)
+
+            self.conv += gamma_cf * (InnerProduct(grad(u) * u_approx,  grad(v) * u_approx)) * dx_neg
 
         self.conv_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.conv_op += self.conv
