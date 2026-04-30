@@ -25,9 +25,33 @@ jobs:
 
       - name: Set MKL library path
         run: |
-          MKL_SO=$(find "$pythonLocation" -name "libmkl_rt.so.2" 2>/dev/null | head -1)
+          echo "=== pip show -f mkl (lib files) ==="
+          pip show -f mkl 2>/dev/null | grep -E "\.so|lib" | head -20 || true
+          echo "=== find pythonLocation for libmkl* ==="
+          find "$pythonLocation" -name "libmkl*" 2>/dev/null | head -10 || echo "Not found"
+          echo "=== find /usr /opt for libmkl* ==="
+          find /usr /opt -name "libmkl*" 2>/dev/null | head -10 || echo "Not found"
+          echo "=== ldconfig -p | grep mkl ==="
+          ldconfig -p 2>/dev/null | grep mkl || echo "Not in ldconfig"
+          echo "=== importlib.metadata for mkl deps ==="
+          python -c "
+import importlib.metadata
+for pkg in ['mkl','intel-openmp','tbb','onemkl-license']:
+    try:
+        files = importlib.metadata.files(pkg) or []
+        for f in files:
+            s = str(f)
+            if '.so' in s or 'lib' in s.lower():
+                print(f'{pkg}: {f.locate()}')
+    except Exception as e:
+        print(f'{pkg}: {e}')
+" 2>/dev/null | head -20 || true
+          MKL_SO=$(find "$pythonLocation" /usr /opt -name "libmkl_rt.so.2" 2>/dev/null | head -1)
           if [ -n "$MKL_SO" ]; then
+            echo "Found MKL at: $MKL_SO"
             echo "LD_LIBRARY_PATH=$(dirname "$MKL_SO"):${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+          else
+            echo "WARNING: libmkl_rt.so.2 not found anywhere!"
           fi
 
       - name: Verify import
