@@ -23,6 +23,11 @@ jobs:
           pip install pyvista
           pip install .
 
+      - name: Set MKL library path
+        run: |
+          MKL_PATH=$(python -c "import site; print(site.getsitepackages()[0])")
+          echo "LD_LIBRARY_PATH=${MKL_PATH}:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+
       - name: Verify import
         run: python -c "import ngsxditto"
 
@@ -42,6 +47,11 @@ jobs:
           pip install mkl
           pip install -r docs/requirements.txt
           pip install -e .
+
+      - name: Set MKL library path
+        run: |
+          MKL_PATH=$(python -c "import site; print(site.getsitepackages()[0])")
+          echo "LD_LIBRARY_PATH=${MKL_PATH}:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
 
       - name: Run tests
         run: pytest --cov=ngsxditto --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=html tests/test_*.py
@@ -88,6 +98,11 @@ jobs:
           pip install mkl
           pip install -r docs/requirements.txt
           pip install .
+
+      - name: Set MKL library path
+        run: |
+          MKL_PATH=$(python -c "import site; print(site.getsitepackages()[0])")
+          echo "LD_LIBRARY_PATH=${MKL_PATH}:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
 
       - name: Generate documentation
         env:
