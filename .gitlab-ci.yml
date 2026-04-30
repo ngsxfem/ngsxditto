@@ -13,8 +13,8 @@ build_src:
         - pip3 install -r docs/requirements.txt
         - pip3 install pyvista
         - pip3 install .
-        - MKL_SO=$(find $(python3 -c "import sys; print(sys.prefix)") -name "libmkl_rt.so.2" 2>/dev/null | head -1)
-        - if [ -n "$MKL_SO" ]; then export LD_LIBRARY_PATH=$(dirname "$MKL_SO"):$LD_LIBRARY_PATH; fi
+        - MKL_PREFIX=$(python3 -c "import sys; print(sys.prefix)")
+        - if [ -f "$MKL_PREFIX/lib/libmkl_rt.so.3" ]; then mkdir -p /tmp/mkl_compat && ln -sf "$MKL_PREFIX/lib/libmkl_rt.so.3" /tmp/mkl_compat/libmkl_rt.so.2 && export LD_LIBRARY_PATH=/tmp/mkl_compat:$LD_LIBRARY_PATH; fi
         - python3 -c "import ngsxditto"
     needs: []
 
@@ -28,8 +28,8 @@ test_src:
         - pip3 install mkl
         - pip3 install -r docs/requirements.txt
         - pip3 install -e . 
-        - MKL_SO=$(find $(python3 -c "import sys; print(sys.prefix)") -name "libmkl_rt.so.2" 2>/dev/null | head -1)
-        - if [ -n "$MKL_SO" ]; then export LD_LIBRARY_PATH=$(dirname "$MKL_SO"):$LD_LIBRARY_PATH; fi
+        - MKL_PREFIX=$(python3 -c "import sys; print(sys.prefix)")
+        - if [ -f "$MKL_PREFIX/lib/libmkl_rt.so.3" ]; then mkdir -p /tmp/mkl_compat && ln -sf "$MKL_PREFIX/lib/libmkl_rt.so.3" /tmp/mkl_compat/libmkl_rt.so.2 && export LD_LIBRARY_PATH=/tmp/mkl_compat:$LD_LIBRARY_PATH; fi
         - pytest --cov=ngsxditto --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=html tests/test_*.py
     artifacts:
         paths:
@@ -56,8 +56,8 @@ build_pages:
         - pip3 install mkl
         - pip3 install -r docs/requirements.txt
         - pip3 install .
-        - MKL_SO=$(find $(python3 -c "import sys; print(sys.prefix)") -name "libmkl_rt.so.2" 2>/dev/null | head -1)
-        - if [ -n "$MKL_SO" ]; then export LD_LIBRARY_PATH=$(dirname "$MKL_SO"):$LD_LIBRARY_PATH; fi
+        - MKL_PREFIX=$(python3 -c "import sys; print(sys.prefix)")
+        - if [ -f "$MKL_PREFIX/lib/libmkl_rt.so.3" ]; then mkdir -p /tmp/mkl_compat && ln -sf "$MKL_PREFIX/lib/libmkl_rt.so.3" /tmp/mkl_compat/libmkl_rt.so.2 && export LD_LIBRARY_PATH=/tmp/mkl_compat:$LD_LIBRARY_PATH; fi
         - cd docs
         - mkdir -p htmlcov
         - cp -r ../htmlcov/* htmlcov/ || true

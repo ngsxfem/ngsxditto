@@ -23,22 +23,14 @@ jobs:
           pip install pyvista
           pip install .
 
-      - name: Set MKL library path
+      - name: Fix MKL library compatibility
         run: |
-          echo "=== pip show -f mkl ==="
-          pip show -f mkl 2>/dev/null | head -50 || true
-          echo "=== searching for libmkl* in pythonLocation ==="
-          find "$pythonLocation" -name "libmkl*" 2>/dev/null | head -10 || echo "Not found"
-          echo "=== searching for libmkl* in /usr and /opt ==="
-          find /usr /opt -name "libmkl*" 2>/dev/null | head -10 || echo "Not found"
-          echo "=== ldconfig -p | grep mkl ==="
-          ldconfig -p 2>/dev/null | grep mkl || echo "Not in ldconfig"
-          MKL_SO=$(find "$pythonLocation" /usr /opt -name "libmkl_rt.so.2" 2>/dev/null | head -1)
-          if [ -n "$MKL_SO" ]; then
-            echo "Found MKL at: $MKL_SO"
-            echo "LD_LIBRARY_PATH=$(dirname "$MKL_SO"):${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-          else
-            echo "WARNING: libmkl_rt.so.2 not found anywhere!"
+          # ngsolve links against libmkl_rt.so.2 but mkl 2026+ ships libmkl_rt.so.3
+          MKL_SO3=$(find "$pythonLocation" -name "libmkl_rt.so.3" 2>/dev/null | head -1)
+          if [ -n "$MKL_SO3" ]; then
+            mkdir -p /tmp/mkl_compat
+            ln -sf "$MKL_SO3" /tmp/mkl_compat/libmkl_rt.so.2
+            echo "LD_LIBRARY_PATH=/tmp/mkl_compat:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
           fi
 
       - name: Verify import
@@ -61,11 +53,14 @@ jobs:
           pip install -r docs/requirements.txt
           pip install -e .
 
-      - name: Set MKL library path
+      - name: Fix MKL library compatibility
         run: |
-          MKL_SO=$(find "$pythonLocation" -name "libmkl_rt.so.2" 2>/dev/null | head -1)
-          if [ -n "$MKL_SO" ]; then
-            echo "LD_LIBRARY_PATH=$(dirname "$MKL_SO"):${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+          # ngsolve links against libmkl_rt.so.2 but mkl 2026+ ships libmkl_rt.so.3
+          MKL_SO3=$(find "$pythonLocation" -name "libmkl_rt.so.3" 2>/dev/null | head -1)
+          if [ -n "$MKL_SO3" ]; then
+            mkdir -p /tmp/mkl_compat
+            ln -sf "$MKL_SO3" /tmp/mkl_compat/libmkl_rt.so.2
+            echo "LD_LIBRARY_PATH=/tmp/mkl_compat:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
           fi
 
       - name: Run tests
@@ -114,11 +109,14 @@ jobs:
           pip install -r docs/requirements.txt
           pip install .
 
-      - name: Set MKL library path
+      - name: Fix MKL library compatibility
         run: |
-          MKL_SO=$(find "$pythonLocation" -name "libmkl_rt.so.2" 2>/dev/null | head -1)
-          if [ -n "$MKL_SO" ]; then
-            echo "LD_LIBRARY_PATH=$(dirname "$MKL_SO"):${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+          # ngsolve links against libmkl_rt.so.2 but mkl 2026+ ships libmkl_rt.so.3
+          MKL_SO3=$(find "$pythonLocation" -name "libmkl_rt.so.3" 2>/dev/null | head -1)
+          if [ -n "$MKL_SO3" ]; then
+            mkdir -p /tmp/mkl_compat
+            ln -sf "$MKL_SO3" /tmp/mkl_compat/libmkl_rt.so.2
+            echo "LD_LIBRARY_PATH=/tmp/mkl_compat:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
           fi
 
       - name: Generate documentation
