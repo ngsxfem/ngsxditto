@@ -9,12 +9,10 @@ build_src:
     script:
         - python3 -m venv .venv
         - source .venv/bin/activate
-        - pip3 install mkl
-        - pip3 install -r docs/requirements.txt
+        - bash ci/install_base_deps.sh
         - pip3 install pyvista
         - pip3 install .
-        - MKL_PREFIX=$(python3 -c "import sys; print(sys.prefix)")
-        - if [ -f "$MKL_PREFIX/lib/libmkl_rt.so.3" ]; then mkdir -p /tmp/mkl_compat && ln -sf "$MKL_PREFIX/lib/libmkl_rt.so.3" /tmp/mkl_compat/libmkl_rt.so.2 && export LD_LIBRARY_PATH=/tmp/mkl_compat:$LD_LIBRARY_PATH; fi
+        - source ci/fix_mkl.sh
         - python3 -c "import ngsxditto"
     needs: []
 
@@ -25,12 +23,10 @@ test_src:
         - python3 -m venv .venv
         - source .venv/bin/activate
         - pip3 install pytest pytest-cov
-        - pip3 install mkl
-        - pip3 install -r docs/requirements.txt
-        - pip3 install -e . 
-        - MKL_PREFIX=$(python3 -c "import sys; print(sys.prefix)")
-        - if [ -f "$MKL_PREFIX/lib/libmkl_rt.so.3" ]; then mkdir -p /tmp/mkl_compat && ln -sf "$MKL_PREFIX/lib/libmkl_rt.so.3" /tmp/mkl_compat/libmkl_rt.so.2 && export LD_LIBRARY_PATH=/tmp/mkl_compat:$LD_LIBRARY_PATH; fi
-        - pytest --cov=ngsxditto --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=html tests/test_*.py
+        - bash ci/install_base_deps.sh
+        - pip3 install -e .
+        - source ci/fix_mkl.sh
+        - bash ci/run_tests.sh
     artifacts:
         paths:
             - coverage.xml  # Coverage Report als Artifact speichern
@@ -53,11 +49,9 @@ build_pages:
         - apt-get install -y libosmesa6-dev libgl1 mesa-utils
         - apt-get install -y make pandoc
         - pip3 install --upgrade pip setuptools wheel
-        - pip3 install mkl
-        - pip3 install -r docs/requirements.txt
+        - bash ci/install_base_deps.sh
         - pip3 install .
-        - MKL_PREFIX=$(python3 -c "import sys; print(sys.prefix)")
-        - if [ -f "$MKL_PREFIX/lib/libmkl_rt.so.3" ]; then mkdir -p /tmp/mkl_compat && ln -sf "$MKL_PREFIX/lib/libmkl_rt.so.3" /tmp/mkl_compat/libmkl_rt.so.2 && export LD_LIBRARY_PATH=/tmp/mkl_compat:$LD_LIBRARY_PATH; fi
+        - source ci/fix_mkl.sh
         - cd docs
         - mkdir -p htmlcov
         - cp -r ../htmlcov/* htmlcov/ || true

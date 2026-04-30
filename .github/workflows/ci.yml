@@ -18,20 +18,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install mkl
-          pip install -r docs/requirements.txt
+          bash ci/install_base_deps.sh
           pip install pyvista
           pip install .
 
       - name: Fix MKL library compatibility
-        run: |
-          # ngsolve links against libmkl_rt.so.2 but mkl 2026+ ships libmkl_rt.so.3
-          MKL_SO3=$(find "$pythonLocation" -name "libmkl_rt.so.3" 2>/dev/null | head -1)
-          if [ -n "$MKL_SO3" ]; then
-            mkdir -p /tmp/mkl_compat
-            ln -sf "$MKL_SO3" /tmp/mkl_compat/libmkl_rt.so.2
-            echo "LD_LIBRARY_PATH=/tmp/mkl_compat:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-          fi
+        run: bash ci/fix_mkl.sh
 
       - name: Verify import
         run: python -c "import ngsxditto"
@@ -49,22 +41,14 @@ jobs:
       - name: Install dependencies
         run: |
           pip install pytest pytest-cov
-          pip install mkl
-          pip install -r docs/requirements.txt
+          bash ci/install_base_deps.sh
           pip install -e .
 
       - name: Fix MKL library compatibility
-        run: |
-          # ngsolve links against libmkl_rt.so.2 but mkl 2026+ ships libmkl_rt.so.3
-          MKL_SO3=$(find "$pythonLocation" -name "libmkl_rt.so.3" 2>/dev/null | head -1)
-          if [ -n "$MKL_SO3" ]; then
-            mkdir -p /tmp/mkl_compat
-            ln -sf "$MKL_SO3" /tmp/mkl_compat/libmkl_rt.so.2
-            echo "LD_LIBRARY_PATH=/tmp/mkl_compat:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-          fi
+        run: bash ci/fix_mkl.sh
 
       - name: Run tests
-        run: pytest --cov=ngsxditto --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=html tests/test_*.py
+        run: bash ci/run_tests.sh
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
@@ -105,19 +89,11 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip setuptools wheel
-          pip install mkl
-          pip install -r docs/requirements.txt
+          bash ci/install_base_deps.sh
           pip install .
 
       - name: Fix MKL library compatibility
-        run: |
-          # ngsolve links against libmkl_rt.so.2 but mkl 2026+ ships libmkl_rt.so.3
-          MKL_SO3=$(find "$pythonLocation" -name "libmkl_rt.so.3" 2>/dev/null | head -1)
-          if [ -n "$MKL_SO3" ]; then
-            mkdir -p /tmp/mkl_compat
-            ln -sf "$MKL_SO3" /tmp/mkl_compat/libmkl_rt.so.2
-            echo "LD_LIBRARY_PATH=/tmp/mkl_compat:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
-          fi
+        run: bash ci/fix_mkl.sh
 
       - name: Generate documentation
         env:
