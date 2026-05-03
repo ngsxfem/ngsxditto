@@ -23,4 +23,6 @@ In the following we collect examples that were computed with `ngsxditto`.
 
    swaying_water.ipynb
 
+   droplet_on_solid.ipynb
+
 
