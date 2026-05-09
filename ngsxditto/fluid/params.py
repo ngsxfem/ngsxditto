@@ -3,7 +3,7 @@ This file introduces placeholder classes working just as an dictionary, holding 
 """
 
 from typing import Optional
-
+from ngsolve import pi
 
 class FluidParameters:
     """
@@ -52,7 +52,7 @@ class WallParameters:
     """
     This class represents wall parameters as a dictionary.
     """
-    def __init__(self, friction_coeff_surface: float = 0, friction_coeff_line: float = 0, contact_angle: float = 0):
+    def __init__(self, friction_coeff_surface: float = 0, friction_coeff_line: float = 0, contact_angle: float = pi):
         """
             parameters:
                 friction_coeff: friction coefficient
@@ -61,7 +61,7 @@ class WallParameters:
         self.friction_coeff_surface = friction_coeff_surface
         self.friction_coeff_line = friction_coeff_line
         self.contact_angle = contact_angle
-        self.dictionary = {"friction_coeff_surface": friction_coeff_surface, "friction_surface_line": friction_coeff_line,
+        self.dictionary = {"friction_coeff_surface": friction_coeff_surface, "friction_coeff_line": friction_coeff_line,
                            "contact_angle": contact_angle}
 
     def Update(self, friction_coeff_surface: Optional[float] = None, friction_coeff_line: Optional[float] = None,
