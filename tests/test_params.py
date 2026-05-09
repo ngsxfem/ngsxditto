@@ -24,20 +24,21 @@ def test_update_fluidparams():
 
 def test_wallparams():
     nu = 1.1
-    rho = 1.2
-    params = WallParameters(friction_coeff=nu, contact_angle=rho) 
-    assert params["friction_coeff"] == nu
+    mu = 1.2
+    rho = 1.3
+    params = WallParameters(friction_coeff_surface=nu,friction_coeff_line=mu, contact_angle=rho)
+    assert params["friction_coeff_surface"] == nu
+    assert params["friction_coeff_line"] == mu
     assert params["contact_angle"] == rho
 
 def test_update_wallparams():
     nu = 1.1
-    rho = 1.2
-    params = WallParameters(friction_coeff=nu, contact_angle=rho) 
-    for param in [nu, rho]:
+    mu = 1.2
+    rho = 1.3
+    params = WallParameters(friction_coeff_surface=nu, friction_coeff_line=mu, contact_angle=rho)
+    for param in [nu, mu, rho]:
         param -= 1
-    params.Update(friction_coeff=nu, contact_angle=rho)
-    assert params["friction_coeff"] == nu
+    params.Update(friction_coeff_surface=nu, friction_coeff_line=mu, contact_angle=rho)
+    assert params["friction_coeff_surface"] == nu
+    assert params["friction_coeff_line"] == mu
     assert params["contact_angle"] == rho
-
-if __name__=="__main__":
-    test_params()
