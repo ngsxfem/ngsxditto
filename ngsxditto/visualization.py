@@ -162,7 +162,7 @@ class UnfittedNGSWebguiPlot(Visualization):
 
     def AfterLoop(self):
         ngw.Draw(self.gf_vis, self.lset.mesh, "uhnorm", eval_function="value.x>0.0?value.z:value.y",
-                 autoscale=self.autoscale, min=self.min, max=self.max, interpolate_multidim=True, animate=True)
+                 autoscale=self.autoscale, min=self.min, max=self.max, interpolate_multidim=True, animate=True, eval=0)
 
 
 class UnfittedNGSWebguiScene(Visualization):

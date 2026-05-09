@@ -263,8 +263,8 @@ class H1Conforming(FluidDiscretization):
         t = specialcf.tangential(2)
         n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
 
-        self.stokes_term += beta_S * InnerProduct(P_S * u, P_S * v) * d_contact_plane
-        self.stokes_term += beta_L * InnerProduct(u*n_line, v*n_line) * d_contact_line
+        self.stokes_term += 1/self.rho * beta_S * InnerProduct(P_S * u, P_S * v) * d_contact_plane
+        self.stokes_term += 1/self.rho * beta_L * InnerProduct(u*n_line, v*n_line) * d_contact_line
 
         self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
                                                 facet_restriction=self.facets_ring, check_unused=False)
