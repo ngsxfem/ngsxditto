@@ -67,7 +67,10 @@ class FluidDiscretization(GFStepper):
         else:
             self.SetLevelSet(lset)
 
-        self.wall_params = wall_params
+        if wall_params is None:
+            self.wall_params = WallParameters()
+        else:
+            self.wall_params = wall_params
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
         if f is None:
             self.f = default

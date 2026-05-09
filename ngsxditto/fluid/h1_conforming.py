@@ -129,15 +129,17 @@ class H1Conforming(FluidDiscretization):
         h = specialcf.mesh_size
         n_bnd = specialcf.normal(self.mesh.dim)
         n_lset = self.lset.n
+        t = specialcf.tangential(2)
+        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
         self.lf = LinearForm(self.fes)
         self.lf += self.f * v * dx_neg
         self.lf += self.g * q * dx_neg
-
+        tau = self.fluid_params.surface_tension_coeff
         if self.surface_tension is not None:
-            self.lf += -self.fluid_params.surface_tension_coeff * self.surface_tension * v * dS
+            self.lf += -tau * self.surface_tension * v * dS
 
         for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
             if region != "interface":
@@ -159,6 +161,15 @@ class H1Conforming(FluidDiscretization):
 
         for (region, values) in self.boundary_registry.strong_neumann_dict.items():
             self.lf += self.nu * values * v * dx(definedon=self.mesh.Boundaries(region))
+
+
+        d_contact_plane = dCut(self.lset.lsetp1, domain_type=NEG,
+                               deformation=self.lset.deformation, vb=BND)
+        d_contact_line = dCut(self.lset.lsetp1, domain_type=IF,
+                               deformation=self.lset.deformation, vb=BND)
+        theta_e = self.wall_params.contact_angle
+
+        self.lf += 1/self.rho * cos(theta_e) * tau * v * n_line * d_contact_line
 
         self.lf.Assemble()
 
@@ -236,6 +247,24 @@ class H1Conforming(FluidDiscretization):
             self.stokes_term += ((p * s + q * r) - (1e-8  * r * s)) * dx_neg
         else:
             self.stokes_term += 1e-10 * p * q * dx_neg
+
+        P_gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
+        P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
+        div_gamma = lambda w: div(w) - InnerProduct(n_lset, grad(w) * n_lset)
+
+        d_contact_plane = dCut(self.lset.lsetp1, domain_type=NEG,
+                               deformation=self.lset.deformation, vb=BND)
+        d_contact_line = dCut(self.lset.lsetp1, domain_type=IF,
+                               deformation=self.lset.deformation, vb=BND)
+
+        beta_S = self.wall_params.friction_coeff_surface
+        beta_L = self.wall_params.friction_coeff_line
+        theta_e = self.wall_params.contact_angle
+        t = specialcf.tangential(2)
+        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
+
+        self.stokes_term += beta_S * InnerProduct(P_S * u, P_S * v) * d_contact_plane
+        self.stokes_term += beta_L * InnerProduct(u*n_line, v*n_line) * d_contact_line
 
         self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
                                                 facet_restriction=self.facets_ring, check_unused=False)
