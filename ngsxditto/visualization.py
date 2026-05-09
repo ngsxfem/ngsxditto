@@ -144,11 +144,11 @@ class UnfittedNGSWebguiPlot(Visualization):
         self.cf_pos = cf_pos
 
     def BeforeLoop(self):
-        self.gf_vis = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=4), multidim=0)
-        self.gf_vis_tmp = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=4))
+        self.gf_vis = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=3), multidim=0)
+        self.gf_vis_tmp = GridFunction(L2(mesh=self.lset.mesh, order=self.order + 1, dim=3))
         self.vis_last_time = self.time.Get()
         self.gf_vis_tmp.Set(
-            CF((self.lset.lsetp1, self.cf_neg, self.cf_pos, 0)))
+            CF((self.lset.lsetp1, self.cf_neg, self.cf_pos)))
         self.gf_vis.AddMultiDimComponent(self.gf_vis_tmp.vec)
 
         self.vis_time_increment = (self.end_time - self.vis_last_time) / 16
@@ -157,7 +157,7 @@ class UnfittedNGSWebguiPlot(Visualization):
         if self.time.Get() >= self.vis_last_time + self.vis_time_increment:
             self.vis_last_time = self.time.Get()
             self.gf_vis_tmp.Set(
-                CF((self.lset.lsetp1, self.cf_neg, self.cf_pos, 0)))
+                CF((self.lset.lsetp1, self.cf_neg, self.cf_pos)))
             self.gf_vis.AddMultiDimComponent(self.gf_vis_tmp.vec)
 
     def AfterLoop(self):
