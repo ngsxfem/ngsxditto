@@ -52,17 +52,20 @@ class WallParameters:
     """
     This class represents wall parameters as a dictionary.
     """
-    def __init__(self, friction_coeff: float = 0, contact_angle: float = 0):
+    def __init__(self, friction_coeff_surface: float = 0, friction_coeff_line: float = 0, contact_angle: float = 0):
         """
             parameters:
                 friction_coeff: friction coefficient
                 contact_angle: contact angle
         """
-        self.friction_coeff = friction_coeff
+        self.friction_coeff_surface = friction_coeff_surface
+        self.friction_coeff_line = friction_coeff_line
         self.contact_angle = contact_angle
-        self.dictionary = {"friction_coeff": friction_coeff, "contact_angle": contact_angle}
+        self.dictionary = {"friction_coeff_surface": friction_coeff_surface, "friction_surface_line": friction_coeff_line,
+                           "contact_angle": contact_angle}
 
-    def Update(self, friction_coeff: Optional[float] = None, contact_angle: Optional[float] = None):
+    def Update(self, friction_coeff_surface: Optional[float] = None, friction_coeff_line: Optional[float] = None,
+               contact_angle: Optional[float] = None):
         """
             Updates WallParameters-object with given values. If no values were given for entry, use old one.
 
@@ -70,14 +73,16 @@ class WallParameters:
                 friction_coeff: friction coefficient
                 contact_angle: contact angle
         """
-        self._UpdateDict(friction_coeff=friction_coeff, contact_angle=contact_angle)
+        self._UpdateDict(friction_coeff_surface=friction_coeff_surface, friction_coeff_line=friction_coeff_line, contact_angle=contact_angle)
 
-    def _UpdateDict(self, friction_coeff: Optional[float] = None, contact_angle: Optional[float] = None):
+    def _UpdateDict(self, friction_coeff_surface: Optional[float] = None, friction_coeff_line: Optional[float] = None,
+                    contact_angle: Optional[float] = None):
         # do not update parameter, get from current parameter
-        for param in ["friction_coeff", "contact_angle"]:
+        for param in ["friction_coeff_surface","friction_coeff_line", "contact_angle"]:
             if param == None:
                 param = self.dictionary[param]
-        self.dictionary = {"friction_coeff": friction_coeff, "contact_angle": contact_angle}
+        self.dictionary = {"friction_coeff_surface": friction_coeff_surface, "friction_coeff_line": friction_coeff_line,
+                           "contact_angle": contact_angle}
 
     def __getitem__(self, param):
         return self.dictionary[param]
