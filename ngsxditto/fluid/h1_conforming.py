@@ -139,14 +139,14 @@ class H1Conforming(FluidDiscretization):
         self.lf += self.g * q * dx_neg
         tau = self.fluid_params.surface_tension_coeff
         if self.surface_tension is not None:
-            self.lf += -tau * self.surface_tension * v * dS
+            self.lf += - 1/self.rho * tau * self.surface_tension * v * dS
 
         for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
             if region != "interface":
-                self.lf += (-self.nu * (grad(v).Trace() * n_bnd) * n_bnd * values
+                self.lf += (-self.nu * (grad(v).Trace() * n_bnd) * n_bnd * values + q * n_bnd * values
                             + self.nu * self.nitsche_stab/h * (v * n_bnd) * values) * ds(definedon=self.mesh.Boundaries(region))
             else:
-                self.lf += (-self.nu * (grad(v).Trace() * n_lset) * n_lset * values
+                self.lf += (-self.nu * (grad(v).Trace() * n_lset) * n_lset * values + q * n_lset * values
                             + self.nu * self.nitsche_stab / h * (v * n_lset) * values) * dS
 
         for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
@@ -160,7 +160,7 @@ class H1Conforming(FluidDiscretization):
                             q * n_lset * values) * dS
 
         for (region, values) in self.boundary_registry.strong_neumann_dict.items():
-            self.lf += self.nu * values * v * dx(definedon=self.mesh.Boundaries(region))
+            self.lf += values * v * dx(definedon=self.mesh.Boundaries(region))
 
 
         d_contact_plane = dCut(self.lset.lsetp1, domain_type=NEG,
@@ -189,7 +189,7 @@ class H1Conforming(FluidDiscretization):
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
 
-        basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - 1/self.rho * p * div(v) - 1/self.rho * q * div(u)) * dx_neg
+        basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - p * div(v) - q * div(u)) * dx_neg
 
         if not self.derivative_jumps:
             #dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
@@ -253,9 +253,11 @@ class H1Conforming(FluidDiscretization):
         div_gamma = lambda w: div(w) - InnerProduct(n_lset, grad(w) * n_lset)
 
         d_contact_plane = dCut(self.lset.lsetp1, domain_type=NEG,
-                               deformation=self.lset.deformation, vb=BND)
+                               deformation=self.lset.deformation, vb=BND,
+                               definedon=self.mesh.Boundaries(self.wall_params.region))
         d_contact_line = dCut(self.lset.lsetp1, domain_type=IF,
-                               deformation=self.lset.deformation, vb=BND)
+                               deformation=self.lset.deformation, vb=BND,
+                              definedon=self.mesh.Boundaries(self.wall_params.region))
 
         beta_S = self.wall_params.friction_coeff_surface
         beta_L = self.wall_params.friction_coeff_line
