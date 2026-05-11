@@ -133,6 +133,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         v, q = test[0], test[1]
 
         nus = [self.nu1, self.nu2]
+        rhos = [self.rho1, self.rho2]
+        taus = [self.fluid1_params.surface_tension_coeff, self.fluid2_params.surface_tension_coeff]
         dx_neg = self.lset.dx_neg
         dx_pos = self.lset.dx_pos
         dx_list = [dx_neg, dx_pos]
@@ -144,15 +146,24 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         h = specialcf.mesh_size
         n_bnd = specialcf.normal(self.mesh.dim)
         n_lset = self.lset.n
+        t = specialcf.tangential(2)
+        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
+        d_contact_plane1 = dCut(self.lset.lsetp1, domain_type=NEG,
+                               deformation=self.lset.deformation, vb=BND)
+        d_contact_plane2 = dCut(self.lset.lsetp1, domain_type=POS,
+                               deformation=self.lset.deformation, vb=BND)
+        d_contact_line = dCut(self.lset.lsetp1, domain_type=IF,
+                               deformation=self.lset.deformation, vb=BND)
+        theta_e = self.wall_params.contact_angle
 
-        surface_tension_list = [self.fluid1_params.surface_tension_coeff, self.fluid2_params.surface_tension_coeff]
+
         self.lf = LinearForm(self.fes)
         for i in range(2):
             self.lf += f_list[i] * v[i] * dx_list[i]
             self.lf += g_list[i] * q[i] * dx_list[i]
             for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
                 if region != "interface":
-                    self.lf += (-nus[i] * (grad(v[i]).Trace() * n_bnd) * n_bnd * values
+                    self.lf += (-nus[i] * (grad(v[i]).Trace() * n_bnd) * n_bnd * values + q[i] * n_bnd * values
                                 + nus[i] * self.nitsche_stab / h * (v[i] * n_bnd) * values) * ds(
                         definedon=self.mesh.Boundaries(region))
                 else:
@@ -170,10 +181,12 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                                 q[i] * n_lset * values) * dS
 
             for (region, values) in self.boundary_registry.strong_neumann_dict.items():
-                self.lf += nus[i] * values * v[i] * dx(definedon=self.mesh.Boundaries(region))
+                self.lf += values * v[i] * dx(definedon=self.mesh.Boundaries(region))
+
+        self.lf += cos(theta_e) * taus[0] * (v[0]/rhos[0] - v[1]/rhos[1]) * n_line * d_contact_line
 
         if self.surface_tension is not None:
-            self.lf += -surface_tension_list[0] * self.surface_tension * (kappa[1] * v[0] + kappa[0] * v[1]) * dS
+            self.lf += -taus[0] * self.surface_tension * (kappa[1]/rhos[0] * v[0] + kappa[0]/rhos[1] * v[1]) * dS
 
         self.lf.Assemble()
 
@@ -203,6 +216,27 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         kappaminus = CutRatioGF(self.lset.cutinfo)
         kappa = (kappaminus, 1 - kappaminus)
 
+        P_gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
+        P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
+        div_gamma = lambda w: div(w) - InnerProduct(n_lset, grad(w) * n_lset)
+
+        d_contact_plane1 = dCut(self.lset.lsetp1, domain_type=NEG,
+                               deformation=self.lset.deformation, vb=BND,
+                                definedon=self.mesh.Boundaries(self.wall_params.region))
+        d_contact_plane2 = dCut(self.lset.lsetp1, domain_type=POS,
+                               deformation=self.lset.deformation, vb=BND,
+                                definedon=self.mesh.Boundaries(self.wall_params.region))
+        d_contact_planes = [d_contact_plane1, d_contact_plane2]
+        d_contact_line = dCut(self.lset.lsetp1, domain_type=IF,
+                               deformation=self.lset.deformation, vb=BND,
+                              definedon=self.mesh.Boundaries(self.wall_params.region))
+
+        beta_S = self.wall_params.friction_coeff_surface
+        beta_L = self.wall_params.friction_coeff_line
+        theta_e = self.wall_params.contact_angle
+        t = specialcf.tangential(2)
+        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
+
         self.stokes_term = 0
         for i in range(2):
             basic_stokes = (nus[i] * InnerProduct(grad(u[i]), grad(v[i])) - 1/rhos[i] * p[i] * div(v[i]) - 1/rhos[i] * q[i] * div(u[i])) * dx_list[i]
@@ -231,7 +265,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                     nitsche = (-(grad(u[i]).Trace() * n_bnd) * n_bnd * vn - (grad(v[i]).Trace() * n_bnd) * n_bnd * un
                                + self.nitsche_stab / h * un * vn) * ds(definedon=self.mesh.Boundaries(region))
                     self.stokes_term += nus[i] * nitsche
-                    self.stokes_term += (q[i] * u[i] * n_bnd + p[i] * v[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
+                    self.stokes_term += 1/rhos[i] * (q[i] * u[i] * n_bnd + p[i] * v[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
                 else:
                     un = u[i] * n_lset
                     vn = v[i] * n_lset
@@ -239,19 +273,19 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                     nitsche = (-(grad(u[i]).Trace() * n_lset) * n_lset * vn - (grad(v[i]).Trace() * n_lset) * n_lset * un
                                + self.nitsche_stab / h * un * vn) * dS
                     self.stokes_term += nus[i] * nitsche
-                    self.stokes_term += (q[i] * u[i] * n_lset + p[i] * v[i] * n_lset) * dS
+                    self.stokes_term += 1/rhos[i] * (q[i] * u[i] * n_lset + p[i] * v[i] * n_lset) * dS
 
             for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
                 if region != "interface":
                     nitsche = (-grad(u[i]).Trace() * n_bnd * v[i] - grad(v[i]).Trace() * n_bnd * u[i] +
                                self.nitsche_stab / h * u[i] * v[i]) * ds(definedon=self.mesh.Boundaries(region))
                     self.stokes_term += nus[i] * nitsche
-                    self.stokes_term += (p[i] * v[i] * n_bnd + q[i] * u[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
+                    self.stokes_term += 1/rhos[i] * (p[i] * v[i] * n_bnd + q[i] * u[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
 
                 else:
                     nitsche = (-grad(u[i]) * n_lset * v[i] - grad(v[i]) * n_lset * u[i] + self.nitsche_stab / h * u[i] * v[i]) * dS
                     self.stokes_term += nus[i] * nitsche
-                    self.stokes_term += (p[i] * v[i] * n_lset + q[i] * u[i] * n_lset) * dS
+                    self.stokes_term += 1/rhos[i] * (p[i] * v[i] * n_lset + q[i] * u[i] * n_lset) * dS
 
             if self.add_number_space:
                 pressure_stab = (r[i] * q[i] + s[i] * p[i]) * dx_list[i]
@@ -259,13 +293,18 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                 pressure_stab = 1e-10 * p[i] * q[i] * dx_list[i]
             self.stokes_term += basic_stokes + ghost_penalty + pressure_stab
 
+            self.stokes_term += 1/rhos[i] * beta_S * InnerProduct(P_S * u[i], P_S * v[i]) * d_contact_planes[i]
+            self.stokes_term += 1/rhos[i] * beta_L * (u[i]*n_line) * v[i]*n_line * d_contact_line
+
         nitsche = (-(kappa[0]*nus[0]*grad(u[0]) * n_lset + kappa[1] * nus[1]*grad(u[1]) * n_lset) * (v[0] - v[1]) -
                    (kappa[0]*nus[0]*grad(v[0]) * n_lset + kappa[1] * nus[1]*grad(v[1]) * n_lset) * (u[0] - u[1]) +
                    self.nitsche_stab * (kappa[0] * nus[0] + kappa[1] * nus[1]) / h * (u[0] - u[1]) * (v[0] - v[1])) * dS
 
         bnd_terms = (((1/rhos[0] * kappa[0] * p[0] + 1/rhos[1] * kappa[1] * p[1]) * (v[0] - v[1]) * n_lset) * dS +
                      ((1/rhos[0] * kappa[0] * q[0] + 1/rhos[1] * kappa[1] * q[1]) * (u[0] - u[1]) * n_lset) * dS)
+
         self.stokes_term += nitsche + bnd_terms
+
 
         self.stokes_op = BilinearForm(self.fes)
         self.stokes_op += self.stokes_term

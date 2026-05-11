@@ -62,7 +62,11 @@ class TwoPhaseDiscretization(GFStepper):
 
         self.add_convection = add_convection
 
-        self.wall_params = wall_params
+        if wall_params is None:
+            self.wall_params = WallParameters()
+        else:
+            self.wall_params = wall_params
+
         default = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
         if f1 is None:
             self.f1 = default
