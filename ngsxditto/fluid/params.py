@@ -53,7 +53,7 @@ class WallParameters:
     This class represents wall parameters as a dictionary.
     """
     def __init__(self, friction_coeff_surface: float = 0, friction_coeff_line: float = 0, contact_angle: float = pi,
-                 region: str = "bottom"):
+                 region: str = ""):
         """
             parameters:
                 friction_coeff: friction coefficient
