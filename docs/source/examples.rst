@@ -25,4 +25,6 @@ In the following we collect examples that were computed with `ngsxditto`.
 
    droplet_on_solid.ipynb
 
+   two_phase_droplet_on_solid.ipynb
+
 
