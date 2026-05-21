@@ -9,8 +9,8 @@ class LevelsetBasedExtension(StatelessStepper):
     """
     Extends a vector field from an interface to the whole domain using a diffusion based algorithm.
     """
-    def __init__(self, lset:LevelSetGeometry, rhs=None, gamma:float=0.1, order:int=2, ghost_stab:int=1, dirichlet:str=".*",
-                 q: CoefficientFunction=CF(0)):
+    def __init__(self, lset:LevelSetGeometry, rhs=None, gamma:float=0.1, order:int=2, ghost_stab:int=1,
+                 no_slip:str= ".*", no_penetration:str= "", q: CoefficientFunction=CF(0)):
         """
         Initialise the diffusion based vector extension with the given parameters.
 
@@ -33,8 +33,32 @@ class LevelsetBasedExtension(StatelessStepper):
         self.gamma = gamma
         self.order = order
         self.ghost_stab = ghost_stab
-        self.dirichlet = dirichlet
-        self.V = VectorH1(self.mesh, order=self.order, dirichlet=dirichlet, dgjumps=True)
+        self.no_slip = no_slip
+        self.no_penetration = no_penetration
+        self.V = VectorH1(self.mesh, order=self.order, dirichlet=no_slip, dgjumps=True)
+        self.V_x, self.V_y = self.V.components
+
+        self.free_dofs = self.V.FreeDofs()
+
+        normal_dofs = BitArray(self.V.ndof)
+        normal_dofs[:] = False
+
+        offset_y = self.V_x.ndof
+
+        bnd_x = self.V_x.GetDofs(self.mesh.Boundaries("left|right"))
+        bnd_y = self.V_y.GetDofs(self.mesh.Boundaries("top|bottom"))
+
+        for i, is_on_bnd in enumerate(bnd_x):
+            if is_on_bnd:
+                normal_dofs[i] = True
+
+        for i, is_on_bnd in enumerate(bnd_y):
+            if is_on_bnd:
+                normal_dofs[offset_y + i] = True
+
+        zero_normal_dofs = normal_dofs & self.V.GetDofs(self.mesh.Boundaries(self.no_penetration))
+        self.free_dofs &= ~zero_normal_dofs
+
         self.field = GridFunction(self.V)
         self.rhs = rhs
         self.q = q
@@ -71,6 +95,6 @@ class LevelsetBasedExtension(StatelessStepper):
         f.Assemble()
 
         deformed_lsetp1_field = GridFunction(self.V)
-        deformed_lsetp1_field.vec.data = a.mat.Inverse(self.V.FreeDofs(), inverse=direct_solver_spd) * f.vec
+        deformed_lsetp1_field.vec.data = a.mat.Inverse(self.free_dofs, inverse=direct_solver_spd) * f.vec
 
         self.field.Set(shifted_eval(deformed_lsetp1_field, back=self.lset.deformation, forth=None))
