@@ -16,7 +16,7 @@ levelset = LevelSetGeometry.from_cf(levelset_function, mesh)
 
 def test_levelset_based():
     u_exact = CF((0, 1 + x ** 2))
-    lset_ext = LevelsetBasedExtension(levelset, dirichlet="")
+    lset_ext = LevelsetBasedExtension(levelset, no_slip="")
 
     lset_ext.SetRhs(u_exact)
     lset_ext.Step()
