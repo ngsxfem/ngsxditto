@@ -37,19 +37,14 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.time = self.transport.time
         self.multistepper = MultiStepper()
         self.multistepper.SetObject(self)
-        if redistancing is not None:
-            self.redistancing = redistancing
-            self.redistancing.SetOrder(transport.order)
-            self.redistancing.SetField(self.transport.field)
         self.mesh = self.transport.mesh
         self.autoredistancing = autoredistancing
         self.steps_since_last_redistancing = 0
-
+        self.order = transport.order
         P1 = H1(self.mesh, order=1)
         self.lsetp1 = GridFunction(P1)
 
-
-        self.fes_cont = H1(self.mesh, order=self.transport.order)
+        self.fes_cont = H1(self.mesh, order=self.order)
 
         self.lset_cont = GridFunction(self.fes_cont)
         self.lset_cont_tmp = GridFunction(self.fes_cont)
@@ -61,6 +56,11 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
         self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
         self.deformation = self.lsetadap.deform
+        if redistancing is not None:
+            self.redistancing = redistancing
+            self.redistancing.SetOrder(transport.order)
+            self.redistancing.SetField(self.lsetp1)
+            self.redistancing.SetDeformation(self.lsetadap.deform)
 
         self.cutinfo = CutInfo(self.mesh)
         self.hasif = self.cutinfo.GetElementsOfType(IF)
@@ -183,10 +183,12 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.transport.Step() # step on auxiliary field (e.g. DG)
         self.ProjectToContinuous()
         self.steps_since_last_redistancing += 1
-        self.RedistanceIfNecessary()
         self.UpdateLinearApproximation()
         self.UpdateCutInfo()
         self.UpdateDeformation()
+
+        self.RedistanceIfNecessary()     # Updates self.lsetp1
+
 
         self.ProcessCallbacks()
 
@@ -218,8 +220,16 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         Applies the redistancing algorithm.
         """
         print("The next function is redistanced")
-        self.redistancing.Step()#Redistance(self.transport.field)
-        self.ProjectToContinuous()
+        self.mesh.SetDeformation(self.deformation)
+        self.redistancing.Step() # Updates self.lsetp1
+
+        self.field.Set(self.lsetp1)
+        self.mesh.UnsetDeformation()
+        
+        self.transport.field.Set(self.field)
+        self.UpdateDeformation()
+
+        #self.ProjectToContinuous()
         self.steps_since_last_redistancing = 0
 
     def RedistanceIfNecessary(self):
