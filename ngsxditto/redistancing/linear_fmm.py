@@ -10,7 +10,7 @@ class LinearFastMarching(BaseRedistancing):
         super().__init__(bandwidth)
         self.order = 1
 
-    def Redistance(self, phi: GridFunction):
+    def Redistance(self, phi: GridFunction, deformation=None):
         phi_copy = GridFunction(phi.space)
         phi_copy.Set(phi)
         l2_function = False
