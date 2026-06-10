@@ -120,7 +120,7 @@ class TwoPhaseDiscretization(GFStepper):
                    initial_pressure1:CoefficientFunction=CF(0),
                    initial_pressure2: CoefficientFunction = CF(0),
                    ):
-        """
+        r"""
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
         physical domain and initializing the finite element spaces and bilinear forms.
         Convenience function that combines SetBoundaryConditions, InitializeSpaces,
