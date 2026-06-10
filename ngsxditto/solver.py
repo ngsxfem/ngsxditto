@@ -1,4 +1,4 @@
-from ngsolve import CoefficientFunction, Parameter, TaskManager
+from ngsolve import CoefficientFunction, Parameter, TaskManager, SetNumThreads
 from alive_progress import alive_bar
 from ngsxditto.stepper import *
 from ngsxditto.progress_info import *
@@ -17,7 +17,8 @@ class Solver:
                  should_revert: typing.Callable[[], bool] = None,
                  display_progress_bar:bool=True,
                  show_profiles:bool=True,
-                 pajetrace=0
+                 pajetrace=0,
+                 num_threads: typing.Optional[int] = None
                  ):
         """
         Initialize the solver with empty dictionary that can be filled with Stepper objects.
@@ -30,6 +31,12 @@ class Solver:
             Determines what the progress bar shows
         should_finalize: typing.Callable[[], bool]
             The criteria to determine if the solver should finalize the step.
+        num_threads: int
+            Number of TaskManager threads used in the loop. By default NGSolve
+            uses all available cores, which can oversubscribe small problems
+            (many small parallel kernels per step) and slow them down
+            significantly on many-core machines. Choose a moderate number
+            (e.g. 4-16) for small/medium 2D problems.
         """
         self.name = "Solver"
         self.stepper_dict = {}
@@ -48,6 +55,7 @@ class Solver:
         self.should_revert = should_revert
         self.show_profiles = show_profiles
         self.pajetrace = pajetrace
+        self.num_threads = num_threads
 
         @contextmanager
         def dummy_bar(*args, **kwargs):
@@ -114,6 +122,9 @@ class Solver:
             if entry["time_frequency"] is not None:
                 entry["next_trigger"] += entry["time_frequency"]
             should_run_dict[stepper_name] = True
+
+        if self.num_threads is not None:
+            SetNumThreads(self.num_threads)
 
         with self.progress_bar(manual=True, force_tty=True, title=self.name+": ",
                        bar='smooth') as bar:
@@ -207,14 +218,15 @@ class TimeLoop(Solver):
     """
     A Solver subclass that tracks progress with a time parameter.
     """
-    def __init__(self, time : typing.Optional[CoefficientFunction] = None, 
+    def __init__(self, time : typing.Optional[CoefficientFunction] = None,
                  dt : float = 0.1,
                  end_time : float = 1.0,
                  should_finalize: typing.Callable[[], bool] = None,
                  should_revert: typing.Callable[[], bool] = None,
                  display_progress_bar:bool=True,
                  show_profiles: bool = True,
-                 pajetrace: int = 0
+                 pajetrace: int = 0,
+                 num_threads: typing.Optional[int] = None
                  ):
         """
         Initialize the timeloop with a time parameter, step-size and end time.
@@ -228,6 +240,8 @@ class TimeLoop(Solver):
             Time when the loop is stopped.
         should_finalize: typing.Callable[[], bool]
             The criteria to determine if the solver should finalize the step.
+        num_threads: int
+            Number of TaskManager threads used in the loop, see Solver.
 
         """
         self.name = "Time Loop"
@@ -247,7 +261,7 @@ class TimeLoop(Solver):
         self.show_profiles = show_profiles
         super().__init__(stopping_rule=reached_final_time, progress_info=self.progress_info,
                          should_finalize=should_finalize, should_revert=should_revert, display_progress_bar=display_progress_bar,
-                         show_profiles=show_profiles, pajetrace=pajetrace)
+                         show_profiles=show_profiles, pajetrace=pajetrace, num_threads=num_threads)
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
