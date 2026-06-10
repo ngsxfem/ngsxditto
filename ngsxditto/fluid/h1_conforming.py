@@ -268,10 +268,9 @@ class H1Conforming(FluidDiscretization):
         self.stokes_term += 1/self.rho * beta_S * InnerProduct(P_S * u, P_S * v) * d_contact_plane
         self.stokes_term += 1/self.rho * beta_L * InnerProduct(u*n_line, v*n_line) * d_contact_line
 
-        self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
-                                                facet_restriction=self.facets_ring, check_unused=False)
-        self.stokes_op += self.stokes_term
-        self.stokes_op.Assemble(reallocate=True)
+        # no matrix is assembled here: the time stepping only needs the
+        # symbolic stokes_term (assembled as part of m_star in
+        # AssembleTimeStepping) and SolveStokes assembles its own operator
 
     def AssembleConvection(self):
         trial, test = self.fes.TnT()
@@ -292,9 +291,8 @@ class H1Conforming(FluidDiscretization):
 
             self.conv += gamma_cf * (InnerProduct(grad(u) * u_approx,  grad(v) * u_approx)) * dx_neg
 
-        self.conv_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.conv_op += self.conv
-        self.conv_op.Assemble(reallocate=True)
+        # like the Stokes term, the convection term is only assembled as
+        # part of m_star in AssembleTimeStepping
 
     @timed_method
     def AssembleTimeStepping(self):
