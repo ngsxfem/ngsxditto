@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.18.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -74,6 +74,7 @@ uin = CF((4*y*(1-y),0)) # parabolic inflow
 fluid = TaylorHood(mesh, order=order, fluid_params=fluid_params, f=CF((8, 0)), add_number_space=True)
 fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="left|bottom|top", values=uin))
 fluid.InitializeSpaces()
+
 # %% [markdown]
 # Next up, we want to initialize and assemble the variational formulation.
 # To this end, we need to also pass the right hand side.
@@ -85,7 +86,7 @@ fluid.InitializeForms()
 
 # %% [markdown]
 # Alternatively we can combine above steps by writing: \
-# `fluid.Initialize(dirichlet=dirichlet, neumann={}, rhs=rhs)`
+# `fluid.Initialize()`
 
 # %% [markdown]
 # Finally, we can look solve the Stokes problem and take a look at the solution.
@@ -116,6 +117,7 @@ fluid = TaylorHood(mesh, order=order, fluid_params=fluid_params, f=CF((0, 8)), a
 fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="left|right", values=uD))
 fluid.SetOuterBoundaryCondition(StrongNeumannBC(region="top|bottom", values=stress))
 fluid.Initialize()
+
 # %% [markdown]
 # Finally, we can solve the system.
 

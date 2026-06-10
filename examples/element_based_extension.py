@@ -1,4 +1,4 @@
-#%%
+# %%
 # imports
 from ngsolve import *
 
@@ -11,7 +11,7 @@ from ngsxditto.extension import *
 from xfem.utils import AdjacencyMatrix, AddNeighborhood
 
 from time import sleep
-#%%
+# %%
 # mesh and gridfunctions
 mesh = Mesh(unit_square.GenerateMesh(maxh=0.03))
 
@@ -30,7 +30,7 @@ lsetp1 = GridFunction(H1(mesh,order=1))
 lsetp1.Set(exact_levelset)
 ci = CutInfo(mesh, lsetp1)
 
-#%%
+# %%
 # element markers
 negels = ci.GetElementsOfType(NEG)
 ifels = ci.GetElementsOfType(IF)
@@ -38,7 +38,7 @@ hasneg = ci.GetElementsOfType(HASNEG)
 haspos = ci.GetElementsOfType(HASPOS)
 anyelems = ci.GetElementsOfType(ANY)
 
-#%%
+# %%
 # oldband = elems where function is defined previously, band = elems where function is defined after extension
 # oldband = ifels
 oldband = AddNeighborhood(ifels, AdjacencyMatrix(mesh,"vertex"), layers=1)
@@ -63,7 +63,7 @@ ebext = ElementBasedExtension(gfu, oldband, band,
 # ebext = ElementBasedExtension(gfu, oldband, band)
 
 
-#%%
+# %%
 # store output in multidim gridfunction
 gfu_plot = GridFunction(V)
 InactiveDofs = ~GetDofsOfElements(V, band)
@@ -71,7 +71,7 @@ gfu_plot.vec.data = gfu.vec
 gfu_plot.vec[InactiveDofs] = np.nan
 vtk = VTKOutput(mesh, coefs=[gfu_plot], names=["solution"], filename="animation/animation_data", subdivision=0)
 
-#%%
+# %%
 # vtk.Do()
 
 gfwvis = GridFunction(V, multidim=0)

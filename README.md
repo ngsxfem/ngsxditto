@@ -50,7 +50,14 @@ If you are working in the library directly (working on a module, geometry, test 
 
 ## Examples
 
-see in the `examples` directory
+see in the `examples` directory.
+
+The examples are stored as plain python files (jupytext percent format) — these are the only versioned source. Matching jupyter notebooks can be generated from them and edited notebooks can be synced back into the python files (`.ipynb` files are git-ignored):
+
+  * install jupytext once: `pip install jupytext`
+  * generate/update the notebooks (and sync notebook edits back): `jupytext --sync examples/*.py`
+
+The pairing is configured in `examples/jupytext.toml`. If you work in Jupyter(Lab) with jupytext installed, paired files are kept in sync automatically on save, and the `.py` files can be opened directly as notebooks.
 
 ## ⚠️ Disclaimer
 

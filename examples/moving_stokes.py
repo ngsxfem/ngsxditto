@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.18.1
+#       jupytext_version: 1.19.3
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -48,6 +48,7 @@ transport = KnownSolutionTransport(mesh, starting_levelset, dt=dt, order=order)
 levelset = LevelSetGeometry(transport)
 levelset.Initialize(starting_levelset)
 ngw.Draw(levelset.field)
+
 # %% [markdown]
 # We define the fluid and solve the stationary Stokes problem for the starting levelset position.
 
@@ -65,6 +66,7 @@ gfu, gfp = sol.components
 fluid.SetInitialValues(gfu, gfp)
 ngw.Draw(IfPos(levelset.field, CF((0, 0)), fluid.gfu), mesh)
 ngw.Draw(IfPos(levelset.field, CF(0), fluid.gfp), mesh)
+
 # %%
 end_time = 1
 
