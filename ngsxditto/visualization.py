@@ -276,9 +276,11 @@ if pv is not None:
             # Temporary directory for VTK files
             self._tempdir: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory()
             self._vtk_files = []
-            self._mesh_file: str = f"{self._tempdir.name}/mesh.vtu"
             self.plot = pv.Plotter(notebook=False, off_screen=True)
             self.plot.open_gif(f"{self._tempdir.name}/animation.gif")
+            self.plot.background_color = "white"
+            self._mesh_actor = None
+            self._text_actor = None
 
             self.export_on_enter = export_on_enter
             self.counter = 0
@@ -299,19 +301,11 @@ if pv is not None:
             vtk.Do()
             self._vtk_files.append(current_file)
 
-            vtk_mesh = VTKOutput(
-                ma=self.mesh,
-                filename=self._mesh_file[:-4],
-                subdivision=0,
-            )
-            vtk_mesh.Do()
-
         def visualize_current_step(self,) -> None:
             """
             Adds the current plot to the GIF.
             """
             visobj = pv.read(self._vtk_files[-1])
-            visobj_mesh = pv.read(self._mesh_file)
             deform = visobj.point_data["deform"]
             if deform.shape[1] == 2:
                 deform3d = np.hstack([deform, np.zeros((deform.shape[0], 1))])
@@ -320,20 +314,22 @@ if pv is not None:
             if not self.show_globally:
                 visobj = visobj.clip_scalar(scalars="P1-levelset", value=0.0)
 
-            contour = visobj.contour(isosurfaces=[0.0], scalars="P1-levelset", rng=[-1, 1])
-
-            self.plot.background_color = "white"
-            # plot.add_mesh(visobj_mesh, style="wireframe", color=wireframe_color)
             if deform.shape[1] == 2:
                 visobj = visobj.warp_by_vector(vectors="deform")
-                self.plot.add_mesh(visobj, scalars="uh", cmap="jet")
-            elif deform.shape[1] == 3:
-                def_contour = contour.warp_by_vector(vectors="deform")
-                self.plot.add_mesh(def_contour, scalars="uh", cmap="jet")
 
-            self.plot.clear()
-            self.plot.add_mesh(visobj, scalars="uh", cmap="jet")
-            self.plot.add_text(f"Step {self.counter}", font_size=10)
+            # swap only the mesh actor and update the text in place instead
+            # of rebuilding the whole scene every frame
+            if self._mesh_actor is not None:
+                self.plot.remove_actor(self._mesh_actor, render=False)
+            self._mesh_actor = self.plot.add_mesh(visobj, scalars="uh", cmap="jet")
+            text = f"Step {self.counter}"
+            if self._text_actor is None:
+                self._text_actor = self.plot.add_text(text, font_size=10)
+            else:
+                try:
+                    self._text_actor.SetText(2, text)  # 2 = vtkCornerAnnotation.UpperLeft
+                except AttributeError:  # add_text did not return a corner annotation
+                    self._text_actor = self.plot.add_text(text, font_size=10)
             self.plot.write_frame()  # save current frame to the GIF
 
 
