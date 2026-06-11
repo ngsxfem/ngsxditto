@@ -1,3 +1,4 @@
+import logging
 from ngsxditto.callback import OnUpdateCallbacks
 from ngsxditto.transport import *
 from ngsxditto.redistancing import *
@@ -5,6 +6,8 @@ from xfem import *
 from xfem.lsetcurv import *
 from ngsolve import *
 from ngsxditto.stepper import *
+
+logger = logging.getLogger(__name__)
 
 #import types
 
@@ -150,6 +153,39 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         Updates the cut info of the level set.
         """
         self.cutinfo.Update(self.lsetp1)
+        self._DropDetachedRegions()
+
+    def _DropDetachedRegions(self):
+        """
+        Removes spurious far-field regions from the element markings
+        (in place, so that integrators and consumers holding references to
+        hasneg/hasif see the cleaned sets). Away from the interface the level
+        set values are not controlled (they are advected by an extension wind
+        and possibly never redistanced), so perturbations can spuriously
+        cross zero and create small islands detached from the tracked
+        geometry. Only the facet-connected components of hasneg that overlap
+        the geometry's position at the previous update are kept; for
+        CFL-bounded transport the geometry moves less than one element layer
+        per step, so this overlap is always non-empty for the true geometry.
+        """
+        if getattr(self, "_prev_hasneg", None) is not None:
+            seeds = self._prev_hasneg & self.hasneg
+            if seeds.NumSet() > 0:
+                reached = seeds
+                while True:
+                    front = GetFacetsWithNeighborTypes(self.mesh, a=reached, b=self.hasneg)
+                    grown = GetElementsWithNeighborFacets(self.mesh, front)
+                    new = grown & self.hasneg & ~reached
+                    if new.NumSet() == 0:
+                        break
+                    reached |= new
+                n_dropped = (self.hasneg & ~reached).NumSet()
+                if n_dropped > 0:
+                    logger.debug("dropped %d element(s) of detached spurious "
+                                 "level set regions", n_dropped)
+                    self.hasneg &= reached
+                    self.hasif &= reached
+        self._prev_hasneg = BitArray(self.hasneg)
 
 
     def DefineIntegrators(self):

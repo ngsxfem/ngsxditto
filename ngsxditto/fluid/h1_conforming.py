@@ -126,6 +126,10 @@ class H1Conforming(FluidDiscretization):
 
         # Element and facet markers
         els_hasneg = self.ci_main.GetElementsOfType(HASNEG)
+        if hasattr(self.lset, "hasneg"):
+            # consistent with the (island-filtered) level set markings that
+            # the integrators are defined on
+            els_hasneg = els_hasneg & self.lset.hasneg
         roots = els_hasneg & ~self.lset.hasif
         filtered_outer = self._restrict_to_rooted_components(
             self.ci_outer.GetElementsOfType(HASNEG), roots)
