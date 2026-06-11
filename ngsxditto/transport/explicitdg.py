@@ -13,7 +13,8 @@ class ExplicitDGTransport(BaseTransport):
     in time and the DG or HDG method as space discretization.
     """
     def __init__(self, mesh, wind=None, inflow_values=None, dt=0.01, order: int=2, source=None, usetrace: bool=True,
-                 compile=False, active_elements: typing.Optional[BitArray] = None):
+                 compile=False, active_elements: typing.Optional[BitArray] = None,
+                 substeps: int = 1):
         """
         Initializes the transport object with the given parameters.
 
@@ -30,7 +31,14 @@ class ExplicitDGTransport(BaseTransport):
         order: int
             The order of the discretization.
         usetrace: bool
-            If True use a HDG discretization in space. If false use a DG discretization.
+            If True use a HDG discretization in space. If false use a DG transport method as space discretization.
+        substeps: int
+            Number of explicit RK2 sub-steps of size dt/substeps per Step().
+            The explicit transport has a CFL restriction (|wind| dt / h) that
+            can be much stricter than the time scale of the surrounding
+            (implicit) solvers, e.g. near contact-line velocity spikes;
+            sub-stepping satisfies it without reducing the global dt. The
+            wind is frozen during the sub-steps of one Step().
         """
         if usetrace and active_elements is not None:
             raise NotImplementedError("Narrow band transport not yet implemented for HDG methods. Set usetrace=False or active_elements=None")
@@ -39,6 +47,7 @@ class ExplicitDGTransport(BaseTransport):
 
         self.usetrace = usetrace
         self.compile = compile
+        self.substeps = substeps
         self.fes = L2(mesh, order=order, all_dofs_together=True, dgjumps=True)
         self.u, self.v = self.fes.TnT()
         self.bfa = None
@@ -144,8 +153,18 @@ class ExplicitDGTransport(BaseTransport):
 
         self.invMA = self.invmass @ aop
 
-        self.tempu.data = Projector(freedofs,range=True) * self.past.vec - 0.5 * self.dt * self.invMA * self.past.vec
-        self.gfu.vec.data = Projector(freedofs,range=True) * self.past.vec - self.dt * self.invMA * self.tempu
+        proj = Projector(freedofs, range=True)
+        dt_sub = self.dt / self.substeps
+        if self.substeps == 1:
+            self.tempu.data = proj * self.past.vec - 0.5 * dt_sub * self.invMA * self.past.vec
+            self.gfu.vec.data = proj * self.past.vec - dt_sub * self.invMA * self.tempu
+        else:
+            work = self.gfu.vec.CreateVector()
+            work.data = self.past.vec
+            for _ in range(self.substeps):
+                self.tempu.data = proj * work - 0.5 * dt_sub * self.invMA * work
+                self.gfu.vec.data = proj * work - dt_sub * self.invMA * self.tempu
+                work.data = self.gfu.vec
 
 
     @property
