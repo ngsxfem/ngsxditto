@@ -168,17 +168,38 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         CFL-bounded transport the geometry moves less than one element layer
         per step, so this overlap is always non-empty for the true geometry.
         """
+        import os
+        if os.environ.get("NGSXDITTO_DISABLE_MARKER_FILTERS"):
+            return
+
+        def flood(seeds):
+            reached = BitArray(seeds)
+            while True:
+                front = GetFacetsWithNeighborTypes(self.mesh, a=reached, b=self.hasneg)
+                grown = GetElementsWithNeighborFacets(self.mesh, front)
+                new = grown & self.hasneg & ~reached
+                if new.NumSet() == 0:
+                    break
+                reached |= new
+            return reached
+
+        # components made up of cut elements only (no uncut interior element)
+        # are below resolution: they cannot be element-aggregated and their
+        # geometry is not meaningful on this mesh
+        uncut_neg = self.hasneg & ~self.hasif
+        if uncut_neg.NumSet() > 0:
+            reached = flood(uncut_neg)
+            n_dropped = (self.hasneg & ~reached).NumSet()
+            if n_dropped > 0:
+                logger.debug("dropped %d cut element(s) of sub-resolution "
+                             "level set regions", n_dropped)
+                self.hasneg &= reached
+                self.hasif &= reached
+
         if getattr(self, "_prev_hasneg", None) is not None:
             seeds = self._prev_hasneg & self.hasneg
             if seeds.NumSet() > 0:
-                reached = seeds
-                while True:
-                    front = GetFacetsWithNeighborTypes(self.mesh, a=reached, b=self.hasneg)
-                    grown = GetElementsWithNeighborFacets(self.mesh, front)
-                    new = grown & self.hasneg & ~reached
-                    if new.NumSet() == 0:
-                        break
-                    reached |= new
+                reached = flood(seeds)
                 n_dropped = (self.hasneg & ~reached).NumSet()
                 if n_dropped > 0:
                     logger.debug("dropped %d element(s) of detached spurious "

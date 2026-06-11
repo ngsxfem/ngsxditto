@@ -97,6 +97,9 @@ class H1Conforming(FluidDiscretization):
         Such islands cannot be element-aggregated (no root element) and are
         irrelevant for the unfitted discretization, so they are dropped here.
         """
+        import os
+        if os.environ.get("NGSXDITTO_DISABLE_MARKER_FILTERS"):
+            return BitArray(band)
         reached = seeds & band
         while True:
             front = GetFacetsWithNeighborTypes(self.mesh, a=reached, b=band)
@@ -144,7 +147,17 @@ class H1Conforming(FluidDiscretization):
         els_ring = self.els_outer & ~els_inner
         self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
-        self.EA.Update(roots, (self.lset.hasif | (self.els_outer & ~ els_hasneg)) & self.els_outer)
+        try:
+            self.EA.Update(roots, (self.lset.hasif | (self.els_outer & ~ els_hasneg)) & self.els_outer)
+            self.ghost_facets = self.EA.patch_interior_facets
+        except Exception as e:
+            # aggregation of the current cut configuration can fail (level set
+            # perturbations can create patch layouts without reachable roots);
+            # fall back to stabilizing all ring facets for this step, which is
+            # the classic (more conservative) ghost-penalty facet set
+            logger.warning("ElementAggregation failed (%s); using ring-facet "
+                           "ghost penalty for this step", e)
+            self.ghost_facets = self.facets_ring
 
     def InitializeForms(self):
         self.AssembleAllForms()
@@ -232,7 +245,7 @@ class H1Conforming(FluidDiscretization):
 
         if not self.derivative_jumps:
             #dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
-            dw = dFacetPatch(definedonelements=self.EA.patch_interior_facets, deformation=self.lset.deformation)
+            dw = dFacetPatch(definedonelements=self.ghost_facets, deformation=self.lset.deformation)
 
             ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
             ghost_p = (p - p.Other()) * (q - q.Other()) * dw
