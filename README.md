@@ -28,7 +28,7 @@ The first two commands are optional.
 However, we assume you have a python installation available.
   * `python3 -m venv .venv`
   * `source .venv/bin/activate`
-  * `pip3 install . --usre` (uses the `pyproject.toml` to install the source code)
+  * `pip3 install . --user` (uses the `pyproject.toml` to install the source code)
 
 With the following command, you can verify the installation works
   * `pytest tests/test_*.py`
@@ -50,7 +50,14 @@ If you are working in the library directly (working on a module, geometry, test 
 
 ## Examples
 
-see in the `examples` directory
+see in the `examples` directory.
+
+The examples are stored as plain python files (jupytext percent format) — these are the only versioned source. Matching jupyter notebooks can be generated from them and edited notebooks can be synced back into the python files (`.ipynb` files are git-ignored):
+
+  * install jupytext once: `pip install jupytext`
+  * generate/update the notebooks (and sync notebook edits back): `jupytext --sync examples/*.py`
+
+The pairing is configured in `examples/jupytext.toml`. If you work in Jupyter(Lab) with jupytext installed, paired files are kept in sync automatically on save, and the `.py` files can be opened directly as notebooks.
 
 ## ⚠️ Disclaimer
 

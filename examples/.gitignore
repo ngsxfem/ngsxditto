@@ -1,0 +1,4 @@
+# Notebooks are generated from the paired .py files via `jupytext --sync`
+# (see jupytext.toml); only the .py files are versioned.
+*.ipynb
+.ipynb_checkpoints/

@@ -1,4 +1,4 @@
-#%%
+# %%
 # imports
 from ngsxditto.solver import *
 from ngsxditto.levelset import *
@@ -7,7 +7,7 @@ from ngsxditto.extension import *
 from xfem.utils import AdjacencyMatrix, AddNeighborhood
 from ngsolve.webgui import *
 
-#%%
+# %%
 # parameters and mesh
 order = 3
 dt = 0.05
@@ -19,7 +19,7 @@ AdjaMat = AdjacencyMatrix(mesh, neighbortype="vertex")
 t = Parameter(0)
 wind = IfPos(t-2,1,-1)*CF((0.5-y, x-0.5))
 
-#%%
+# %%
 # aux gridfunction
 VGammaGF = GridFunction(H1(mesh, order=1)) # to define bandwidth for narrow band
 
@@ -37,7 +37,7 @@ lset_ext = ElementBasedExtension(levelset.transport.past_cont, supportelems=supp
 # set initial values for the level set function
 levelset.Initialize(sqrt((x-0.6)**2+(y-0.5)**2) - 0.15, initial_time=0)
 
-#%%
+# %%
 # visualization
 vis = GridFunction(levelset.field.space, multidim=0)
 
@@ -55,7 +55,7 @@ def UpdateElemMarker():
 def VisualizeStep():
 	vis.AddMultiDimComponent(levelset.field.vec)
 
-#%%
+# %%
 # create and run time loop
 time_loop = TimeLoop(time=t, dt=dt, end_time=4)
 time_loop.Register(UpdateElemMarker, name="udpate transport elements")
