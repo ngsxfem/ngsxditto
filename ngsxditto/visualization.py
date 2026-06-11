@@ -241,6 +241,9 @@ if pv is not None:
                 subdivision: int = 3,
                 export_on_enter: bool = True,
                 show_globally: bool = False,
+                format: str = "gif",
+                framerate: int = 24,
+                clim=None,
         ) -> None:
             """
             Parameters
@@ -257,6 +260,14 @@ if pv is not None:
                 Subdivision level for the primary VTK export (default: 5).
             export_on_enter : bool, optional
                 Whether to export the data on entering the context manager (default: True).
+            format : str, optional
+                Animation format, "gif" (default) or "mp4" (requires imageio-ffmpeg).
+            framerate : int, optional
+                Frame rate for movie formats (default: 24).
+            clim : tuple, optional
+                Fixed (min, max) of the color map. By default the color map is
+                rescaled to each frame's data range; pass a fixed range for a
+                time-independent scale.
             """
             super().__init__()
             self.lset = lset
@@ -272,12 +283,18 @@ if pv is not None:
 
             self.mesh: Mesh = mesh
             self.subdivision: int = subdivision
+            self.clim = clim
 
             # Temporary directory for VTK files
             self._tempdir: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory()
             self._vtk_files = []
             self.plot = pv.Plotter(notebook=False, off_screen=True)
-            self.plot.open_gif(f"{self._tempdir.name}/animation.gif")
+            self._format = format
+            self._anim_file = f"{self._tempdir.name}/animation.{format}"
+            if format == "gif":
+                self.plot.open_gif(self._anim_file)
+            else:
+                self.plot.open_movie(self._anim_file, framerate=framerate)
             self.plot.background_color = "white"
             self._mesh_actor = None
             self._text_actor = None
@@ -319,9 +336,14 @@ if pv is not None:
 
             # swap only the mesh actor and update the text in place instead
             # of rebuilding the whole scene every frame
+            first_frame = self._mesh_actor is None
             if self._mesh_actor is not None:
                 self.plot.remove_actor(self._mesh_actor, render=False)
-            self._mesh_actor = self.plot.add_mesh(visobj, scalars="uh", cmap="jet")
+            self._mesh_actor = self.plot.add_mesh(visobj, scalars="uh", cmap="jet",
+                                                  clim=self.clim)
+            if first_frame and self.mesh.dim == 2:
+                # 2D simulation: top-down view instead of the 3D default
+                self.plot.view_xy()
             text = f"Step {self.counter}"
             if self._text_actor is None:
                 self._text_actor = self.plot.add_text(text, font_size=10)
@@ -356,9 +378,12 @@ if pv is not None:
             self.counter += 1
 
         def AfterLoop(self):
-            # Export als interaktive HTML-Datei
             self.plot.close()
-            display(Image(filename=f"{self._tempdir.name}/animation.gif"))
+            if self._format == "gif":
+                display(Image(filename=self._anim_file))
+            else:
+                from IPython.display import Video
+                display(Video(self._anim_file, embed=True))
             self.cleanup()
 
 
