@@ -1,3 +1,4 @@
+import logging
 from ngsolve import *
 from xfem import *
 from .params import FluidParameters, WallParameters
@@ -6,6 +7,8 @@ from ngsxditto.levelset import LevelSetGeometry, DummyLevelSet
 from ngsxditto import direct_solver_spd, direct_solver_nonspd
 from .meancurv import *
 import ngsolve.webgui as ngw
+
+logger = logging.getLogger(__name__)
 
 
 class H1Conforming(FluidDiscretization):
@@ -84,6 +87,29 @@ class H1Conforming(FluidDiscretization):
         self.ValidateStep()
 
 
+    def _restrict_to_rooted_components(self, band, seeds):
+        """
+        Returns the elements of `band` whose facet-connected component contains
+        an element of `seeds`. Far away from the interface the level set field
+        is not controlled (it is advected by an extension velocity and not
+        redistanced), so its perturbations can cross the extension-radius
+        offset and create small band islands detached from the fluid domain.
+        Such islands cannot be element-aggregated (no root element) and are
+        irrelevant for the unfitted discretization, so they are dropped here.
+        """
+        reached = seeds & band
+        while True:
+            front = GetFacetsWithNeighborTypes(self.mesh, a=reached, b=band)
+            grown = GetElementsWithNeighborFacets(self.mesh, front)
+            new = grown & band & ~reached
+            if new.NumSet() == 0:
+                break
+            reached |= new
+        n_dropped = (band & ~reached).NumSet()
+        if n_dropped > 0:
+            logger.debug("dropped %d detached extension-band element(s)", n_dropped)
+        return reached
+
     def UpdateActiveDofs(self):
         """
         Updates the dofs that are active, i.e. all dofs that are in the extended unfitted domain.
@@ -100,12 +126,21 @@ class H1Conforming(FluidDiscretization):
 
         # Element and facet markers
         els_hasneg = self.ci_main.GetElementsOfType(HASNEG)
-        self.els_outer = self.ci_outer.GetElementsOfType(HASNEG)
+        roots = els_hasneg & ~self.lset.hasif
+        filtered_outer = self._restrict_to_rooted_components(
+            self.ci_outer.GetElementsOfType(HASNEG), roots)
+        if self.els_outer is None:
+            self.els_outer = filtered_outer
+        else:
+            # update in place: lsetadap.ProjectOnUpdate holds a reference to
+            # this BitArray as its update domain
+            self.els_outer &= filtered_outer
+            self.els_outer |= filtered_outer
         els_inner = self.ci_inner.GetElementsOfType(NEG)
         els_ring = self.els_outer & ~els_inner
         self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
-        self.EA.Update(els_hasneg & ~self.lset.hasif, self.lset.hasif | (self.els_outer & ~ els_hasneg))
+        self.EA.Update(roots, (self.lset.hasif | (self.els_outer & ~ els_hasneg)) & self.els_outer)
 
     def InitializeForms(self):
         self.AssembleAllForms()
