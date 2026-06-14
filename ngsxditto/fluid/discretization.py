@@ -109,7 +109,7 @@ class FluidDiscretization(GFStepper):
         self.boundary_registry = BoundaryRegistry()
 
 
-    def Initialize(self, initial_velocity:CoefficientFunction=CF((0, 0)),
+    def Initialize(self, initial_velocity:CoefficientFunction=None,
                    initial_pressure:CoefficientFunction=CF(0)):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
@@ -141,6 +141,8 @@ class FluidDiscretization(GFStepper):
                                            update_domain=self.els_outer)
 
         self.InitializeForms()
+        if initial_velocity is None:
+            initial_velocity = CF((0, 0)) if self.mesh.dim == 2 else CF((0, 0, 0))
         self.SetInitialValues(initial_velocity, initial_pressure)
 
     def SetOuterBoundaryCondition(self, condition:BoundaryCondition):

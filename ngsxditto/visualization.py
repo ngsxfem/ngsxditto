@@ -244,6 +244,8 @@ if pv is not None:
                 format: str = "gif",
                 framerate: int = 24,
                 clim=None,
+                camera_bounds=None,
+                camera_roll=None,
         ) -> None:
             """
             Parameters
@@ -302,6 +304,8 @@ if pv is not None:
             self.export_on_enter = export_on_enter
             self.counter = 0
             self.show_globally = show_globally
+            self.camera_bounds = camera_bounds
+            self.camera_roll = camera_roll
 
         def export_current_step(self) -> None:
             """
@@ -344,6 +348,10 @@ if pv is not None:
             if first_frame and self.mesh.dim == 2:
                 # 2D simulation: top-down view instead of the 3D default
                 self.plot.view_xy()
+                if self.camera_bounds is not None:
+                    self.plot.reset_camera(bounds=self.camera_bounds)
+                if self.camera_roll is not None:
+                    self.plot.camera.Roll(self.camera_roll)
             text = f"Step {self.counter}"
             if self._text_actor is None:
                 self._text_actor = self.plot.add_text(text, font_size=10)

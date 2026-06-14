@@ -181,8 +181,14 @@ class H1Conforming(FluidDiscretization):
         h = specialcf.mesh_size
         n_bnd = specialcf.normal(self.mesh.dim)
         n_lset = self.lset.n
-        t = specialcf.tangential(2)
-        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
+        if self.mesh.dim == 2:
+            t = specialcf.tangential(2)
+            n_line = IfPos(InnerProduct(t, n_lset), t, -t)
+        else:
+            # 3D: project interface normal onto the substrate surface to get the
+            # spreading direction (co-normal to the contact line on the boundary)
+            n_lset_surf = n_lset - InnerProduct(n_lset, n_bnd) * n_bnd
+            n_line = n_lset_surf / (Norm(n_lset_surf) + 1e-12)
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
@@ -314,8 +320,12 @@ class H1Conforming(FluidDiscretization):
         beta_S = self.wall_params.friction_coeff_surface
         beta_L = self.wall_params.friction_coeff_line
         theta_e = self.wall_params.contact_angle
-        t = specialcf.tangential(2)
-        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
+        if self.mesh.dim == 2:
+            t = specialcf.tangential(2)
+            n_line = IfPos(InnerProduct(t, n_lset), t, -t)
+        else:
+            n_lset_surf = n_lset - InnerProduct(n_lset, n_bnd) * n_bnd
+            n_line = n_lset_surf / (Norm(n_lset_surf) + 1e-12)
 
         self.stokes_term += 1/self.rho * beta_S * InnerProduct(P_S * u, P_S * v) * d_contact_plane
         self.stokes_term += 1/self.rho * beta_L * InnerProduct(u*n_line, v*n_line) * d_contact_line
