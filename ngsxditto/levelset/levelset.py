@@ -60,7 +60,6 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
             self.redistancing = redistancing
             self.redistancing.SetOrder(transport.order)
             self.redistancing.SetField(self.lsetp1)
-            self.redistancing.SetDeformation(self.lsetadap.deform)
 
         self.cutinfo = CutInfo(self.mesh)
         self.hasif = self.cutinfo.GetElementsOfType(IF)

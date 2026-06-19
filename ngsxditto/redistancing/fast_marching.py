@@ -43,5 +43,5 @@ class FastMarching(BaseRedistancing):
         if self.order == 2:
             self.redistancing_algorithm = QuadraticFastMarching(self.bandwidth)
 
-    def Redistance(self, phi: GridFunction, deformation=None):
-        self.redistancing_algorithm.Redistance(phi, deformation=deformation)
+    def Redistance(self, phi: GridFunction):
+        self.redistancing_algorithm.Redistance(phi)
