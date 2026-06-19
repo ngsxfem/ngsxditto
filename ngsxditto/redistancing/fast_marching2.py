@@ -33,7 +33,7 @@ class FastMarching2(BaseRedistancing):
             The level set function to be redistanced
         """
         phip1_copy = GridFunction(phip1.space)
-        phip1_copy.Set(phip1)
+        phip1_copy.vec.data = phip1.vec
         l2_function = False
         if type(phip1_copy.space).__name__ == "L2":
             l2_function = True
@@ -47,7 +47,6 @@ class FastMarching2(BaseRedistancing):
         ci.Update(phip1_copy)
         if_bitarray = ci.GetElementsOfType(IF)
         if_els = [el for el in V.Elements() if if_bitarray[el.nr]]
-
         # Get vertices on the interface
         levelset_vertices = vertices_of_element_set(if_els)
 
@@ -66,20 +65,33 @@ class FastMarching2(BaseRedistancing):
         distance_dict = {dof: float('inf') for dof in all_dofs}
         nearest_point_dict = {vertex: None for vertex in levelset_vertices}
 
+        cut_dof_values = {}
+        for el in if_els:
+            for dof in el.dofs:
+                if dof not in cut_dof_values.keys():
+                    cut_dof_values[dof] = phip1_copy.vec[dof]
+
         # Step 1: Calculate distances from vertices on interface elements
         for el in if_els:
             zero_points = find_zero_points(phip1_copy, el)
-            if len(zero_points) < 2:
+            if len(zero_points) == 0:
                 continue
 
             for vertex in el.vertices:
                 point = mesh[vertex].point
-
+                projection = orth_projection(point, zero_points)
                 # Find minimum distance to zero points
-                distances = [distance(point, zp) for zp in zero_points]
+                if point_in_triangle(projection, [mesh[v].point for v in el.vertices]):
+                    distances = [distance(point, zp) for zp in zero_points] + [distance(point, projection)]
+                else:
+                    distances = [distance(point, zp) for zp in zero_points]
                 min_dist = min(distances)
-                nearest_point = zero_points[distances.index(min_dist)]
-
+                min_idx = distances.index(min_dist)
+                if min_idx < len(zero_points):
+                    nearest_point = zero_points[min_idx]
+                else:
+                    nearest_point = projection
+                min_dist = abs(phip1(mesh(*point)))   # min_dist does not take the distance but keeps the value for now
                 dof = vertex_to_dof[vertex]
                 if min_dist < distance_dict[dof]:
                     distance_dict[dof] = min_dist
@@ -105,7 +117,6 @@ class FastMarching2(BaseRedistancing):
             if current_dof in finished_dofs:
                 continue
 
-            # O(1) lookup instead of loop
             current_vertex = dof_to_vertex[current_dof]
             finished_dofs.add(current_dof)
 
@@ -123,7 +134,6 @@ class FastMarching2(BaseRedistancing):
                             nearest_levelset_point[current_vertex],
                             mesh[next_vertex].point
                         )
-
                         if new_dist < distance_dict[next_dof]:
                             distance_dict[next_dof] = new_dist
                             nearest_levelset_point[next_vertex] = nearest_levelset_point[current_vertex]
@@ -147,6 +157,8 @@ class FastMarching2(BaseRedistancing):
 
 
         phip1_copy.vec.data = signed_distances
+        for dof, val in cut_dof_values.items():
+            phip1_copy.vec[dof] = val
         if l2_function:
             phip1_copy = h1_to_l2(phip1_copy)
 

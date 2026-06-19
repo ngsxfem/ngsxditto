@@ -189,9 +189,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
         self.RedistanceIfNecessary()     # Updates self.lsetp1
 
-
         self.ProcessCallbacks()
-
 
     def RunFixedSteps(self, n):
         """
@@ -220,15 +218,22 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         Applies the redistancing algorithm.
         """
         print("The next function is redistanced")
-        self.mesh.SetDeformation(self.deformation)
-        self.redistancing.Step() # Updates self.lsetp1
 
-        self.field.Set(self.lsetp1)
-        self.mesh.UnsetDeformation()
-        
-        self.transport.field.Set(self.field)
+
+        old_lsetp1 = GridFunction(H1(self.mesh, order=1))
+        old_lsetp1.vec.data = self.lsetp1.vec
+        self.redistancing.Step()
+
+        #ProjectShift(self.field, self.lsetp1, self.deformation, qn=self.field.Deriv(),
+        #             lower=0.0, upper=0.0, threshold=-1.0, heapsize=1000000)
+
+        tmp_field = GridFunction(self.fes_cont)
+        tmp_field.Set(shifted_eval(self.lsetp1, back=self.deformation, forth=None), definedonelements=self.hasif)
+        self.field.Set(shifted_eval(self.lsetp1, back=self.deformation, forth=None))
+        hasif_dofs = GetDofsOfElements(self.fes_cont, self.hasif)
+        self.field.vec.data[hasif_dofs] = Projector(hasif_dofs, range=True) * tmp_field.vec
+        self.UpdateLinearApproximation()
         self.UpdateDeformation()
-
         #self.ProjectToContinuous()
         self.steps_since_last_redistancing = 0
 
