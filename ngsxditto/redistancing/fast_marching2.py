@@ -23,7 +23,7 @@ class FastMarching2(BaseRedistancing):
     def SetOrder(self, order: int):
         self.order = order
 
-    def Redistance(self, phip1: GridFunction, deformation=None):
+    def Redistance(self, phip1: GridFunction):
         """
         Applies redistancing using Fast Marching method with xfem integration.
 
@@ -65,12 +65,6 @@ class FastMarching2(BaseRedistancing):
         distance_dict = {dof: float('inf') for dof in all_dofs}
         nearest_point_dict = {vertex: None for vertex in levelset_vertices}
 
-        cut_dof_values = {}
-        for el in if_els:
-            for dof in el.dofs:
-                if dof not in cut_dof_values.keys():
-                    cut_dof_values[dof] = phip1_copy.vec[dof]
-
         # Step 1: Calculate distances from vertices on interface elements
         for el in if_els:
             zero_points = find_zero_points(phip1_copy, el)
@@ -96,6 +90,12 @@ class FastMarching2(BaseRedistancing):
                 if min_dist < distance_dict[dof]:
                     distance_dict[dof] = min_dist
                     nearest_point_dict[vertex] = nearest_point
+
+        cut_dof_values = {}
+        for el in if_els:
+            for dof in el.dofs:
+                cut_dof_values[dof] = phip1_copy.vec[dof]
+                distance_dict[dof] = abs(phip1_copy.vec[dof])  # ensure correct seed distance too
 
         # Step 2: Fast Marching propagation using priority queue
         import heapq
@@ -127,7 +127,7 @@ class FastMarching2(BaseRedistancing):
                 next_vertex = edge_verts[1] if edge_verts[0] == current_vertex else edge_verts[0]
                 next_dof = vertex_to_dof[next_vertex]
 
-                if next_dof not in finished_dofs:
+                if next_dof not in finished_dofs and next_dof not in cut_dof_values.keys():
                     # Update distance via current vertex
                     if current_vertex in nearest_levelset_point:
                         new_dist = distance(
@@ -157,8 +157,6 @@ class FastMarching2(BaseRedistancing):
 
 
         phip1_copy.vec.data = signed_distances
-        for dof, val in cut_dof_values.items():
-            phip1_copy.vec[dof] = val
         if l2_function:
             phip1_copy = h1_to_l2(phip1_copy)
 
