@@ -17,7 +17,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
     This class handles the level set geometry.
     """
     def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing=None,
-                 autoredistancing: AutoRedistancing=None, initial_levelset:CoefficientFunction=None):
+                 autoredistancing: AutoRedistancing=None, initial_levelset:CoefficientFunction=None,
+                 boundary_tangential=False):
         """
         Initializes the level set object with a transport method, a redistancing method and optionally an
         autoredistancing scheme. Automatically adds callbacks that update cut info and integrators every
@@ -33,6 +34,11 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
             The autoredistancing scheme, i.e. when redistancing should be applied.
         initial_levelset: CoefficientFunction
             The initial levelset function.
+        boundary_tangential : bool / str / list / Region
+            Forwarded to LevelSetMeshAdaptation. Keeps the isoparametric
+            deformation tangential to the named boundaries (u.n = 0) where the
+            zero level set crosses the domain boundary, so higher-order cut
+            accuracy is preserved for interfaces meeting the wall (contact line).
         """
         OnUpdateCallbacks.__init__(self)
         GFStepper.__init__(self)
@@ -62,7 +68,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.past = GridFunction(self.fes_cont)
         self.intermediate = GridFunction(self.fes_cont)
 
-        self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
+        self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order,
+                                               boundary_tangential=boundary_tangential)
         self.deformation = self.lsetadap.deform
 
         self.cutinfo = CutInfo(self.mesh)
