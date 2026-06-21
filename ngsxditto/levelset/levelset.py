@@ -233,6 +233,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.field.vec.data[hasif_dofs] = Projector(hasif_dofs, range=True) * tmp_field.vec
         self.UpdateLinearApproximation()
         self.UpdateDeformation()
+        self.transport.field.Set(self.field)
         #self.ProjectToContinuous()
         self.steps_since_last_redistancing = 0
 
