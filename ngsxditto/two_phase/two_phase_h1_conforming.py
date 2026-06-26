@@ -183,10 +183,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             for (region, values) in self.boundary_registry.strong_neumann_dict.items():
                 self.lf += values * v[i] * dx(definedon=self.mesh.Boundaries(region))
 
-        self.lf += cos(theta_e) * taus[0] * (v[0]/rhos[0] - v[1]/rhos[1]) * n_line * d_contact_line
+        self.lf += cos(theta_e) * taus[0] * (v[0] - v[1]) * n_line * d_contact_line
 
         if self.surface_tension is not None:
-            self.lf += -taus[0] * self.surface_tension * (kappa[1]/rhos[0] * v[0] + kappa[0]/rhos[1] * v[1]) * dS
+            self.lf += -taus[0] * self.surface_tension * (kappa[1] * v[0] + kappa[0] * v[1]) * dS
 
         self.lf.Assemble()
 
@@ -239,7 +239,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         self.stokes_term = 0
         for i in range(2):
-            basic_stokes = (nus[i] * InnerProduct(grad(u[i]), grad(v[i])) - 1/rhos[i] * p[i] * div(v[i]) - 1/rhos[i] * q[i] * div(u[i])) * dx_list[i]
+            basic_stokes = (nus[i] * InnerProduct(grad(u[i]), grad(v[i])) - p[i] * div(v[i]) - q[i] * div(u[i])) * dx_list[i]
             if not self.derivative_jumps:
                 #dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
                 ghost_u = 1/h**2 * (u[i] - u[i].Other()) * (v[i] - v[i].Other()) * dw_list[i]
@@ -265,7 +265,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                     nitsche = (-(grad(u[i]).Trace() * n_bnd) * n_bnd * vn - (grad(v[i]).Trace() * n_bnd) * n_bnd * un
                                + self.nitsche_stab / h * un * vn) * ds(definedon=self.mesh.Boundaries(region))
                     self.stokes_term += nus[i] * nitsche
-                    self.stokes_term += 1/rhos[i] * (q[i] * u[i] * n_bnd + p[i] * v[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
+                    self.stokes_term += (q[i] * u[i] * n_bnd + p[i] * v[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
                 else:
                     un = u[i] * n_lset
                     vn = v[i] * n_lset
@@ -273,19 +273,19 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                     nitsche = (-(grad(u[i]).Trace() * n_lset) * n_lset * vn - (grad(v[i]).Trace() * n_lset) * n_lset * un
                                + self.nitsche_stab / h * un * vn) * dS
                     self.stokes_term += nus[i] * nitsche
-                    self.stokes_term += 1/rhos[i] * (q[i] * u[i] * n_lset + p[i] * v[i] * n_lset) * dS
+                    self.stokes_term += (q[i] * u[i] * n_lset + p[i] * v[i] * n_lset) * dS
 
             for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
                 if region != "interface":
                     nitsche = (-grad(u[i]).Trace() * n_bnd * v[i] - grad(v[i]).Trace() * n_bnd * u[i] +
                                self.nitsche_stab / h * u[i] * v[i]) * ds(definedon=self.mesh.Boundaries(region))
                     self.stokes_term += nus[i] * nitsche
-                    self.stokes_term += 1/rhos[i] * (p[i] * v[i] * n_bnd + q[i] * u[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
+                    self.stokes_term += (p[i] * v[i] * n_bnd + q[i] * u[i] * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
 
                 else:
                     nitsche = (-grad(u[i]) * n_lset * v[i] - grad(v[i]) * n_lset * u[i] + self.nitsche_stab / h * u[i] * v[i]) * dS
                     self.stokes_term += nus[i] * nitsche
-                    self.stokes_term += 1/rhos[i] * (p[i] * v[i] * n_lset + q[i] * u[i] * n_lset) * dS
+                    self.stokes_term += (p[i] * v[i] * n_lset + q[i] * u[i] * n_lset) * dS
 
             if self.add_number_space:
                 pressure_stab = (r[i] * q[i] + s[i] * p[i]) * dx_list[i]
@@ -293,15 +293,15 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                 pressure_stab = 1e-10 * p[i] * q[i] * dx_list[i]
             self.stokes_term += basic_stokes + ghost_penalty + pressure_stab
 
-            self.stokes_term += 1/rhos[i] * beta_S * InnerProduct(P_S * u[i], P_S * v[i]) * d_contact_planes[i]
-            self.stokes_term += 1/rhos[i] * beta_L * (u[i]*n_line) * v[i]*n_line * d_contact_line
+            self.stokes_term += beta_S * InnerProduct(P_S * u[i], P_S * v[i]) * d_contact_planes[i]
+            self.stokes_term += beta_L * (u[i]*n_line) * v[i]*n_line * d_contact_line
 
         nitsche = (-(kappa[0]*nus[0]*grad(u[0]) * n_lset + kappa[1] * nus[1]*grad(u[1]) * n_lset) * (v[0] - v[1]) -
                    (kappa[0]*nus[0]*grad(v[0]) * n_lset + kappa[1] * nus[1]*grad(v[1]) * n_lset) * (u[0] - u[1]) +
                    self.nitsche_stab * (kappa[0] * nus[0] + kappa[1] * nus[1]) / h * (u[0] - u[1]) * (v[0] - v[1])) * dS
 
-        bnd_terms = (((1/rhos[0] * kappa[0] * p[0] + 1/rhos[1] * kappa[1] * p[1]) * (v[0] - v[1]) * n_lset) * dS +
-                     ((1/rhos[0] * kappa[0] * q[0] + 1/rhos[1] * kappa[1] * q[1]) * (u[0] - u[1]) * n_lset) * dS)
+        bnd_terms = (((kappa[0] * p[0] + kappa[1] * p[1]) * (v[0] - v[1]) * n_lset) * dS +
+                     ((kappa[0] * q[0] + kappa[1] * q[1]) * (u[0] - u[1]) * n_lset) * dS)
 
         self.stokes_term += nitsche + bnd_terms
 
@@ -322,9 +322,9 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         self.conv = 0
         for i in range(2):
-            self.conv += 1/rhos[i]*(grad(u[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
-            self.conv += 1/rhos[i]*(grad(self.intermediate.components[0].components[i]) * u[i]) * v[i] * dx_list[i]
-            self.conv -= 1/rhos[i]*(grad(self.intermediate.components[0].components[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
+            self.conv += rhos[i]*(grad(u[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
+            self.conv += rhos[i]*(grad(self.intermediate.components[0].components[i]) * u[i]) * v[i] * dx_list[i]
+            self.conv -= rhos[i]*(grad(self.intermediate.components[0].components[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
 
         self.conv_op = BilinearForm(self.fes)
         self.conv_op += self.conv
@@ -341,8 +341,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         dx_pos = self.lset.dx_pos
         dx_list = [dx_neg, dx_pos]
 
-        mass1 = u[0] * v[0] * dx_list[0]
-        mass2 = u[1] * v[1] * dx_list[1]
+        mass1 = rhos[0] * u[0] * v[0] * dx_list[0]
+        mass2 = rhos[1] * u[1] * v[1] * dx_list[1]
         mass_list = [mass1, mass2]
 
         self.mass_op = BilinearForm(self.fes)

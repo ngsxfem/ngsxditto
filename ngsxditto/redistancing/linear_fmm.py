@@ -1,3 +1,4 @@
+import heapq
 from ngsolve import *
 from .redistancing import *
 from .helping_functions_redistancing import *
@@ -64,46 +65,42 @@ class LinearFastMarching(BaseRedistancing):
                                 in levelset_vertices}
         nearest_levelset_point_dict = previous_points_dict
 
-        marked_dofs = levelset_vertices
-        finished_dofs = []
-        min_distance = 0
+        # Dijkstra-style fast marching from the interface outward, heap-based -> O(N log N).
+        # (The previous version did a linear min-search over the whole frontier *inside* the
+        # loop plus list membership/removal -> O(N^2), which made redistancing the dominant
+        # cost on fine meshes: ~1000 s/call at ne~1e4.) Each vertex enters the frontier exactly
+        # once and its tentative distance is never lowered afterwards, so the heap keys are
+        # stable (no decrease-key needed); the empty-frontier and bandwidth stops fall out
+        # naturally. `cnt` is just a tiebreaker so heapq never compares the vertex objects.
+        finished = set()
+        in_frontier = set()
+        heap = []
+        cnt = 0
+        for v in levelset_vertices:
+            heapq.heappush(heap, (min_distance_dict[V.GetDofNrs(v)[0]], cnt, v))
+            in_frontier.add(v); cnt += 1
 
-        def sc1():
-            return min_distance > self.bandwidth/2
-
-        def sc2():
-            return marked_dofs == []
-
-        if self.bandwidth is not None:
-            stopping_criterion = sc1
-        else:
-            stopping_criterion = sc2
-
-        while not stopping_criterion():
-            next_marked_dofs = []
-            min_distance = min([min_distance_dict[V.GetDofNrs(v)[0]] for v in marked_dofs])
-            for vertex in marked_dofs:
-                if min_distance_dict[V.GetDofNrs(vertex)[0]] == min_distance:
-                    v = vertex
-                    break
-            edges = V.mesh[v].edges
-            for edge in edges:
+        while heap:
+            d, _, v = heapq.heappop(heap)
+            if v in finished:
+                continue
+            if self.bandwidth is not None and d > self.bandwidth / 2:
+                break
+            finished.add(v)
+            in_frontier.discard(v)
+            for edge in V.mesh[v].edges:
                 opposite_vertex = get_opposite_vertex(V.mesh, v, edge)
-                if opposite_vertex not in marked_dofs and opposite_vertex not in finished_dofs:
-                    if opposite_vertex not in next_marked_dofs:
-                        next_marked_dofs.append(opposite_vertex)
-
-                    new_distance = distance(nearest_levelset_point_dict[v], V.mesh[opposite_vertex].point)
-
-                    if new_distance < min_distance_dict[V.GetDofNrs(opposite_vertex)[0]]:
-                        previous_points_dict[opposite_vertex] = V.mesh[v].point
-                        nearest_levelset_point_dict[opposite_vertex] = nearest_levelset_point_dict[v]
-                        min_distance_dict[V.GetDofNrs(opposite_vertex)[0]] = distance(
-                            nearest_levelset_point_dict[opposite_vertex], V.mesh[opposite_vertex].point)
-
-            finished_dofs.append(v)
-            marked_dofs.remove(v)
-            marked_dofs = marked_dofs + next_marked_dofs
+                if opposite_vertex in finished or opposite_vertex in in_frontier:
+                    continue
+                opp_dof = V.GetDofNrs(opposite_vertex)[0]
+                new_distance = distance(nearest_levelset_point_dict[v], V.mesh[opposite_vertex].point)
+                if new_distance < min_distance_dict[opp_dof]:
+                    previous_points_dict[opposite_vertex] = V.mesh[v].point
+                    nearest_levelset_point_dict[opposite_vertex] = nearest_levelset_point_dict[v]
+                    min_distance_dict[opp_dof] = new_distance
+                in_frontier.add(opposite_vertex)
+                heapq.heappush(heap, (min_distance_dict[opp_dof], cnt, opposite_vertex))
+                cnt += 1
 
 
 

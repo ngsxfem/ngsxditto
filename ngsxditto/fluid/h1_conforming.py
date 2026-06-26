@@ -201,15 +201,15 @@ class H1Conforming(FluidDiscretization):
 
         for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
             if region != "interface":
-                self.lf += (-self.nu * (grad(v).Trace() * n_bnd) * n_bnd * values + q * n_bnd * values
+                self.lf += (-self.nu * (grad(v).Trace() * n_bnd) * n_bnd * values + q * values
                             + self.nu * self.nitsche_stab/h * (v * n_bnd) * values) * ds(definedon=self.mesh.Boundaries(region))
             else:
-                self.lf += (-self.nu * (grad(v).Trace() * n_lset) * n_lset * values + q * n_lset * values
+                self.lf += (-self.nu * (grad(v).Trace() * n_lset) * n_lset * values + q * values
                             + self.nu * self.nitsche_stab / h * (v * n_lset) * values) * dS
 
         for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
             if region != "interface":
-                self.lf += (-self.nu * grad(v) * n_bnd * values +
+                self.lf += (-self.nu * grad(v).Trace() * n_bnd * values +
                             self.nu * self.nitsche_stab / h * values * v +
                             q * n_bnd * values) * ds(definedon=self.mesh.Boundaries(region))
             else:
