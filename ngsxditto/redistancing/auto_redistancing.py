@@ -22,7 +22,7 @@ class PeriodicRedistancing(AutoRedistancing):
 
 
     def ShouldRedistance(self, levelset):
-        return levelset.steps_since_last_redistancing % self.n == 0
+        return levelset.steps_since_last_redistancing == self.n
 
 
 class GradientRedistancing(AutoRedistancing):
