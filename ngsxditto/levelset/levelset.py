@@ -76,6 +76,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
             self.Initialize(initial_levelset)
 
     def ValidateStep(self):
+        self.steps_since_last_redistancing += 1
+        self.RedistanceIfNecessary()
         self.transport.ValidateStep()
         super().ValidateStep()
 
@@ -129,6 +131,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.UpdateCutInfo()
         self.DefineIntegrators()
         self.ValidateStep()
+        self.steps_since_last_redistancing = 0
 
 
     def UpdateLinearApproximation(self):
@@ -181,12 +184,9 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
 
         self.transport.Step() # step on auxiliary field (e.g. DG)
         self.ProjectToContinuous()
-        self.steps_since_last_redistancing += 1
         self.UpdateLinearApproximation()
         self.UpdateCutInfo()
         self.UpdateDeformation()
-
-        self.RedistanceIfNecessary()     # Updates self.lsetp1
 
         self.ProcessCallbacks()
 
@@ -234,7 +234,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.UpdateLinearApproximation()
         self.UpdateDeformation()
         self.transport.field.Set(self.field)
-        #self.ProjectToContinuous()
+        self.ProcessCallbacks()
+
         self.steps_since_last_redistancing = 0
 
     def RedistanceIfNecessary(self):
