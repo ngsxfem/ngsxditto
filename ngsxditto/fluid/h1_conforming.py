@@ -170,6 +170,10 @@ class H1Conforming(FluidDiscretization):
         theta_e = self.wall_params.contact_angle
 
         self.lf += 1/self.rho * cos(theta_e) * tau * v * n_line * d_contact_line
+        P_Gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
+        P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
+        eta_L = (P_Gamma * n_bnd)/Norm(P_Gamma * n_bnd)
+        self.lf += -1/self.rho * P_S * tau * P_Gamma * eta_L * v * d_contact_line
 
         self.lf.Assemble()
 
