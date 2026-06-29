@@ -36,25 +36,46 @@ class LevelsetBasedExtension(StatelessStepper):
         self.no_slip = no_slip
         self.no_penetration = no_penetration
         self.V = VectorH1(self.mesh, order=self.order, dirichlet=no_slip, dgjumps=True)
-        self.V_x, self.V_y = self.V.components
+        components = list(self.V.components)
 
         self.free_dofs = self.V.FreeDofs()
 
         normal_dofs = BitArray(self.V.ndof)
         normal_dofs[:] = False
 
-        offset_y = self.V_x.ndof
+        if self.mesh.dim == 2:
+            self.V_x, self.V_y = components
+            offset_y = self.V_x.ndof
 
-        bnd_x = self.V_x.GetDofs(self.mesh.Boundaries("left|right"))
-        bnd_y = self.V_y.GetDofs(self.mesh.Boundaries("top|bottom"))
+            bnd_x = self.V_x.GetDofs(self.mesh.Boundaries("left|right"))
+            bnd_y = self.V_y.GetDofs(self.mesh.Boundaries("top|bottom"))
 
-        for i, is_on_bnd in enumerate(bnd_x):
-            if is_on_bnd:
-                normal_dofs[i] = True
+            for i, is_on_bnd in enumerate(bnd_x):
+                if is_on_bnd:
+                    normal_dofs[i] = True
+            for i, is_on_bnd in enumerate(bnd_y):
+                if is_on_bnd:
+                    normal_dofs[offset_y + i] = True
+        else:
+            # 3D: extend to three components; boundary name detection per axis
+            self.V_x, self.V_y, self.V_z = components
+            offset_y = self.V_x.ndof
+            offset_z = self.V_x.ndof + self.V_y.ndof
 
-        for i, is_on_bnd in enumerate(bnd_y):
-            if is_on_bnd:
-                normal_dofs[offset_y + i] = True
+            _bnd_names = self.mesh.GetBoundaries()
+            x_bnds = "|".join(b for b in _bnd_names if b in ("left", "right"))
+            y_bnds = "|".join(b for b in _bnd_names if b in ("top", "bottom"))
+            z_bnds = "|".join(b for b in _bnd_names if b in ("front", "back"))
+
+            if x_bnds:
+                for i, v in enumerate(self.V_x.GetDofs(self.mesh.Boundaries(x_bnds))):
+                    if v: normal_dofs[i] = True
+            if y_bnds:
+                for i, v in enumerate(self.V_y.GetDofs(self.mesh.Boundaries(y_bnds))):
+                    if v: normal_dofs[offset_y + i] = True
+            if z_bnds:
+                for i, v in enumerate(self.V_z.GetDofs(self.mesh.Boundaries(z_bnds))):
+                    if v: normal_dofs[offset_z + i] = True
 
         zero_normal_dofs = normal_dofs & self.V.GetDofs(self.mesh.Boundaries(self.no_penetration))
         self.free_dofs &= ~zero_normal_dofs

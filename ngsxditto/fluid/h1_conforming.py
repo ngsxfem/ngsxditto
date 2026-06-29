@@ -1,3 +1,4 @@
+import logging
 from ngsolve import *
 from xfem import *
 from .params import FluidParameters, WallParameters
@@ -6,6 +7,8 @@ from ngsxditto.levelset import LevelSetGeometry, DummyLevelSet
 from ngsxditto import direct_solver_spd, direct_solver_nonspd
 from .meancurv import *
 import ngsolve.webgui as ngw
+
+logger = logging.getLogger(__name__)
 
 
 class H1Conforming(FluidDiscretization):
@@ -84,6 +87,32 @@ class H1Conforming(FluidDiscretization):
         self.ValidateStep()
 
 
+    def _restrict_to_rooted_components(self, band, seeds):
+        """
+        Returns the elements of `band` whose facet-connected component contains
+        an element of `seeds`. Far away from the interface the level set field
+        is not controlled (it is advected by an extension velocity and not
+        redistanced), so its perturbations can cross the extension-radius
+        offset and create small band islands detached from the fluid domain.
+        Such islands cannot be element-aggregated (no root element) and are
+        irrelevant for the unfitted discretization, so they are dropped here.
+        """
+        import os
+        if os.environ.get("NGSXDITTO_DISABLE_MARKER_FILTERS"):
+            return BitArray(band)
+        reached = seeds & band
+        while True:
+            front = GetFacetsWithNeighborTypes(self.mesh, a=reached, b=band)
+            grown = GetElementsWithNeighborFacets(self.mesh, front)
+            new = grown & band & ~reached
+            if new.NumSet() == 0:
+                break
+            reached |= new
+        n_dropped = (band & ~reached).NumSet()
+        if n_dropped > 0:
+            logger.debug("dropped %d detached extension-band element(s)", n_dropped)
+        return reached
+
     def UpdateActiveDofs(self):
         """
         Updates the dofs that are active, i.e. all dofs that are in the extended unfitted domain.
@@ -100,12 +129,35 @@ class H1Conforming(FluidDiscretization):
 
         # Element and facet markers
         els_hasneg = self.ci_main.GetElementsOfType(HASNEG)
-        self.els_outer = self.ci_outer.GetElementsOfType(HASNEG)
+        if hasattr(self.lset, "hasneg"):
+            # consistent with the (island-filtered) level set markings that
+            # the integrators are defined on
+            els_hasneg = els_hasneg & self.lset.hasneg
+        roots = els_hasneg & ~self.lset.hasif
+        filtered_outer = self._restrict_to_rooted_components(
+            self.ci_outer.GetElementsOfType(HASNEG), roots)
+        if self.els_outer is None:
+            self.els_outer = filtered_outer
+        else:
+            # update in place: lsetadap.ProjectOnUpdate holds a reference to
+            # this BitArray as its update domain
+            self.els_outer &= filtered_outer
+            self.els_outer |= filtered_outer
         els_inner = self.ci_inner.GetElementsOfType(NEG)
         els_ring = self.els_outer & ~els_inner
         self.facets_ring = GetFacetsWithNeighborTypes(self.mesh, a=self.els_outer, b=els_ring)
         self.active_dofs = GetDofsOfElements(self.fes, self.els_outer)
-        self.EA.Update(els_hasneg & ~self.lset.hasif, self.lset.hasif | (self.els_outer & ~ els_hasneg))
+        try:
+            self.EA.Update(roots, (self.lset.hasif | (self.els_outer & ~ els_hasneg)) & self.els_outer)
+            self.ghost_facets = self.EA.patch_interior_facets
+        except Exception as e:
+            # aggregation of the current cut configuration can fail (level set
+            # perturbations can create patch layouts without reachable roots);
+            # fall back to stabilizing all ring facets for this step, which is
+            # the classic (more conservative) ghost-penalty facet set
+            logger.warning("ElementAggregation failed (%s); using ring-facet "
+                           "ghost penalty for this step", e)
+            self.ghost_facets = self.facets_ring
 
     def InitializeForms(self):
         self.AssembleAllForms()
@@ -129,8 +181,14 @@ class H1Conforming(FluidDiscretization):
         h = specialcf.mesh_size
         n_bnd = specialcf.normal(self.mesh.dim)
         n_lset = self.lset.n
-        t = specialcf.tangential(2)
-        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
+        if self.mesh.dim == 2:
+            t = specialcf.tangential(2)
+            n_line = IfPos(InnerProduct(t, n_lset), t, -t)
+        else:
+            # 3D: project interface normal onto the substrate surface to get the
+            # spreading direction (co-normal to the contact line on the boundary)
+            n_lset_surf = n_lset - InnerProduct(n_lset, n_bnd) * n_bnd
+            n_line = n_lset_surf / (Norm(n_lset_surf) + 1e-12)
 
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
@@ -143,15 +201,15 @@ class H1Conforming(FluidDiscretization):
 
         for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
             if region != "interface":
-                self.lf += (-self.nu * (grad(v).Trace() * n_bnd) * n_bnd * values + q * n_bnd * values
+                self.lf += (-self.nu * (grad(v).Trace() * n_bnd) * n_bnd * values + q * values
                             + self.nu * self.nitsche_stab/h * (v * n_bnd) * values) * ds(definedon=self.mesh.Boundaries(region))
             else:
-                self.lf += (-self.nu * (grad(v).Trace() * n_lset) * n_lset * values + q * n_lset * values
+                self.lf += (-self.nu * (grad(v).Trace() * n_lset) * n_lset * values + q * values
                             + self.nu * self.nitsche_stab / h * (v * n_lset) * values) * dS
 
         for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
             if region != "interface":
-                self.lf += (-self.nu * grad(v) * n_bnd * values +
+                self.lf += (-self.nu * grad(v).Trace() * n_bnd * values +
                             self.nu * self.nitsche_stab / h * values * v +
                             q * n_bnd * values) * ds(definedon=self.mesh.Boundaries(region))
             else:
@@ -197,7 +255,7 @@ class H1Conforming(FluidDiscretization):
 
         if not self.derivative_jumps:
             #dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
-            dw = dFacetPatch(definedonelements=self.EA.patch_interior_facets, deformation=self.lset.deformation)
+            dw = dFacetPatch(definedonelements=self.ghost_facets, deformation=self.lset.deformation)
 
             ghost_u = 1/h**2 * (u - u.Other()) * (v - v.Other()) * dw
             ghost_p = (p - p.Other()) * (q - q.Other()) * dw
@@ -266,16 +324,19 @@ class H1Conforming(FluidDiscretization):
         beta_S = self.wall_params.friction_coeff_surface
         beta_L = self.wall_params.friction_coeff_line
         theta_e = self.wall_params.contact_angle
-        t = specialcf.tangential(2)
-        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
+        if self.mesh.dim == 2:
+            t = specialcf.tangential(2)
+            n_line = IfPos(InnerProduct(t, n_lset), t, -t)
+        else:
+            n_lset_surf = n_lset - InnerProduct(n_lset, n_bnd) * n_bnd
+            n_line = n_lset_surf / (Norm(n_lset_surf) + 1e-12)
 
         self.stokes_term += 1/self.rho * beta_S * InnerProduct(P_S * u, P_S * v) * d_contact_plane
         self.stokes_term += 1/self.rho * beta_L * InnerProduct(u*n_line, v*n_line) * d_contact_line
 
-        self.stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
-                                                facet_restriction=self.facets_ring, check_unused=False)
-        self.stokes_op += self.stokes_term
-        self.stokes_op.Assemble(reallocate=True)
+        # no matrix is assembled here: the time stepping only needs the
+        # symbolic stokes_term (assembled as part of m_star in
+        # AssembleTimeStepping) and SolveStokes assembles its own operator
 
     def AssembleConvection(self):
         trial, test = self.fes.TnT()
@@ -296,9 +357,8 @@ class H1Conforming(FluidDiscretization):
 
             self.conv += gamma_cf * (InnerProduct(grad(u) * u_approx,  grad(v) * u_approx)) * dx_neg
 
-        self.conv_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.conv_op += self.conv
-        self.conv_op.Assemble(reallocate=True)
+        # like the Stokes term, the convection term is only assembled as
+        # part of m_star in AssembleTimeStepping
 
     @timed_method
     def AssembleTimeStepping(self):

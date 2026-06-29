@@ -1,3 +1,4 @@
+import logging
 from ngsxditto.callback import OnUpdateCallbacks
 from ngsxditto.transport import *
 from ngsxditto.redistancing import *
@@ -5,6 +6,8 @@ from xfem import *
 from xfem.lsetcurv import *
 from ngsolve import *
 from ngsxditto.stepper import *
+
+logger = logging.getLogger(__name__)
 
 #import types
 
@@ -14,7 +17,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
     This class handles the level set geometry.
     """
     def __init__(self, transport: BaseTransport, redistancing: BaseRedistancing=None,
-                 autoredistancing: AutoRedistancing=None, initial_levelset:CoefficientFunction=None):
+                 autoredistancing: AutoRedistancing=None, initial_levelset:CoefficientFunction=None,
+                 boundary_tangential=False):
         """
         Initializes the level set object with a transport method, a redistancing method and optionally an
         autoredistancing scheme. Automatically adds callbacks that update cut info and integrators every
@@ -30,6 +34,11 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
             The autoredistancing scheme, i.e. when redistancing should be applied.
         initial_levelset: CoefficientFunction
             The initial levelset function.
+        boundary_tangential : bool / str / list / Region
+            Forwarded to LevelSetMeshAdaptation. Keeps the isoparametric
+            deformation tangential to the named boundaries (u.n = 0) where the
+            zero level set crosses the domain boundary, so higher-order cut
+            accuracy is preserved for interfaces meeting the wall (contact line).
         """
         OnUpdateCallbacks.__init__(self)
         GFStepper.__init__(self)
@@ -54,7 +63,8 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.past = GridFunction(self.fes_cont)
         self.intermediate = GridFunction(self.fes_cont)
 
-        self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order)
+        self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order,
+                                               boundary_tangential=boundary_tangential)
         self.deformation = self.lsetadap.deform
         if redistancing is not None:
             self.redistancing = redistancing
@@ -152,6 +162,60 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         Updates the cut info of the level set.
         """
         self.cutinfo.Update(self.lsetp1)
+        self._DropDetachedRegions()
+
+    def _DropDetachedRegions(self):
+        """
+        Removes spurious far-field regions from the element markings
+        (in place, so that integrators and consumers holding references to
+        hasneg/hasif see the cleaned sets). Away from the interface the level
+        set values are not controlled (they are advected by an extension wind
+        and possibly never redistanced), so perturbations can spuriously
+        cross zero and create small islands detached from the tracked
+        geometry. Only the facet-connected components of hasneg that overlap
+        the geometry's position at the previous update are kept; for
+        CFL-bounded transport the geometry moves less than one element layer
+        per step, so this overlap is always non-empty for the true geometry.
+        """
+        import os
+        if os.environ.get("NGSXDITTO_DISABLE_MARKER_FILTERS"):
+            return
+
+        def flood(seeds):
+            reached = BitArray(seeds)
+            while True:
+                front = GetFacetsWithNeighborTypes(self.mesh, a=reached, b=self.hasneg)
+                grown = GetElementsWithNeighborFacets(self.mesh, front)
+                new = grown & self.hasneg & ~reached
+                if new.NumSet() == 0:
+                    break
+                reached |= new
+            return reached
+
+        # components made up of cut elements only (no uncut interior element)
+        # are below resolution: they cannot be element-aggregated and their
+        # geometry is not meaningful on this mesh
+        uncut_neg = self.hasneg & ~self.hasif
+        if uncut_neg.NumSet() > 0:
+            reached = flood(uncut_neg)
+            n_dropped = (self.hasneg & ~reached).NumSet()
+            if n_dropped > 0:
+                logger.debug("dropped %d cut element(s) of sub-resolution "
+                             "level set regions", n_dropped)
+                self.hasneg &= reached
+                self.hasif &= reached
+
+        if getattr(self, "_prev_hasneg", None) is not None:
+            seeds = self._prev_hasneg & self.hasneg
+            if seeds.NumSet() > 0:
+                reached = flood(seeds)
+                n_dropped = (self.hasneg & ~reached).NumSet()
+                if n_dropped > 0:
+                    logger.debug("dropped %d element(s) of detached spurious "
+                                 "level set regions", n_dropped)
+                    self.hasneg &= reached
+                    self.hasif &= reached
+        self._prev_hasneg = BitArray(self.hasneg)
 
 
     def DefineIntegrators(self):

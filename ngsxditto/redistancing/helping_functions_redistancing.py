@@ -33,7 +33,10 @@ def orth_projection(point, line_points):
     x3, y3 = line_points[1]
     dx = x3 - x2
     dy = y3 - y2
-    dot_product = ((x1 - x2) * dx + (y1 - y2) * dy) / (dx ** 2 + dy ** 2)
+    denom = dx ** 2 + dy ** 2
+    if denom == 0.0:            # the two zero-points coincide (interface grazes a vertex):
+        return (x2, y2)         # projection onto a degenerate point-line is that point
+    dot_product = ((x1 - x2) * dx + (y1 - y2) * dy) / denom
     projection_x = x2 + dot_product * dx
     projection_y = y2 + dot_product * dy
 
