@@ -33,6 +33,9 @@ class H1Conforming(FluidDiscretization):
             The levelset that characterizes the unfitted domain.
         wall_params: WallParameters
             wall parameters for contact problems
+        add_convection: bool
+            Whether to add the convection term to the discretization. If False, solve the Stokes problem.
+            If True, solve the Navier-Stokes problem.
         f: CoefficientFunction
             The force term
         g: CoefficientFunction
@@ -47,6 +50,14 @@ class H1Conforming(FluidDiscretization):
             The ghost stability parameter
         extension_radius: float
             Radius of the zero levelset on which the domain is extended.
+        derivative_jumps: bool
+            Whether to use the derivative jump ghost penalty (not recommended). Only implemented for order <= 2.
+        add_number_space: bool
+            Whether to add a number space to the finite element space for pressure stabilization.
+        time_order: int
+            The order of the time discretization. Only implemented up to order 2.
+        use_supg: bool
+            Whether to use SUPG stabilization for the convection term. (Not yet consistent.)
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
                          surface_tension=surface_tension, dt=dt, add_convection=add_convection,
@@ -56,8 +67,8 @@ class H1Conforming(FluidDiscretization):
         self.els_outer = None
         self.facets_ring = None
         self.ghost_stab = ghost_stab
-        self.nitsche_stab = nitsche_stab    # nitsche stabilization
-        self.extension_radius = extension_radius    # extension ring
+        self.nitsche_stab = nitsche_stab
+        self.extension_radius = extension_radius
 
         lsetp1_outer = GridFunction(H1(self.mesh, order=1))
         InterpolateToP1(self.lset.field - self.extension_radius, lsetp1_outer)
@@ -69,22 +80,6 @@ class H1Conforming(FluidDiscretization):
         self.ci_inner = CutInfo(self.mesh, lsetp1_inner)
         self.ci_outer = CutInfo(self.mesh, lsetp1_outer)
         self.EA = ElementAggregation(mesh)
-
-
-    def SetLevelSet(self, lset):
-        """
-        Sets the levelset.
-        """
-        super().SetLevelSet(lset=lset)
-
-
-    def SetInitialValues(self, initial_velocity, initial_pressure=CF(0), mean_pressure_fix=None):
-        self.mesh.SetDeformation(self.lset.deformation)
-        self.gfu.Set(initial_velocity)
-        self.gfp.Set(initial_pressure)
-        self.mesh.UnsetDeformation()
-
-        self.ValidateStep()
 
 
     def _restrict_to_rooted_components(self, band, seeds):
@@ -334,10 +329,6 @@ class H1Conforming(FluidDiscretization):
         self.stokes_term += 1/self.rho * beta_S * InnerProduct(P_S * u, P_S * v) * d_contact_plane
         self.stokes_term += 1/self.rho * beta_L * InnerProduct(u*n_line, v*n_line) * d_contact_line
 
-        # no matrix is assembled here: the time stepping only needs the
-        # symbolic stokes_term (assembled as part of m_star in
-        # AssembleTimeStepping) and SolveStokes assembles its own operator
-
     def AssembleConvection(self):
         trial, test = self.fes.TnT()
         u, p = trial[0], trial[1]
@@ -356,9 +347,6 @@ class H1Conforming(FluidDiscretization):
             gamma_cf = CoefficientFunction(gamma_gfu)
 
             self.conv += gamma_cf * (InnerProduct(grad(u) * u_approx,  grad(v) * u_approx)) * dx_neg
-
-        # like the Stokes term, the convection term is only assembled as
-        # part of m_star in AssembleTimeStepping
 
     @timed_method
     def AssembleTimeStepping(self):

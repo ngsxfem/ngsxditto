@@ -36,6 +36,9 @@ class FluidDiscretization(GFStepper):
             The levelset that characterizes the unfitted domain.
         wall_params: WallParameters
             wall parameters for contact problems
+        add_convection: bool
+            Whether to add the convection term to the discretization. If False, solve the Stokes problem.
+            If True, solve the Navier-Stokes problem.
         f: CoefficientFunction
             The force term
         g: CoefficientFunction
@@ -44,6 +47,14 @@ class FluidDiscretization(GFStepper):
             The surface tension force.
         dt: float
             Time-step size
+        derivative_jumps: bool
+            Whether to use the derivative jump ghost penalty (not recommended). Only implemented for order <= 2.
+        add_number_space: bool
+            Whether to add a number space to the finite element space for pressure stabilization.
+        time_order: int
+            The order of the time discretization. Only implemented up to order 2.
+        use_supg: bool
+            Whether to use SUPG stabilization for the convection term. (Not yet consistent.)
         time: Parameter
             The time parameter.
         """
@@ -54,6 +65,7 @@ class FluidDiscretization(GFStepper):
         self.time_order = time_order
         if self.time_order > 2:
             print("Time order only implemented up to 2. Using second order instead.")
+            self.time_order = 2
 
         self.add_convection = add_convection
         self.derivative_jumps = derivative_jumps
@@ -65,7 +77,8 @@ class FluidDiscretization(GFStepper):
         if lset is None:
             self.lset = DummyLevelSet(mesh)
         else:
-            self.SetLevelSet(lset)
+            self.lset = lset
+        self.SetLevelSet(self.lset)
 
         if wall_params is None:
             self.wall_params = WallParameters()
@@ -114,17 +127,12 @@ class FluidDiscretization(GFStepper):
         """
         Initializes the fluid discretization, setting boundary conditions of the outer as well as
         physical domain and initializing the finite element spaces and bilinear forms.
-        Convenience function that combines SetBoundaryConditions, InitializeSpaces,
-        ApplyBoundaryConditions, UpdateActiveDofs and InitializeForms.
+        Combines InitializeSpaces, InitializeGridFunctions,
+        ApplyBoundaryConditions, UpdateActiveDofs, InitializeForms and SetInitialValues. Also registers all states
+        to be updated when the levelset deformation changes.
 
         Parameters:
         -----------
-        dirichlet: dict
-            A dictionary with dirichlet boundary conditions of the form
-            {"region (str)": function (CoefficientFunction), ...}
-        neumann: dict
-            A dictionary with neumann boundary conditions of the form
-            {"region (str)": function (CoefficientFunction), ...}
         initial_velocity: CoefficientFunction
             The initial velocity field
         initial_pressure: CoefficientFunction
@@ -146,9 +154,11 @@ class FluidDiscretization(GFStepper):
         self.SetInitialValues(initial_velocity, initial_pressure)
 
     def SetOuterBoundaryCondition(self, condition:BoundaryCondition):
+        """ Registers a boundary condition for the outer boundary (not defined by the levelset). """
         self.boundary_registry.AddBoundaryCondition(condition)
 
     def SetInnerBoundaryCondition(self, condition:typing.Union[NitscheVelocityBC, CoefficientFunction]):
+        """ Registers a boundary condition for the inner boundary (defined by the levelset). """
         if isinstance(condition, NitscheVelocityBC):
             self.boundary_registry.AddBoundaryCondition(condition=condition)
 
@@ -156,12 +166,14 @@ class FluidDiscretization(GFStepper):
             self.boundary_registry.AddBoundaryCondition(condition=NitscheVelocityBC(region="interface", values=condition))
 
 
-    def SetInitialValues(self, initial_velocity:CoefficientFunction, initial_pressure:CoefficientFunction=CF(0),
-                         mean_pressure_fix=None):
-        """
-        Sets the initial values for velocity and pressure
-        """
-        raise NotImplementedError("SetInitialValues not implemented.")
+    def SetInitialValues(self, initial_velocity, initial_pressure=CF(0)):
+        """ Sets the initial values for velocity and pressure """
+        self.mesh.SetDeformation(self.lset.deformation)
+        self.gfu.Set(initial_velocity)
+        self.gfp.Set(initial_pressure)
+        self.mesh.UnsetDeformation()
+
+        self.ValidateStep()
 
 
     def ApplyBoundaryConditions(self):
