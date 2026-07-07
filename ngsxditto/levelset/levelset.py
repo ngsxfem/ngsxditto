@@ -245,7 +245,6 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         """
         Evolves the level set one step with the transport scheme. Automatically updates cut info and integrators.
         """
-
         self.transport.Step() # step on auxiliary field (e.g. DG)
         self.ProjectToContinuous()
         self.UpdateLinearApproximation()

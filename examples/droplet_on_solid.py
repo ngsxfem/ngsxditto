@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.3
+#       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -57,7 +57,7 @@ fluid = TaylorHood(mesh, fluid_params, lset=levelset, nitsche_stab=100, f=CF((0,
                    order=order + 1, ghost_stab=1, add_convection=True, add_number_space=False, time_order=1, use_supg=False,
                   wall_params=wall_params, extension_radius=0.2)
 fluid.SetOuterBoundaryCondition(NitscheVelocityBC(region="right|left", values=CF((0, 0))))
-fluid.SetOuterBoundaryCondition(NitscheNormalVelocityBC(region="bottom", values=CF(0)))
+fluid.SetOuterBoundaryCondition(StrongNormalVelocityBC(region="bottom"))
 fluid.Initialize()
 
 sol = fluid.SolveStokes()
