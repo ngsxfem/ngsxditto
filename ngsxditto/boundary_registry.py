@@ -1,4 +1,4 @@
-from ngsolve import CoefficientFunction
+from ngsolve import CoefficientFunction, CF
 
 
 class BoundaryCondition:
@@ -25,6 +25,16 @@ class NitscheNormalVelocityBC(BoundaryCondition):
     def __init__(self, region, values):
         super().__init__(region, values)
 
+class StrongNormalVelocityBC(BoundaryCondition):
+    def __init__(self, region, values=None):
+        if values is None:
+            values = CF(0)
+        else:
+            raise ValueError("StrongNormalVelocityBC can not be initialized with a CoefficientFunction so far. "
+                             "If no values are given, the default value 0 is used. For other values, use "
+                             "NitscheNormalVelocityBC instead.")
+        super().__init__(region, values)
+
 
 class BoundaryRegistry:
     def __init__(self):
@@ -32,6 +42,7 @@ class BoundaryRegistry:
 
         self.strong_dirichlet_dict = {}
         self.strong_neumann_dict = {}
+        self.strong_normal_velocity_dict = {}
         self.nitsche_velocity_dict = {}
         self.nitsche_normal_velocity_dict = {}
         self.dbnd = ""
@@ -56,3 +67,7 @@ class BoundaryRegistry:
         elif isinstance(condition, NitscheNormalVelocityBC):
             self.all_bc_dict[condition.region] = {"function": condition.values, "type": NitscheNormalVelocityBC.__name__}
             self.nitsche_normal_velocity_dict[condition.region] = condition.values
+
+        elif isinstance(condition, StrongNormalVelocityBC):
+            self.all_bc_dict[condition.region] = {"function": condition.values, "type": StrongNormalVelocityBC.__name__}
+            self.strong_normal_velocity_dict[condition.region] = condition.values
