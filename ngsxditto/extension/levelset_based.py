@@ -18,14 +18,20 @@ class LevelsetBasedExtension(StatelessStepper):
         -----------
         lset: LevelSetGeometry
             The levelset where the vector field is given.
+        rhs: CoefficientFunction|None
+            The vector-valued function that should be extended.
         gamma: float
             The diffusion coefficient.
         order: int
             The polynomial order
         ghost_stab: int
             The ghost stabilitization coefficient.
-        dirichlet: str
-            The dirichlet boundary condition of the extension problem.
+        no_slip: str
+            The boundary where the vector field should be zero.
+        no_penetration: str
+            The boundary where the normal component of the vector field should be zero.
+        q: CoefficientFunction
+            A scalar function that is added to the rhs * normal term.
         """
         super().__init__()
         self.lset = lset
@@ -57,7 +63,6 @@ class LevelsetBasedExtension(StatelessStepper):
                 if is_on_bnd:
                     normal_dofs[offset_y + i] = True
         else:
-            # 3D: extend to three components; boundary name detection per axis
             self.V_x, self.V_y, self.V_z = components
             offset_y = self.V_x.ndof
             offset_z = self.V_x.ndof + self.V_y.ndof
