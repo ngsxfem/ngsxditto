@@ -1,3 +1,6 @@
+# %% [markdown]
+# # Narrow band transport
+
 # %%
 # imports
 from ngsxditto.solver import *

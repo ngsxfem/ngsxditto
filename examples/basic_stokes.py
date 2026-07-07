@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.3
+#       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -25,17 +25,11 @@
 #
 # where the space $[H^1_D(\Omega)]^d$ already incorporates the Dirichlet boundary conditions on $\Gamma_{\text{in}}$.
 
-# %% [markdown]
-# ### Import libraries
-
 # %%
 # ngsolve is the underlying finite element library
 from ngsolve import *
 # our module
 from ngsxditto import *
-
-# %% [markdown]
-# ### Construct the geometry
 
 # %%
 maxh = 0.1
@@ -43,9 +37,6 @@ mesh = Mesh(unit_square.GenerateMesh(maxh=maxh))
 
 from ngsolve.webgui import Draw
 Draw(mesh)
-
-# %% [markdown]
-# ### Construct the fluids discretization
 
 # %% [markdown]
 # In `ngsxditto` you have the possibility to construct different types of discretizations for your fluid.
@@ -125,5 +116,3 @@ fluid.Initialize()
 gfup = fluid.SolveStokes()
 gfu, gfp, _ = gfup.components
 Draw(gfu)
-
-# %%

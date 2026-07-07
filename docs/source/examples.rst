@@ -13,6 +13,10 @@ In the following we collect examples that were computed with `ngsxditto`.
 
    transport_and_redistancing.ipynb
 
+   element_based_extension.ipynb
+
+   narrow_band_transport.ipynb
+
    basic_stokes.ipynb
 
    moving_stokes.ipynb
