@@ -1,0 +1,4 @@
+# Pair all notebooks in this directory with py:percent files.
+# The .py files are the versioned source of truth; .ipynb files are
+# generated (and synced back) via `jupytext --sync` and not committed.
+formats = "ipynb,py:percent"

@@ -35,6 +35,11 @@
    examples
 
 .. toctree::
+   :caption: Concepts
+
+   concepts
+
+.. toctree::
    :caption: Documentation
 
    modules
