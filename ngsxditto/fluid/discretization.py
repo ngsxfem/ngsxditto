@@ -54,6 +54,11 @@ class FluidDiscretization(GFStepper):
         self.time_order = time_order
         if self.time_order > 2:
             print("Time order only implemented up to 2. Using second order instead.")
+            self.time_order = 2
+        # number of validated (accepted) time steps; drives the BDF startup:
+        # the first step runs backward Euler (full dt), from step 2 on BDF2.
+        self.n_validated_steps = 0
+        self._assembled_beta = None   # beta the current m_star was assembled with
 
         self.add_convection = add_convection
         self.derivative_jumps = derivative_jumps
@@ -244,6 +249,13 @@ class FluidDiscretization(GFStepper):
         raise NotImplementedError("Step not implemented in base class.")
 
 
+    def EffectiveTimeOrder(self):
+        """BDF order actually used for the upcoming step (startup-aware).
+        """
+        return min(self.time_order, self.n_validated_steps + 1)
+
+
     def ValidateStep(self):
         self.ancient.vec.data = self.past.vec
         super().ValidateStep()
+        self.n_validated_steps += 1

@@ -85,6 +85,9 @@ class H1Conforming(FluidDiscretization):
         self.mesh.UnsetDeformation()
 
         self.ValidateStep()
+        # initialization is not a time step: keep the BDF startup counter at 0
+        # so that the first step runs backward Euler (see EffectiveTimeOrder).
+        self.n_validated_steps = 0
 
 
     def _restrict_to_rooted_components(self, band, seeds):
@@ -372,12 +375,15 @@ class H1Conforming(FluidDiscretization):
         self.mass_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
         self.mass_op += self.mass
         self.mass_op.Assemble(reallocate=True)
-        coef = 2/3 if self.time_order == 2 else 1
+        # implicit factor of the effective scheme: the first validated step
+        # runs backward Euler (full dt), afterwards BDF2 (startup consistency).
+        beta = 1.0 if self.EffectiveTimeOrder() == 1 else 2.0 / 3.0
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += self.mass + coef * self.dt * self.stokes_term
+        self.m_star += self.mass + beta * self.dt * self.stokes_term
         if self.add_convection:
-            self.m_star += coef * self.dt * self.conv
+            self.m_star += beta * self.dt * self.conv
         self.m_star.Assemble(reallocate=True)
+        self._assembled_beta = beta
 
     @timed_method
     def InvertTimeStepping(self):
@@ -406,19 +412,20 @@ class H1Conforming(FluidDiscretization):
 
     @timed_method
     def Step(self):
-        if self.time is not None:
-            self.time += self.dt
+        # BDF scheme of the effective order (startup: step 1 = backward Euler).
+        if self.EffectiveTimeOrder() == 1:   # startup: backward Euler
+            weights, beta = (1.0,), 1.0
+        else:                                # BDF2
+            weights, beta = (4.0 / 3.0, -1.0 / 3.0), 2.0 / 3.0
+        if beta != self._assembled_beta:
+            self.AssembleTimeStepping()
+            self.InvertTimeStepping()
         self.AssembleLf()
-        if self.time_order == 1:
-            res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
-            self.gfup.vec.data += self.inv * res
-
-        elif self.time_order >= 2:
-            res = (4/3) * self.mass_op.mat * self.past.vec \
-                  - (1/3) * self.mass_op.mat * self.ancient.vec \
-                  + (2/3) * self.dt * self.lf.vec \
-                  - self.m_star.mat * self.gfup.vec
-            self.gfup.vec.data += self.inv * res
+        history = (self.past, self.ancient)
+        res = beta * self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+        for w_i, u_i in zip(weights, history):
+            res += w_i * (self.mass_op.mat * u_i.vec)
+        self.gfup.vec.data += self.inv * res
 
 
         # gfup_copy = self.gfup.vec.CreateVector()
