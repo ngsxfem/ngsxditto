@@ -9,9 +9,8 @@ class BaseTransport(GFStepper):
     This class is responsible for the abstract implementation of an interface for (level-set) transport.
     """
     def __init__(self, mesh: Mesh, wind: CoefficientFunction, inflow_values: CoefficientFunction,
-                 dt: typing.Optional[float] = None, 
-                 time: typing.Optional[Parameter] = None, ## TODO: to remove
-                 source: typing.Optional[CoefficientFunction] = None, 
+                 dt: typing.Optional[float] = None,
+                 source: typing.Optional[CoefficientFunction] = None,
                  active_elements: typing.Optional[BitArray] = None,
                  order:int = None) -> None:
         """
@@ -24,21 +23,21 @@ class BaseTransport(GFStepper):
             The velocity field that transports the levelset
         inflow_values: CoefficientFunction
             The inflow boundary data
-        time: Parameter
-            reference to a Parameter for the time (to update depending coeffiecient function during propagate)
-        source: CoefficientFunction 
+        source: CoefficientFunction
             The source term
         active_elements: BitArray|None
             submesh defined by BitArray on which the transport is defined. If None, the whole mesh is used.
         dt: float
             The time step size for the transport.
-        """        
+
+        Note on time: Only advanced by driving loop (TimeLoop / MultiStepper)
+        """
         super().__init__()
 
         self.mesh = mesh
         self.wind = wind
         self.inflow_values = inflow_values
-        self.time = time
+        self.time = None
         self.dt = dt
         self.order = order
         self.fes = None

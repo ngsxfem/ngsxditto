@@ -130,9 +130,8 @@ class ExplicitDGTransport(BaseTransport):
 
 
     def Step(self):
-        if self.time is not None:
-            self.time.Set(self.time.Get() + self.dt)
-
+        # time is advanced by the driving loop (TimeLoop / MultiStepper),
+        # never by the transport itself (single time authority).
         self.bnd_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=~self.active_elements,
                                                         bnd_val_a=False, bnd_val_b=True)
         self.bnd_facets_ind.vec[:] = 0
