@@ -178,6 +178,9 @@ class FluidDiscretization(GFStepper):
         self.mesh.UnsetDeformation()
 
         self.ValidateStep()
+        # initialization is not a time step: keep the BDF startup counter at 0
+        # so that the first step runs backward Euler (see EffectiveTimeOrder).
+        self.n_validated_steps = 0
 
 
     def ApplyBoundaryConditions(self):
