@@ -1,9 +1,16 @@
+import pytest
+
 from ngsxditto import *
 from ngsolve import *
 from xfem import *
 from netgen.occ import *
 from netgen.geom2d import SplineGeometry
 import numpy as np
+
+# Convergence studies solve on a sequence of refined meshes and dominate the
+# runtime of the whole suite; run them explicitly with RUN_SLOW=1 (see
+# ci/run_tests.sh) or `pytest -m slow`.
+pytestmark = pytest.mark.slow
 
 
 def test_levelset_convergence():

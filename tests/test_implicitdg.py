@@ -25,9 +25,10 @@ def test_global_propagation():
     levelset = LevelSetGeometry(transport)
     t.Set(0)
     levelset.Initialize(true_circle)
-    while transport.time < T_end:
+    while transport.time.Get() < T_end:
         levelset.Step()
         levelset.ValidateStep()
+        t.Set(t.Get() + dt)   # the driving loop advances time, not the stepper
     l2_error = Integrate((transport.gfu - true_circle)**2, mesh)**(1/2)
     assert l2_error < 2e-2
 
@@ -42,6 +43,7 @@ def test_change_parameters():
     for _ in range(10):
         levelset.Step()
         levelset.ValidateStep()
+        t.Set(t.Get() + transport.dt)   # manual step: advance the clock like a loop would
 
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 2e-2
 
@@ -50,6 +52,7 @@ def test_change_parameters():
     for _ in range(10):
         levelset.Step()
         levelset.ValidateStep()
+        t.Set(t.Get() + transport.dt)
 
     assert pytest.approx(transport.time.Get()) == 0.3
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 2e-2
@@ -59,6 +62,7 @@ def test_change_parameters():
     for _ in range(30):
         levelset.Step()
         levelset.ValidateStep()
+        t.Set(t.Get() + transport.dt)
 
     t.Set(0)
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 2e-2

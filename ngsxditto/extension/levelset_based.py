@@ -1,11 +1,12 @@
 from ngsolve import *
 from ngsxditto.levelset import *
 from ngsxditto.stepper import *
+from ngsxditto.extrapolation import ExtrapolatorSource
 from ngsxditto import direct_solver_spd, direct_solver_nonspd
 from xfem import *
 import ngsolve.webgui as ngw
 
-class LevelsetBasedExtension(StatelessStepper):
+class LevelsetBasedExtension(ExtrapolatorSource, StatelessStepper):
     """
     Extends a vector field from an interface to the whole domain using a diffusion based algorithm.
     """

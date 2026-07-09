@@ -12,6 +12,12 @@ for f in ../examples/*.py; do
 done
 cp ../examples/ditto.png source/ditto.png
 
+# Concept demos (small, object-focused, as opposed to the full applications
+# above) live in examples/concepts/ and are prefixed to keep them separate.
+for f in ../examples/concepts/*.py; do
+    jupytext --to ipynb "$f" -o "source/concepts_$(basename "${f%.py}").ipynb"
+done
+
 SPHINX_APIDOC_OPTIONS=members,show-inheritance sphinx-apidoc --templatedir source/_templates/ -o source/ ../ngsxditto
 make html
 

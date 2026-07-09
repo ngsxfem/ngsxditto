@@ -1,6 +1,7 @@
 jupyter_sphinx
 sphinx
 sphinx_rtd_theme
+sphinx-rtd-dark-mode
 sphinx_mdinclude
 nbsphinx
 jupytext

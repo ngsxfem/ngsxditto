@@ -23,9 +23,10 @@ def test_propagation_with_trace():
     transport.time = t
     t.Set(0)
     transport.SetInitialValues(true_circle)
-    while transport.time < T_end:
+    while transport.time.Get() < T_end:
         transport.Step()
         transport.ValidateStep()
+        t.Set(t.Get() + dt)   # the driving loop advances time, not the stepper
 
     assert Integrate((transport.gfu - true_circle)**2, mesh)**(1/2) < 1e-2
 
@@ -35,9 +36,10 @@ def test_propagation_without_trace():
     t.Set(0)
     transport.SetInitialValues(true_circle)
 
-    while transport.time < T_end:
+    while transport.time.Get() < T_end:
         transport.Step()
         transport.ValidateStep()
+        t.Set(t.Get() + dt)   # the driving loop advances time, not the stepper
 
     assert Integrate((transport.gfu - true_circle)**2, mesh)**(1/2) < 1e-2
 
@@ -51,6 +53,7 @@ def test_change_parameters():
     for _ in range(10):
         transport.Step()
         transport.ValidateStep()
+        t.Set(t.Get() + transport.dt)   # manual step: advance the clock like a loop would
 
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
 
@@ -59,6 +62,7 @@ def test_change_parameters():
     for _ in range(10):
         transport.Step()
         transport.ValidateStep()
+        t.Set(t.Get() + transport.dt)
 
     assert pytest.approx(transport.time.Get()) == 0.3
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2
@@ -68,6 +72,7 @@ def test_change_parameters():
     for _ in range(30):
         transport.Step()
         transport.ValidateStep()
+        t.Set(t.Get() + transport.dt)
 
     t.Set(0)
     assert Integrate((transport.field - true_circle) ** 2, mesh) ** (1 / 2) < 1e-2

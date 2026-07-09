@@ -92,6 +92,9 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.mesh.UnsetDeformation()
 
         self.ValidateStep()
+        # initialization is not a time step: keep the BDF startup counter at 0
+        # so that the first step runs backward Euler (see EffectiveTimeOrder).
+        self.n_validated_steps = 0
 
 
     def UpdateActiveDofs(self):
@@ -348,17 +351,19 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.mass_op = BilinearForm(self.fes)
         self.mass_op += mass1 + mass2
         self.mass_op.Assemble()
-        coef = 2/3 if self.time_order == 2 else 1
+        # implicit factor of the effective scheme (startup: step 1 = BE).
+        beta = 1.0 if self.EffectiveTimeOrder() == 1 else 2.0 / 3.0
         self.m_star = BilinearForm(self.fes)
 
         for i in range(2):
             self.m_star += mass_list[i]
 
-        self.m_star += coef * self.dt * self.stokes_term
+        self.m_star += beta * self.dt * self.stokes_term
         if self.add_convection:
-            self.m_star += coef * self.dt * self.conv
+            self.m_star += beta * self.dt * self.conv
 
         self.m_star.Assemble()
+        self._assembled_beta = beta
 
     @timed_method
     def InvertTimeStepping(self):
@@ -380,21 +385,24 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
     @timed_method
     def Step(self):
-        if self.time is not None:
-            self.time += self.dt
+        # BDF scheme of the effective order (startup: step 1 = backward Euler);
+        # reassemble m_star if the effective scheme switched since the last
+        # assembly (fixed-domain path, see H1Conforming.Step).
+        if self.EffectiveTimeOrder() == 1:   # startup: backward Euler
+            weights, beta = (1.0,), 1.0
+        else:                                # BDF2
+            weights, beta = (4.0 / 3.0, -1.0 / 3.0), 2.0 / 3.0
+        if beta != self._assembled_beta:
+            self.AssembleTimeStepping()
+            self.InvertTimeStepping()
 
         self.AssembleLf()
 
-        if self.time_order == 1:
-            res = self.mass_op.mat * self.past.vec + self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
-            self.gfup.vec.data += self.inv * res
-
-        elif self.time_order >= 2:
-            res = (4/3) * self.mass_op.mat * self.past.vec \
-                  - (1/3) * self.mass_op.mat * self.ancient.vec \
-                  + (2/3) * self.dt * self.lf.vec \
-                  - self.m_star.mat * self.gfup.vec
-            self.gfup.vec.data += self.inv * res
+        history = (self.past, self.ancient)
+        res = beta * self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+        for w_i, u_i in zip(weights, history):
+            res += w_i * (self.mass_op.mat * u_i.vec)
+        self.gfup.vec.data += self.inv * res
 
         # gfup_copy = self.gfup.vec.CreateVector()
         # gfup_copy.data = self.gfup.vec

@@ -12,3 +12,4 @@ local/**
 examples/.jupyter_ystore.db
 ngsxditto.egg-info/**
 .local
+CLAUDE.md

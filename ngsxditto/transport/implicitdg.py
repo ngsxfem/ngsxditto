@@ -97,9 +97,6 @@ class ImplicitDGTransport(BaseTransport):
             self.bfa.Assemble(reallocate=True)
             self.lf.Assemble()
 
-        if self.time is not None:
-            self.time.Set(self.time.Get() + self.dt)
-
         freedofs = GetDofsOfElements(self.fes, self.active_elements)
         with TaskManager():
             self.gfu.vec.data = self.bfa.mat.Inverse(freedofs = freedofs, inverse = direct_solver_nonspd) * self.lf.vec

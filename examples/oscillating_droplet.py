@@ -74,19 +74,33 @@ fluid_params = FluidParameters(viscosity=1e-2)
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
 
-fluid = TaylorHood(mesh, fluid_params, lset=levelset, f=CF((0, 0)), surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1)
+fluid = TaylorHood(mesh, fluid_params, lset=levelset, f=CF((0, 0)), surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, time_order=2)
 fluid.Initialize(initial_velocity=CF((0, 0)))
 # %% [markdown]
 # For the unsteady Stokes problem we now want to update our level set based on this field, i.e. $$\mathbf{u} \cdot \mathbf{n}_\Gamma = \mathcal{V}_\Gamma$$ where $\mathcal{V}_\Gamma$ is the velocity of the interface in normal direction. For our level set update we need a velocity field $w$ on the whole domain, not just on the interface. For this we extend the velocity field using a diffusion based algorithm. After our level set update we can then calculate the curvature again to solve a time-step of the Stokes problem.
+#
+# For **second order in time** three ingredients are combined: 
+#  * the fluid uses BDF2 (`time_order=2`); 
+#  * the transport wind is taken at the interval midpoint $t^{n+1/2}$ via an
+#    `Extrapolator` 
+#  * and each step is coupled monolithically by iterating the stepper sweep (`SetFinalizeRule` below).
 
 # %%
 velocity_extension = LevelsetBasedExtension(levelset, gamma=1e-3, order=order)
 velocity_extension.SetRhs(fluid.gfu)
-levelset.transport.SetWind(velocity_extension.field)
+velocity_extension.Step()                                    # compute the initial wind w^0
+
+wind = Extrapolator(order=1)
+velocity_extension.FeedInto(wind, time=t, state=velocity_extension.field)
+velocity_extension.SeedExtrapolators()                       # seed the history with w^0
+levelset.transport.SetWind(wind.gf)                          # transport reads the (mid-step) wind
 
 end_time = 2
 
 time_loop = TimeLoop(time=t, dt=dt, end_time=end_time)
+time_loop.SetFinalizeRule(lambda: time_loop.i_inner >= 2)   # monolithic coupling
+# evaluate the wind at the interval midpoint before the transport runs:
+time_loop.Register(lambda: wind.Evaluate(t.Get() - dt/2), name="wind")
 
 sphericity = SphericityDiagram(levelset, time=t, name="sphericity")
 

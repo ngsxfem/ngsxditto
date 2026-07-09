@@ -110,8 +110,6 @@ class ImplicitSUPGTransport(BaseTransport):
         freedofs = GetDofsOfElements(self.fes, self.active_elements)
         self.inv = self.bfa.mat.Inverse(freedofs, inverse=direct_solver_nonspd)
         self.rhs.Assemble(reallocate=True)
-        if self.time is not None:
-            self.time.Set(self.time.Get() + self.dt)
         self.gfu.vec.data = self.inv @ self.rhs.mat * self.past.vec
 
     @property

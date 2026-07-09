@@ -21,9 +21,10 @@ def test_without_autoredistancing():
 
     redistancing = FastMarching()
     levelset = LevelSetGeometry(transport, redistancing)
-    while transport.time < T_end:
+    while transport.time.Get() < T_end:
         levelset.Step()
         levelset.ValidateStep()
+        t.Set(t.Get() + dt)   # the driving loop advances time, not the stepper
     assert Integrate((levelset.transport.field - true_circle)**2, mesh)**(1/2) < 0.1
 
     levelset.RunFixedSteps(50)
@@ -47,6 +48,7 @@ def test_with_autoredistancing():
     assert levelset.steps_since_last_redistancing == 99
     levelset.Step()
     levelset.ValidateStep()
+    t.Set(t.Get() + dt)   # manual step: advance the clock like a loop would
     print(levelset.ShouldRedistance())
     assert levelset.steps_since_last_redistancing == 0
 
