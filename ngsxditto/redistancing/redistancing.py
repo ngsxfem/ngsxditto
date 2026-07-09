@@ -15,18 +15,23 @@ class BaseRedistancing(StatelessStepper):
         super().__init__()
         self.bandwidth = bandwidth
         self.field = None
+        self.deformation = None
+        self.order = None
+
 
     def SetOrder(self, order:int):
         """
         Set the order and adapt the algorithm if necessary.
         """
-        raise NotImplementedError("SetOrder not implemented")
+        self.order = order
 
     def SetField(self, field:GridFunction):
         self.field = field
 
+    def SetDeformation(self, deformation:GridFunction):
+        self.deformation = deformation
 
-    def Redistance(self, phi: GridFunction):
+    def Redistance(self, phi: GridFunction, deformation=None):
         """
         Applies redistancing to the given function phi.
 
@@ -39,4 +44,4 @@ class BaseRedistancing(StatelessStepper):
         raise NotImplementedError("Redistance not implemented for base class")
 
     def Step(self):
-        self.Redistance(self.field)
+        self.Redistance(self.field, self.deformation)

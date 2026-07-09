@@ -23,7 +23,7 @@ class FastMarching(BaseRedistancing):
     def SetOrder(self, order: int):
         self.order = order
 
-    def Redistance(self, phip1: GridFunction):
+    def Redistance(self, phip1: GridFunction, deformation=None):
         """
         Applies redistancing using Fast Marching method with xfem integration.
 

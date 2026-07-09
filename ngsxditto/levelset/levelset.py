@@ -66,10 +66,9 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         self.lsetadap = LevelSetMeshAdaptation(self.mesh, order=self.transport.order,
                                                boundary_tangential=boundary_tangential)
         self.deformation = self.lsetadap.deform
+        self.redistancing = redistancing
         if redistancing is not None:
-            self.redistancing = redistancing
-            self.redistancing.SetOrder(transport.order)
-            self.redistancing.SetField(self.lsetp1)
+            self.SetRedistancing(redistancing)
 
         self.cutinfo = CutInfo(self.mesh)
         self.hasif = self.cutinfo.GetElementsOfType(IF)
@@ -119,7 +118,12 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         Sets the redistancing method.
         """
         self.redistancing = redistancing
-
+        self.redistancing.SetOrder(self.order)
+        if type(redistancing).__name__ == "FastMarching":
+            self.redistancing.SetField(self.lsetp1)
+        else:
+            self.redistancing.SetField(self.field)
+        self.redistancing.SetDeformation(self.deformation)
 
     def Initialize(self, initial_lset: CoefficientFunction, initial_time: float=0.0):
         """
@@ -281,19 +285,22 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         """
         print("The next function is redistanced")
 
+        if type(self.redistancing).__name__ == "FastMarching":
+            old_lsetp1 = GridFunction(H1(self.mesh, order=1))
+            old_lsetp1.vec.data = self.lsetp1.vec
+            self.redistancing.Step()
 
-        old_lsetp1 = GridFunction(H1(self.mesh, order=1))
-        old_lsetp1.vec.data = self.lsetp1.vec
-        self.redistancing.Step()
+            tmp_field = GridFunction(self.fes_cont)
+            tmp_field.Set(shifted_eval(self.lsetp1, back=self.deformation, forth=None), definedonelements=self.hasif)
+            self.field.Set(shifted_eval(self.lsetp1, back=self.deformation, forth=None))
+            hasif_dofs = GetDofsOfElements(self.fes_cont, self.hasif)
+            self.field.vec.data[hasif_dofs] = Projector(hasif_dofs, range=True) * tmp_field.vec
 
-        #ProjectShift(self.field, self.lsetp1, self.deformation, qn=self.field.Deriv(),
-        #             lower=0.0, upper=0.0, threshold=-1.0, heapsize=1000000)
+            # ProjectShift(self.field, self.lsetp1, self.deformation, qn=self.field.Deriv(),
+            #             lower=0.0, upper=0.0, threshold=-1.0, heapsize=1000000)
 
-        tmp_field = GridFunction(self.fes_cont)
-        tmp_field.Set(shifted_eval(self.lsetp1, back=self.deformation, forth=None), definedonelements=self.hasif)
-        self.field.Set(shifted_eval(self.lsetp1, back=self.deformation, forth=None))
-        hasif_dofs = GetDofsOfElements(self.fes_cont, self.hasif)
-        self.field.vec.data[hasif_dofs] = Projector(hasif_dofs, range=True) * tmp_field.vec
+        else:
+            self.redistancing.Step()
         self.UpdateLinearApproximation()
         self.UpdateDeformation()
         self.transport.field.Set(self.field)
