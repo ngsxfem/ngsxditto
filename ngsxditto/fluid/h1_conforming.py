@@ -190,26 +190,29 @@ class H1Conforming(FluidDiscretization):
         self.lf = LinearForm(self.fes)
         self.lf += self.f * v * dx_neg
         self.lf += self.g * q * dx_neg
+        if self.add_convection:
+            u_approx = self.intermediate.components[0]
+            self.lf += (grad(u_approx) * u_approx) * v * self.lset.dx_neg
         tau = self.fluid_params.surface_tension_coeff
         if self.surface_tension is not None:
             self.lf += - 1/self.rho * tau * self.surface_tension * v * dS
 
         for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
             if region != "interface":
-                self.lf += (-self.nu * (grad(v).Trace() * n_bnd) * n_bnd * values + q * values
-                            + self.nu * self.nitsche_stab/h * (v * n_bnd) * values) * ds(definedon=self.mesh.Boundaries(region))
+                self.lf += (-self.nu * (2*Sym(grad(v).Trace()) * n_bnd) * n_bnd * values + q * values
+                            + 2* self.nu * self.nitsche_stab/h * (v * n_bnd) * values) * ds(definedon=self.mesh.Boundaries(region))
             else:
-                self.lf += (-self.nu * (grad(v).Trace() * n_lset) * n_lset * values + q * values
-                            + self.nu * self.nitsche_stab / h * (v * n_lset) * values) * dS
+                self.lf += (-self.nu * (2*Sym(grad(v)) * n_lset) * n_lset * values + q * values
+                            + 2 * self.nu * self.nitsche_stab / h * (v * n_lset) * values) * dS
 
         for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
             if region != "interface":
-                self.lf += (-self.nu * grad(v).Trace() * n_bnd * values +
-                            self.nu * self.nitsche_stab / h * values * v +
+                self.lf += (-self.nu * 2*Sym(grad(v).Trace()) * n_bnd * values +
+                            2 * self.nu * self.nitsche_stab / h * values * v +
                             q * n_bnd * values) * ds(definedon=self.mesh.Boundaries(region))
             else:
-                self.lf += (-self.nu * grad(v) * n_lset * values +
-                            self.nu * self.nitsche_stab / h * values * v +
+                self.lf += (-self.nu * 2*Sym(grad(v)) * n_lset * values +
+                            2 * self.nu * self.nitsche_stab / h * values * v +
                             q * n_lset * values) * dS
 
         for (region, values) in self.boundary_registry.strong_neumann_dict.items():
@@ -246,7 +249,7 @@ class H1Conforming(FluidDiscretization):
         dx_neg = self.lset.dx_neg
         dS = self.lset.dS
 
-        basic_stokes = (self.nu * InnerProduct(grad(u), grad(v)) - p * div(v) - q * div(u)) * dx_neg
+        basic_stokes = (2*self.nu * InnerProduct(Sym(grad(u)), Sym(grad(v))) - p * div(v) - q * div(u)) * dx_neg
 
         if not self.derivative_jumps:
             #dw = dFacetPatch(definedonelements=self.facets_ring, deformation=self.lset.deformation)
@@ -275,28 +278,28 @@ class H1Conforming(FluidDiscretization):
                 un = u * n_bnd
                 vn = v * n_bnd
 
-                nitsche = (-(grad(u).Trace() * n_bnd) * n_bnd * vn - (grad(v).Trace() * n_bnd) * n_bnd * un
-                          + self.nitsche_stab / h * un * vn) * ds(definedon=self.mesh.Boundaries(region))
+                nitsche = (-(2*Sym(grad(u).Trace()) * n_bnd) * n_bnd * vn - (2*Sym(grad(v).Trace()) * n_bnd) * n_bnd * un
+                          + 2 * self.nitsche_stab / h * un * vn) * ds(definedon=self.mesh.Boundaries(region))
                 self.stokes_term += self.nu * nitsche
                 self.stokes_term += (q * u * n_bnd + p * v * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
             else:
                 un = u * n_lset
                 vn = v * n_lset
 
-                nitsche = (-(grad(u).Trace() * n_lset) * n_lset * vn - (grad(v).Trace() * n_lset) * n_lset * un
-                          + self.nitsche_stab / h * un * vn) * dS
+                nitsche = (-(2*Sym(grad(u)) * n_lset) * n_lset * vn - (2*Sym(grad(v)) * n_lset) * n_lset * un
+                          + 2 * self.nitsche_stab / h * un * vn) * dS
                 self.stokes_term += self.nu * nitsche
                 self.stokes_term += (q * u * n_lset + p * v * n_lset) * dS
 
 
         for (region, values) in self.boundary_registry.nitsche_velocity_dict.items():
             if region != "interface":
-                nitsche = (-grad(u).Trace() * n_bnd * v - grad(v).Trace() * n_bnd * u + self.nitsche_stab / h * u * v)  * ds(definedon=self.mesh.Boundaries(region))
+                nitsche = (-2*Sym(grad(u).Trace()) * n_bnd * v - 2*Sym(grad(v).Trace()) * n_bnd * u + 2 * self.nitsche_stab / h * u * v)  * ds(definedon=self.mesh.Boundaries(region))
                 self.stokes_term += self.nu * nitsche
                 self.stokes_term += (p * v * n_bnd + q * u * n_bnd) * ds(definedon=self.mesh.Boundaries(region))
 
             else:
-                nitsche = (-grad(u) * n_lset * v - grad(v) * n_lset * u + self.nitsche_stab / h * u * v) * dS
+                nitsche = (-2*Sym(grad(u)) * n_lset * v - 2*Sym(grad(v)) * n_lset * u + 2 * self.nitsche_stab / h * u * v) * dS
                 self.stokes_term += self.nu * nitsche
                 self.stokes_term += (p * v * n_lset + q * u * n_lset) * dS
 
@@ -337,7 +340,7 @@ class H1Conforming(FluidDiscretization):
         dx_neg = self.lset.dx_neg
         u_approx = self.intermediate.components[0]
 
-        self.conv = (grad(u) * u_approx) * v * dx_neg + (grad(u_approx) * u) * v * dx_neg - (grad(u_approx) * u_approx) * v * dx_neg
+        self.conv = self.conv = (grad(u) * u_approx) * v * dx_neg + (grad(u_approx) * u) * v * dx_neg
 
         if self.use_supg:
             h = specialcf.mesh_size
