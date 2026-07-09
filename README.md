@@ -9,12 +9,12 @@
 - Level-set based interface capturing
 - Geometrically unfitted FEM (CutFEM/XFEM-style)
 - Stabilization via ghost penalty and aggregation techniques
+- Higher order methods (in geometry and field approximation)
 - Modular design for extension to multi-physics problems
 - Compatible with [ngsolve](https://ngsolve.org)
 
 Features aimed at:
-- higher order methods (in geometry and field approximation) 
-- and space-time methods 
+- space-time methods
 
 
 ## Installation without cloning
@@ -36,17 +36,22 @@ With the following command, you can verify the installation works
 ## Using / developing
 If you are working in the library directly (working on a module, geometry, test or example) you can use `pip install -e .` so that the installation only links to your source files and source file changes have immediate impact.
 
-## Available (and planned) modules:
-  * levelset (WIP): 
-    This module is work in progress. Don't use it, yet. 
-    Here, several algorithms related to the levelset description of (typically) moving domain problems are gathered. It has several submodules:
-    * transport (only preliminary state)...
-    * redistancing (preliminary state)...
-  * extensions:
-    * normal extensions: First version in `goengs.module.levelset.normalextension`
-    * bulk extensions (not implemented yet)...
-  * mean curvature computation (not implemented yet)...
-  * (unfitted) Stokes (not implement yet)
+## Available modules:
+  * `transport`: level-set transport solvers — explicit DG, implicit DG and implicit SUPG,
+    all usable on narrow bands via `active_elements`; `KnownSolutionTransport` for manufactured solutions
+  * `levelset`: `LevelSetGeometry` — combines transport, redistancing and isoparametric mesh
+    deformation; provides cut information (`hasif`, ...) and integration measures (`dS`, `dCut`-based)
+  * `redistancing`: fast marching (level-set order 1 and 2), with periodic auto-redistancing
+  * `extension` / `velocity_extension`: element-based and levelset-based extension of fields
+    into the bulk / narrow band
+  * `fluid`: fitted and unfitted Stokes discretizations (Taylor–Hood, Scott–Vogelius,
+    H1-conforming with aggregation), mean curvature computation
+  * `two_phase`: two-phase Stokes flow (e.g. oscillating droplet, second order in time via BDF2)
+  * infrastructure: `Stepper` / `Solver` / `TimeLoop` framework (validated/reverted steps,
+    sub-iterations, profiling) and polynomial-in-time `Extrapolator`
+
+Planned / in progress:
+  * space-time discretizations
 
 ## Examples
 

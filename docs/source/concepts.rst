@@ -10,4 +10,5 @@ full example.
    :maxdepth: 2
    :caption: Concepts:
 
+   concepts_stepper.ipynb
    concepts_extrapolator.ipynb

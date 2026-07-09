@@ -15,6 +15,7 @@ author = 'ditto'
 
 extensions = [
     "sphinx_rtd_theme",
+    "sphinx_rtd_dark_mode",
     "nbsphinx",
     "jupyter_sphinx",
     "sphinx_mdinclude",
@@ -22,6 +23,10 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
 ]
+
+# sphinx_rtd_dark_mode: adds a light/dark toggle button to the RTD theme.
+# Start in light mode unless the user (or their system) prefers dark.
+default_dark_mode = False
 
 # make source code visible to sphinx.ext.autodoc
 import os
