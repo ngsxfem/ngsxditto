@@ -48,7 +48,7 @@ def _run_stokes_series(time_order, dts, dt_ref, maxh=0.5, order=2, t_end=0.25):
         levelset = LevelSetGeometry.from_cf(lset_cf, order=order, mesh=mesh)
         fluid = TaylorHood(mesh, FluidParameters(viscosity=nu), lset=levelset,
                            order=order, dt=dt, f=rhs_f, add_convection=False,
-                           ghost_stab=1e-3, nitsche_stab=200, extension_radius=0.2,
+                           ghost_stab=1e-3, nitsche_stab=100, extension_radius=0.2,
                            add_number_space=True, time_order=time_order)
         fluid.SetInnerBoundaryCondition(true_velocity)
         fluid.Initialize(initial_velocity=true_velocity)
