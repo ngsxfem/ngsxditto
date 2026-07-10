@@ -1,10 +1,12 @@
-Concepts
-========
+ngsxditto concepts
+==================
 
-While :doc:`examples` collects full applications, the notebooks here are
-small, self-contained demos that explain the functionality of a single
-`ngsxditto` object -- useful as a quick introduction before diving into a
-full example.
+`ngsxditto` is built around a few small, reusable pieces of infrastructure --
+the `Stepper` protocol that drives every simulation loop, the `Extrapolator`
+used for higher order accuracy in time, and (planned) profiling/timing
+helpers. The notebooks here explain each of them at a small, prototypical
+example, decoupled from any concrete PDE -- useful as a quick introduction
+before diving into a :doc:`module_examples` or :doc:`application_examples`.
 
 .. toctree::
    :maxdepth: 2

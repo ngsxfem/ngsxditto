@@ -30,14 +30,10 @@
    index
 
 .. toctree::
-   :caption: Examples
-
-   examples
-
-.. toctree::
-   :caption: Concepts
 
    concepts
+   module_examples
+   application_examples
 
 .. toctree::
    :caption: Documentation

@@ -48,6 +48,10 @@ build_pages:
         - apt-get update
         - apt-get install -y libosmesa6-dev libgl1 mesa-utils
         - apt-get install -y make pandoc
+        # chromium is REQUIRED by ipython_startup/00-webgui-static.py: it screenshots
+        # each webgui scene into a lightweight preview that loads the full 3-D only on
+        # click. Without it the scenes fall back to a plain click-to-load box.
+        - apt-get install -y --no-install-recommends chromium
         - pip3 install --upgrade pip setuptools wheel
         - bash ci/install_base_deps.sh
         - pip3 install .

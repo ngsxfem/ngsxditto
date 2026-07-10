@@ -16,5 +16,6 @@ sympy
 pandoc
 webgui_jupyter_widgets
 anywidget
+pillow
 pyvista
 trame[all]<3.0

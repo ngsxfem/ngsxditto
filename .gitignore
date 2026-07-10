@@ -13,3 +13,5 @@ examples/.jupyter_ystore.db
 ngsxditto.egg-info/**
 .local
 CLAUDE.md
+docs/webgui_scenes
+docs/.ipython-build
