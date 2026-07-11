@@ -48,6 +48,11 @@ build_pages:
         - apt-get update
         - apt-get install -y libosmesa6-dev libgl1 mesa-utils
         - apt-get install -y make pandoc
+        # GL/X libs headless chromium's swiftshader-webgl path needs to initialize
+        # even though it never opens a real display (without these the WebGL canvas
+        # silently stays blank -- no error, just an empty screenshot). xvfb is for
+        # pyvista/VTK below, which does open a (virtual) display.
+        - apt-get install -y --no-install-recommends libglu1-mesa libglx-mesa0 libgl1-mesa-dri libxrender1 xvfb
         # chromium is REQUIRED by ipython_startup/00-webgui-static.py: it screenshots
         # each webgui scene into a lightweight preview that loads the full 3-D only on
         # click. Without it the scenes fall back to a plain click-to-load box.
@@ -62,6 +67,12 @@ build_pages:
         - export PYVISTA_OFF_SCREEN=true
         - export VTK_DEFAULT_RENDER_WINDOW_OFFSCREEN=true
         - export DISPLAY=:99.0
+        # DISPLAY=:99.0 above is a lie unless something is actually listening there --
+        # pyvista's Plotter(off_screen=True) opens it via GLX, so start a virtual
+        # framebuffer server on it (was previously missing -> "bad X server
+        # connection" warnings from VTK).
+        - Xvfb :99 -screen 0 1280x1024x24 &
+        - sleep 1
         - ./generate_docs.sh
         - cd ..
         - mv docs/build/html public

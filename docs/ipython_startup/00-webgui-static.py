@@ -24,7 +24,17 @@ import tempfile
 import warnings
 
 _SCENE_DIR = os.environ.get("WEBGUI_SCENE_DIR")        # e.g. <docs>/webgui_scenes
-_BASE = os.environ.get("WEBGUI_BASE", "")              # e.g. "" (scenes are siblings of the pages)
+_BASE = os.environ.get("WEBGUI_BASE", "")              # optional absolute prefix, e.g. /myproject
+
+
+def _scene_url(name):
+    # Relative by default: the built pages are flat (build/html/*.html) with the
+    # scenes next to them in webgui_scenes/, and a relative URL keeps working
+    # when the site is served under a subpath (ngsxfem.github.io/ngsxditto/,
+    # GitLab Pages /<project>/) -- an absolute "/webgui_scenes/..." 404s there.
+    # srcdoc iframes inherit the parent page's base URL, so the relative link
+    # resolves against the page that embeds the preview.
+    return (_BASE + "/" if _BASE else "") + "webgui_scenes/" + name
 
 
 def _screenshot(html):
@@ -34,8 +44,15 @@ def _screenshot(html):
     png = os.path.join(d, "s.png")
     with open(hp, "w") as f:
         f.write(html)
+    # Headless chromium needs no X display -- but a *stale* DISPLAY (the docs CI
+    # exports one for VTK/pyvista) makes its GPU process try GLX on a display
+    # that may not answer, and the WebGL canvas then silently stays blank
+    # (white screenshots, no error). Scrub it from the subprocess environment.
+    env = {k: v for k, v in os.environ.items() if k != "DISPLAY"}
     for exe in ("chromium", "chromium-browser", "google-chrome"):
         try:
+            if os.path.exists(png):                # don't mistake a previous
+                os.remove(png)                     # attempt's file for ours
             subprocess.run(
                 [exe, "--headless=new", "--disable-gpu", "--no-sandbox",
                  "--disable-dev-shm-usage",          # use /tmp, not a tiny Docker /dev/shm
@@ -43,12 +60,20 @@ def _screenshot(html):
                  "--enable-unsafe-swiftshader", "--hide-scrollbars",
                  "--window-size=1000,540", "--virtual-time-budget=12000",
                  "--screenshot=" + png, "file://" + hp],
-                timeout=120, capture_output=True, check=False)
+                timeout=120, capture_output=True, check=False, env=env)
             if os.path.exists(png):
                 try:                                   # PNG of a 3-D scene is huge; ship a small JPEG still
                     import io
                     from PIL import Image
                     im = Image.open(png).convert("RGB")
+                    # A (nearly) uniform image means the WebGL canvas never
+                    # rendered (e.g. no usable GL in the build environment).
+                    # Better an honest click-to-load box than a white "preview"
+                    # -- and the note makes the failure visible in the build log.
+                    if all(hi - lo < 8 for lo, hi in im.getextrema()):
+                        print("webgui preview screenshot is blank (" + exe
+                              + ") -- falling back to click-to-load")
+                        continue
                     im.thumbnail((760, 760))
                     buf = io.BytesIO(); im.save(buf, "JPEG", quality=70, optimize=True)
                     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
@@ -80,6 +105,11 @@ class _DummyScene:
     def GenerateHTML(self, *args, **kwargs):
         return ""
 
+    def _repr_html_(self):
+        # keep the Out[...] cell empty -- without this, notebooks whose last
+        # expression is the Draw() result render "<__main__._DummyScene at 0x...>"
+        return ""
+
 
 try:
     import ngsolve.webgui as _ngw
@@ -109,7 +139,7 @@ try:
             name = hashlib.sha1(scene_html.encode()).hexdigest() + ".html"
             with open(os.path.join(_SCENE_DIR, name), "w") as f:
                 f.write(scene_html)
-            url = _BASE + "/webgui_scenes/" + name
+            url = _scene_url(name)
             srcdoc = (
                 '<!DOCTYPE html><html><head><style>'
                 'html,body{margin:0;height:100%;overflow:hidden;'
@@ -138,7 +168,7 @@ try:
             name = hashlib.sha1(scene_html.encode()).hexdigest() + ".html"
             with open(os.path.join(_SCENE_DIR, name), "w") as f:
                 f.write(scene_html)
-            url = _BASE + "/webgui_scenes/" + name
+            url = _scene_url(name)
             srcdoc = (
                 '<!DOCTYPE html><html><head><style>'
                 'html,body{margin:0;height:100%;font-family:system-ui,sans-serif}'
