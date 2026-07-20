@@ -7,3 +7,4 @@ from .fast_marching import *
 from .eikonal import *
 from .auto_redistancing import *
 from .minimization_based import *
+from .gp_extension import *
