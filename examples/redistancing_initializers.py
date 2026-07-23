@@ -1,5 +1,11 @@
 """Pluggable initializers for MinimizationBasedRedistancing.
 
+(For a gentle, tangible warm-up on what redistancing computes at all -- the
+distance to a door in a room, on a plain fitted mesh -- see
+``redistancing_distance_to_door.py`` first; it also shows, in a picture, why
+the causal ``FastMarching`` initializer used below helps the elliptic
+minimizer.)
+
 MinimizationBasedRedistancing only ever *corrects* whatever field it is
 handed: each Newton/fixed-point iteration nudges phi towards |grad(phi)|=1
 while pinning it to zero on the (P1-interpolated) interface. Handed a rough
