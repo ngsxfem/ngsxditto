@@ -302,6 +302,7 @@ class LevelSetGeometry(OnUpdateCallbacks, GFStepper):
         else:
             self.redistancing.Step()
         self.UpdateLinearApproximation()
+        self.UpdateCutInfo()
         self.UpdateDeformation()
         self.transport.field.Set(self.field)
         self.ProcessCallbacks()
