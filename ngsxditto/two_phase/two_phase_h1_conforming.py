@@ -19,7 +19,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                  f1: CoefficientFunction, f2: CoefficientFunction,  g1: CoefficientFunction,
                  g2: CoefficientFunction, add_convection:bool,
                  surface_tension: CoefficientFunction, dt:float, nitsche_stab:int, ghost_stab:int, extension_radius:float,
-                 derivative_jumps:bool, add_number_space=bool):
+                 derivative_jumps:bool, add_number_space=bool, linearization:str = "newton",
+                 extrapolated_advection:bool = False):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -54,11 +55,26 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             The ghost stability parameter
         extension_radius: float
             Radius around the zero levelset on which the domain is extended.
+        linearization: str
+            How the convective term is linearized around its advecting
+            velocity beta (see `_advection_velocity`), one of:
+
+            * "newton" (default) -- both Jacobian terms
+              grad(u)*beta + grad(beta)*u plus the residual correction
+              N(beta) in the right-hand side.
+            * "banach" -- the classical Oseen fixed-point: only the single
+              term grad(u)*beta, no Jacobian term, no residual correction.
+        extrapolated_advection: bool
+            What beta is, orthogonal to `linearization`: False (default) uses
+            the current Picard/Newton iterate (`self.intermediate`); True uses
+            a history-extrapolated, sub-iteration-refined predictor for
+            u^{n+1} -- see `_advection_velocity`.
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order, lset=lset,
                          wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, add_convection=add_convection,
                          surface_tension=surface_tension, dt=dt, time_order=time_order,
-                         derivative_jumps=derivative_jumps, add_number_space=add_number_space)
+                         derivative_jumps=derivative_jumps, add_number_space=add_number_space,
+                         linearization=linearization, extrapolated_advection=extrapolated_advection)
 
         self.els_outer = None
         self.els_inner = None
@@ -94,10 +110,16 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.gfp.components[1].Set(initial_pressure2)
         self.mesh.UnsetDeformation()
 
+        # this call is priming, not a real time step: don't let it feed the
+        # advection extrapolator (it would mislabel u^0 as "one step later")
+        self._priming = True
         self.ValidateStep()
+        self._priming = False
         # initialization is not a time step: keep the BDF startup counter at 0
         # so that the first step runs backward Euler (see EffectiveTimeOrder).
         self.n_validated_steps = 0
+        if self.extrapolated_advection:
+            self._adv_extrapolator.Feed(0, self.current.components[0])   # seed u^0 at time 0
 
 
     def UpdateActiveDofs(self):
@@ -138,6 +160,17 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             logger.warning("ElementAggregation (phase 2) failed (%s); using "
                            "ring-facet ghost penalty for this step", e)
             self.ghost_facets_pos = self.facets_ring
+
+    def _advection_velocity(self, i):
+        """The (frozen, non-unknown) advecting velocity beta used to linearize
+        the convective term for phase i, per ``self.extrapolated_advection``
+        (see ``__init__``): the current Picard/Newton iterate, or a
+        history-extrapolated, sub-iteration-refined predictor for u^{n+1}
+        (`self._adv_extrapolator`, fed in `ValidateStep`/`AcceptIntermediate`)."""
+        if self.extrapolated_advection:
+            beta = self._adv_extrapolator.Evaluate(self.n_validated_steps + 1)
+            return beta.components[i]
+        return self.intermediate.components[0].components[i]
 
     def InitializeForms(self):
         self.AssembleLf()
@@ -184,8 +217,11 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         for i in range(2):
             self.lf += rhos[i] * f_list[i] * v[i] * dx_list[i]
             self.lf += g_list[i] * q[i] * dx_list[i]
-            if self.add_convection:
-                u_approx_i = self.intermediate.components[0].components[i]
+            if self.add_convection and self.linearization == "newton":
+                # residual correction N(u_approx) -- only needed for the full
+                # Newton linearization (see _advection_velocity / AssembleConvection);
+                # "picard" and "extrapolate" are already linear in the unknown u.
+                u_approx_i = self._advection_velocity(i)
                 self.lf += rhos[i] * (grad(u_approx_i) * u_approx_i) * v[i] * dx_list[i]
             for (region, values) in self.boundary_registry.nitsche_normal_velocity_dict.items():
                 if region != "interface":
@@ -348,8 +384,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         self.conv = 0
         for i in range(2):
-            self.conv += rhos[i]*(grad(u[i]) * self.intermediate.components[0].components[i]) * v[i] * dx_list[i]
-            self.conv += rhos[i]*(grad(self.intermediate.components[0].components[i]) * u[i]) * v[i] * dx_list[i]
+            beta_i = self._advection_velocity(i)
+            self.conv += rhos[i] * (grad(u[i]) * beta_i) * v[i] * dx_list[i]
+            if self.linearization == "newton":
+                self.conv += rhos[i] * (grad(beta_i) * u[i]) * v[i] * dx_list[i]
 
         self.conv_op = BilinearForm(self.fes)
         self.conv_op += self.conv

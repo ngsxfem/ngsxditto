@@ -18,6 +18,16 @@ for f in ../examples/concepts/*.py; do
     jupytext --to ipynb "$f" -o "source/concepts_$(basename "${f%.py}").ipynb"
 done
 
+# Benchmark examples (examples/benchmarks/): heavier, quantitative validation
+# studies that are NOT executed by the docs build. We inject the nbsphinx
+# "execute: never" metadata so their code is rendered but never run in CI; the
+# reported numbers and all figures/animations are pre-computed and embedded
+# (large assets tracked with git-LFS, kept under source/ alongside the pages).
+for f in ../examples/benchmarks/*.py; do
+    jupytext --to ipynb --update-metadata '{"nbsphinx":{"execute":"never"}}' \
+        "$f" -o "source/$(basename "${f%.py}").ipynb"
+done
+
 # Make every webgui scene render as a static preview image that loads the
 # interactive 3D only on click (see ipython_startup/00-webgui-static.py),
 # instead of every notebook eagerly embedding a full interactive widget --

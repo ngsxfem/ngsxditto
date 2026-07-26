@@ -1,7 +1,11 @@
 from ngsxditto.fluid import *
 from ngsxditto.stepper import *
+from ngsxditto.extrapolation import Extrapolator
 from ngsolve import *
 import typing
+
+LINEARIZATIONS = ("newton", "banach")
+
 
 class TwoPhaseDiscretization(GFStepper):
     """
@@ -11,6 +15,7 @@ class TwoPhaseDiscretization(GFStepper):
                  lset:LevelSetGeometry, wall_params: WallParameters, add_convection:bool, time_order:int,
                  f1:CoefficientFunction, f2: CoefficientFunction, g1: CoefficientFunction, g2: CoefficientFunction,
                  surface_tension:CoefficientFunction, derivative_jumps:bool, add_number_space:bool,
+                 linearization:str = "newton", extrapolated_advection:bool = False,
                  time: typing.Optional[Parameter] = None):
         """
         Creates a two-phase fluid discretization on the given mesh defined by the levelset.
@@ -42,9 +47,26 @@ class TwoPhaseDiscretization(GFStepper):
             The surface tension force.
         dt: float
             Time-step size
+        linearization: str
+            How the convective term is linearized around its advecting
+            velocity beta: "newton" (default) -- the full Newton Jacobian
+            grad(u)*beta + grad(beta)*u plus the residual correction N(beta);
+            or "banach" -- the classical Oseen fixed-point grad(u)*beta only.
+            See TwoPhaseH1Conforming for the precise schemes.
+        extrapolated_advection: bool
+            What beta is, orthogonal to `linearization`: False (default) uses
+            the current Picard/Newton iterate (`self.intermediate`); True uses
+            a history-extrapolated predictor for u^{n+1} (order 0 at start-up,
+            order 1 once two validated states exist) that is *also* refed with
+            the latest iterate on every sub-iteration -- an O(dt^2)-accurate
+            initial guess that then converges to the same fixed point as
+            `extrapolated_advection=False`, but already correct to leading
+            order at n_subiter=1 (no sub-iterations needed at all).
         time: Parameter
             The time parameter.
         """
+        if linearization not in LINEARIZATIONS:
+            raise ValueError(f"linearization must be one of {LINEARIZATIONS}, got {linearization!r}")
 
         super().__init__()
         self.mesh = mesh
@@ -66,6 +88,14 @@ class TwoPhaseDiscretization(GFStepper):
             self.SetLevelSet(lset)
 
         self.add_convection = add_convection
+        self.linearization = linearization
+        self.extrapolated_advection = extrapolated_advection
+        # advecting-velocity predictor (only built/used if extrapolated_advection);
+        # fed with validated states (ValidateStep) and, to refine it across
+        # sub-iterations, with the current iterate too (AcceptIntermediate) --
+        # see _advection_velocity in TwoPhaseH1Conforming.
+        self._adv_extrapolator = Extrapolator(order=1) if extrapolated_advection else None
+        self._priming = False    # True only during the SetInitialValues -> ValidateStep call
 
         if wall_params is None:
             self.wall_params = WallParameters()
@@ -157,6 +187,12 @@ class TwoPhaseDiscretization(GFStepper):
                                            [self.intermediate.components[i].components[j] for i in range(2) for j in range(2)] +
                                            [self.past.components[i].components[j] for i in range(2) for j in range(2)] +
                                            [self.ancient.components[i].components[j] for i in range(2) for j in range(2)])
+        if self.extrapolated_advection:
+            # zero pre-seed so the very first InitializeForms() (called next,
+            # before SetInitialValues sets the real initial condition) has
+            # something to Evaluate(); SetInitialValues re-feeds the same
+            # (time=0) node with the true initial velocity right after.
+            self._adv_extrapolator.Feed(0, self.current.components[0])
         self.InitializeForms()
         self.SetInitialValues(initial_velocity1, initial_velocity2, initial_pressure1, initial_pressure2)
 
@@ -252,3 +288,12 @@ class TwoPhaseDiscretization(GFStepper):
         self.ancient.vec.data = self.past.vec
         super().ValidateStep()
         self.n_validated_steps += 1
+        if self.extrapolated_advection and not self._priming:
+            self._adv_extrapolator.Feed(self.n_validated_steps, self.past.components[0])
+
+    def AcceptIntermediate(self):
+        super().AcceptIntermediate()
+        if self.extrapolated_advection:
+            # refine the "upcoming" (t^{n+1}) node with the latest Newton/Banach
+            # iterate -- an extrapolate-then-interpolate predictor, see Predictor
+            self._adv_extrapolator.Feed(self.n_validated_steps + 1, self.current.components[0])

@@ -30,8 +30,9 @@ The default behavior is to do that *every* iteration, but with the
 import bisect
 
 from ngsolve import GridFunction, BaseVector
+from ngsxditto.stepper import StatelessStepper
 
-__all__ = ["Extrapolator", "ExtrapolatorSource"]
+__all__ = ["Extrapolator", "ExtrapolatorSource", "Predictor"]
 
 
 class Extrapolator:
@@ -274,3 +275,40 @@ class ExtrapolatorSource:
     def ValidateStep(self):
         self._feed_extrapolators(validated=True)
         super().ValidateStep()
+
+
+class Predictor(StatelessStepper):
+    """A stepper that evaluates an :class:`Extrapolator` at ``time.Get() + offset``
+    every :meth:`Step`, exposing the result as :attr:`gf`.
+
+    Feeding is a separate concern (see :class:`ExtrapolatorSource`/:meth:`FeedInto`);
+    this class only owns the *evaluation* side, so the two combine into a
+    ready-to-register predictor with no user-written glue::
+
+        wind = Extrapolator(order=1)
+        velocity_extension.Step()                 # initial value
+        velocity_extension.FeedInto(wind, time=t)
+        velocity_extension.SeedExtrapolators()     # seed w^0
+        predictor = Predictor(wind, time=t, offset=-dt / 2)   # midpoint wind
+        transport.SetWind(predictor.gf)
+        time_loop.Register(predictor, name="wind")            # before the transport
+        time_loop.Register(velocity_extension, name="vel ext.")  # after the fluid solve
+
+    ``offset`` is 0 for an end-point predictor (e.g. an advected quantity used
+    at :math:`t^{n+1}`) or ``-dt/2`` for the interval-centred midpoint wind of
+    an RK2 transport.
+    """
+
+    def __init__(self, extrapolator: "Extrapolator", time, offset: float = 0.0):
+        super().__init__()
+        self.extrapolator = extrapolator
+        self.time = time
+        self.offset = offset
+
+    @property
+    def gf(self):
+        """The extrapolator's output (a GridFunction once a space is known)."""
+        return self.extrapolator.gf
+
+    def Step(self):
+        self.extrapolator.Evaluate(self.time.Get() + self.offset)

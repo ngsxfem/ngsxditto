@@ -34,6 +34,7 @@
    concepts
    module_examples
    application_examples
+   benchmark_examples
 
 .. toctree::
    :caption: Documentation

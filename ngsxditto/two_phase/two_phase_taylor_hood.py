@@ -10,15 +10,27 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
                  f1: CoefficientFunction = None, f2: CoefficientFunction = None,  g1: CoefficientFunction = CF(0),
                  g2: CoefficientFunction = CF(0), surface_tension: CoefficientFunction = None,
                  add_convection:bool =False, derivative_jumps:bool=False, add_number_space:bool=False,
-                 nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2):
+                 nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2,
+                 linearization:str = "newton", extrapolated_advection:bool = False):
         """
         Initializes the Two-Phase Taylor-Hood discretization with the given parameters and levelset.
+
+        linearization: str
+            How the convective term is linearized around its advecting
+            velocity beta: "newton" (default) or "banach" -- see
+            TwoPhaseH1Conforming.__init__ for the precise schemes.
+        extrapolated_advection: bool
+            What beta is, orthogonal to `linearization`: False (default) uses
+            the current Picard/Newton iterate; True uses a history-extrapolated,
+            sub-iteration-refined predictor for u^{n+1} -- see
+            TwoPhaseH1Conforming.__init__.
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order,
                          lset=lset,wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, time_order=time_order,
                          surface_tension=surface_tension, dt=dt, add_convection=add_convection,
                          nitsche_stab=nitsche_stab, ghost_stab=ghost_stab, extension_radius=extension_radius,
-                         derivative_jumps=derivative_jumps, add_number_space=add_number_space)
+                         derivative_jumps=derivative_jumps, add_number_space=add_number_space,
+                         linearization=linearization, extrapolated_advection=extrapolated_advection)
 
         self.V_base = None
         self.Q_base = None

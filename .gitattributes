@@ -1,0 +1,7 @@
+# Pre-computed figures/animations for the (non-executed) benchmark examples are
+# stored with git-LFS so the repository stays lightweight. See
+# docs/source/benchmark_examples.rst.
+docs/source/hysing_turek/*.png filter=lfs diff=lfs merge=lfs -text
+docs/source/hysing_turek/*.gif filter=lfs diff=lfs merge=lfs -text
+docs/source/hysing_turek/*.mp4 filter=lfs diff=lfs merge=lfs -text
+docs/source/_static/hysing_turek_pajetrace_sunburst.html filter=lfs diff=lfs merge=lfs -text
