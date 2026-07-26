@@ -83,6 +83,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libosmesa6-dev libgl1 mesa-utils pandoc make
+          # GL/X libs headless chromium's swiftshader-webgl path needs to initialize
+          # (without these the WebGL canvas silently stays blank -- no error, just
+          # an empty screenshot). xvfb is for pyvista/VTK below, which does open a
+          # (virtual) display.
+          sudo apt-get install -y --no-install-recommends libglu1-mesa libglx-mesa0 libgl1-mesa-dri libxrender1 xvfb
+          # The webgui previews (ipython_startup/00-webgui-static.py) screenshot
+          # each scene with a headless browser; the runner's preinstalled
+          # google-chrome is used for that (Ubuntu's apt "chromium" is only a
+          # snap shim -- do NOT install it, the script would pick it up first).
+          google-chrome --version
 
       - name: Download coverage reports
         uses: actions/download-artifact@v4
@@ -107,6 +117,11 @@ jobs:
         run: |
           mkdir -p docs/htmlcov
           cp -r htmlcov/* docs/htmlcov/ || true
+          # DISPLAY=:99.0 above is a lie unless something is actually listening there --
+          # pyvista's Plotter(off_screen=True) opens it via GLX, so start a virtual
+          # framebuffer server on it (otherwise VTK warns "bad X server connection").
+          Xvfb :99 -screen 0 1280x1024x24 &
+          sleep 1
           cd docs
           ./generate_docs.sh
 

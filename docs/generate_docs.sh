@@ -31,7 +31,10 @@ mkdir -p "$IPYTHONDIR/profile_default/startup"
 cp ipython_startup/*.py "$IPYTHONDIR/profile_default/startup/"
 rm -rf webgui_scenes
 export WEBGUI_SCENE_DIR="$(pwd)/webgui_scenes"
-export WEBGUI_BASE=""
+# WEBGUI_BASE stays unset: the previews then use RELATIVE scene URLs
+# (webgui_scenes/<hash>.html), which work locally (file://) as well as under
+# a Pages subpath (github.io/ngsxditto/, GitLab Pages /<project>/).
+unset WEBGUI_BASE
 
 SPHINX_APIDOC_OPTIONS=members,show-inheritance sphinx-apidoc --templatedir source/_templates/ -o source/ ../ngsxditto
 make html
