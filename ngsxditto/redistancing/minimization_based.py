@@ -8,7 +8,7 @@ from xfem import *
 class MinimizationBasedRedistancing(BaseRedistancing):
     """ Redistancing algorithm basd on minimization of the energy. Iteratively updates the levelset function to restore
         the signed distance function while penalizing derivations from the initial interface."""
-    def __init__(self, alpha=10000, n_iter=10):
+    def __init__(self, alpha=10000, n_iter=10, initializer: BaseRedistancing = None):
         """
         Parameters:
         -----------
@@ -16,12 +16,25 @@ class MinimizationBasedRedistancing(BaseRedistancing):
             The penalty parameter for the energy functional. Higher values enforce stronger adherence to the initial interface.
         n_iter : int
             The number of iterations for the minimization process.
+        initializer : BaseRedistancing, optional
+            Another redistancer applied once, in place, to `phi_start` before
+            this class's own iteration begins. This scheme only ever
+            *corrects* whatever field it is handed -- given a rough/drifted
+            input it converges slowly (interior/medial-axis structure, far
+            from the interface) or needs many iterations to look reasonable
+            far from the interface. A better starting point fixes both at no
+            extra cost to the main loop, e.g. `FastMarching()` (causally
+            correct global distance structure from the start) or
+            `GPExtensionRedistancing()` (cheap smoothing of a noisy input).
         """
         super().__init__()
         self.alpha = alpha
         self.n_iter = n_iter
+        self.initializer = initializer
 
     def Redistance(self, phi_start, deformation=None):
+        if self.initializer is not None:
+            self.initializer.Redistance(phi_start, deformation)
         mesh = phi_start.space.mesh
         order = phi_start.space.globalorder
         lsetp1 = GridFunction(H1(mesh, order=1))
