@@ -393,6 +393,7 @@ class H1Conforming(FluidDiscretization):
                                                 facet_restriction=self.facets_ring, check_unused=False)
         stationary_stokes_op += self.stokes_term
         stationary_stokes_op += (1e-6 * u * v) * self.lset.dx_neg
+        stationary_stokes_op += (1e-4 * InnerProduct(grad(u) - grad(u).trans, grad(v) - grad(v).trans)) * self.lset.dx_neg
         stationary_stokes_op.Assemble(reallocate=True)
         gfup.vec.data += (stationary_stokes_op.mat.Inverse(self.active_dofs & self.fes.FreeDofs(), inverse=direct_solver_nonspd) *
                          (self.lf.vec - stationary_stokes_op.mat * gfup.vec))
