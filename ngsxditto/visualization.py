@@ -1,3 +1,5 @@
+import matplotlib
+import matplotlib.animation as animation
 from matplotlib import pyplot as plt
 import ngsolve.webgui as ngw
 from ngsolve import *
@@ -6,7 +8,9 @@ from ngsxditto.stepper import *
 import numpy as np
 from typing import Sequence, Union, Optional
 from IPython.display import Image, display, HTML, IFrame
+import io
 import tempfile
+import glob
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,6 +22,8 @@ except ImportError:
     logger.warning("pyvista not available. PyVista-based visualizations "
                    "(PyVistaAnimation, PyVistaVisualizer) are replaced by no-op dummies; "
                    "for some visualizations it may be better to have pyvista installed.")
+
+matplotlib.use("Agg")
 
 
 class Visualization(StatelessStepper):
@@ -90,8 +96,13 @@ class SphericityDiagram(Visualization):
         self.surface_volume_ratio.append(self.lset.surface_area/self.lset.volume)
 
     def AfterLoop(self):
-        plt.plot(self.time_list, self.surface_volume_ratio, ".")
-        plt.show()
+        fig, ax = plt.subplots()
+        ax.plot(self.time_list, self.surface_volume_ratio, ".")
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        display(Image(buf.read()))
+        plt.close(fig)
 
 
 class UnfittedNGSWebguiPlot(Visualization):
@@ -222,7 +233,102 @@ class UnfittedNGSWebguiScene(Visualization):
         pass
 
 
-### this is just a technical playground for now... 
+class IsoContourPlot(Visualization):
+    def __init__(self, lset, step=0.05, figsize=(5, 5)):
+        super().__init__()
+        self.lset = lset
+        self.mesh = self.lset.mesh
+        self.figsize = figsize
+        self._tempdir: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory()
+        self._vtk_files = []
+        self.coefs = [self.lset.field, self.lset.deformation]
+        self.names = ["phi", "deform"]
+        self.counter = 0
+        self.step = step
+        self.fig, self.ax = plt.subplots(figsize=self.figsize)
+        self.fig.suptitle(f"Iso contour plot", fontsize=10)
+        self.list_of_data_dicts = []
+
+
+    def export_current_step(self) -> None:
+        """
+        Export mesh and coefficient data to temporary VTK files.
+        """
+
+        current_file = f"{self._tempdir.name}/data{self.counter}.vtu"
+        vtk = VTKOutput(
+            ma=self.mesh,
+            coefs=self.coefs,
+            names=self.names,
+            filename=current_file[:-4],
+            subdivision=self.lset.order,
+        )
+        vtk.Do(vb=VOL)
+        self._vtk_files.append(current_file)
+
+    def cleanup(self) -> None:
+        """Remove temporary files."""
+        self._tempdir.cleanup()
+
+    def _color(self, level):
+        if abs(level) < 1e-9:
+            return "#111111", 2.6  # interface
+        return ("#1f77b4" if level < 0 else "#d62728"), 0.8  # inside / outside
+
+    def GetIsoLineData(self):
+        m = pv.read(self._vtk_files[-1])
+
+        phi = np.asarray(m.point_data["phi"])
+
+        lo = np.floor(float(phi.min()) / self.step) * self.step
+        hi = np.ceil(float(phi.max()) / self.step) * self.step
+        levels = list(np.round(np.arange(lo, hi + self.step / 2, self.step), 4))
+
+        def polys_from_contour(c):
+            c = c.strip(join=True)
+            arr, i, polys = c.lines, 0, []
+            while i < len(arr):
+                n = int(arr[i])
+                ids = arr[i + 1:i + 1 + n]
+                polys.append(c.points[ids][:, :2])
+                i += 1 + n
+            return polys
+
+        iso_contour_dict = {}
+        for lv in levels:
+            c = m.contour([lv], scalars="phi")
+            iso_contour_dict[lv] = polys_from_contour(c) if c.n_points else []
+        return iso_contour_dict
+
+    def UpdateFrame(self, iso_contour_dict):
+        self.ax.clear()
+        for lv, polys in iso_contour_dict.items():
+            col, lw = self._color(lv)
+            for p in polys:
+                self.ax.plot(p[:, 0], p[:, 1], color=col, lw=lw)
+        self.ax.set_aspect("equal")
+        self.ax.margins(0)
+
+    def BeforeLoop(self):
+        self.export_current_step()
+        iso_contour_dict = self.GetIsoLineData()
+        self.list_of_data_dicts.append(iso_contour_dict)
+
+    def ValidateStep(self):
+        self.export_current_step()
+        iso_contour_dict = self.GetIsoLineData()
+        self.list_of_data_dicts.append(iso_contour_dict)
+        self.counter += 1
+
+    def AfterLoop(self):
+        ani = animation.FuncAnimation(self.fig, self.UpdateFrame, frames=self.list_of_data_dicts, interval=200)
+        plt.close(self.fig)
+        display(HTML(ani.to_jshtml()))
+        print(self._tempdir)
+        self.cleanup()
+
+
+### this is just a technical playground for now...
 # I think finally, finally, the pyvista visualizer should be able to draw
 # CutFEM scenes based on a level set and two coefficient functions (neg/pos) (+ mesh deformation)
 # and/or surface quantities based on level set and one coefficient function (+ mesh deformation)
