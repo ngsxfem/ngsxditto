@@ -393,7 +393,7 @@ class H1Conforming(FluidDiscretization):
                                                 facet_restriction=self.facets_ring, check_unused=False)
         stationary_stokes_op += self.stokes_term
 
-        if len(self.boundary_registry.all_bc_dict) == 0:
+        if "interface" not in self.boundary_registry.all_bc_dict.keys():
             stationary_stokes_op += (1e-6 * u * v) * self.lset.dx_neg
             stationary_stokes_op += (1e-4 * InnerProduct(grad(u) - grad(u).trans, grad(v) - grad(v).trans)) * self.lset.dx_neg
         stationary_stokes_op.Assemble(reallocate=True)
