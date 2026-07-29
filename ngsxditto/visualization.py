@@ -234,7 +234,18 @@ class UnfittedNGSWebguiScene(Visualization):
 
 
 class IsoContourPlot(Visualization):
-    def __init__(self, lset, step=0.05, figsize=(5, 5)):
+    """ Animate the evolution of the contour lines of the levelset function unsing matplotlib """
+    def __init__(self, lset: LevelSetGeometry, step:float=0.05, figsize:tuple=(5, 5)):
+        """
+        Parameters:
+        -----------
+        lset: LevelSetGeometry
+            The levelset geometry object that defines the level set function.
+        step: float
+            The step size for contour levels. Each (n * step) level set defines a contour line
+        figsize: tuple
+            The size of the figure for the matplotlib plot.
+        """
         super().__init__()
         self.lset = lset
         self.mesh = self.lset.mesh
@@ -271,11 +282,20 @@ class IsoContourPlot(Visualization):
         self._tempdir.cleanup()
 
     def _color(self, level):
+        """ The color of the level sets """
         if abs(level) < 1e-9:
             return "#111111", 2.6  # interface
         return ("#1f77b4" if level < 0 else "#d62728"), 0.8  # inside / outside
 
     def GetIsoLineData(self):
+        """
+        Transforms the last saved vtk file into usable contour line data
+        Returns:
+        --------
+        iso_contour_dict: dict
+            A dictionary where keys are contour levels and values are lists of polygons (numpy arrays)
+            representing the contour lines at those levels.
+        """
         m = pv.read(self._vtk_files[-1])
 
         phi = np.asarray(m.point_data["phi"])
@@ -301,6 +321,7 @@ class IsoContourPlot(Visualization):
         return iso_contour_dict
 
     def UpdateFrame(self, iso_contour_dict):
+        """ Clears the frame and draws the new contour lines plot. Used to create the animation. """
         self.ax.clear()
         for lv, polys in iso_contour_dict.items():
             col, lw = self._color(lv)
