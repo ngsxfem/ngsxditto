@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.3
+#       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -74,7 +74,8 @@ fluid_params = FluidParameters(viscosity=1e-2)
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
 
-fluid = TaylorHood(mesh, fluid_params, lset=levelset, f=CF((0, 0)), surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, time_order=2)
+fluid = TaylorHood(mesh, fluid_params, lset=levelset, f=CF((0, 0)), surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, time_order=2,
+                  surface_tension_coeff=0.072)
 fluid.Initialize(initial_velocity=CF((0, 0)))
 # %% [markdown]
 # For the unsteady Stokes problem we now want to update our level set based on this field, i.e. $$\mathbf{u} \cdot \mathbf{n}_\Gamma = \mathcal{V}_\Gamma$$ where $\mathcal{V}_\Gamma$ is the velocity of the interface in normal direction. For our level set update we need a velocity field $w$ on the whole domain, not just on the interface. For this we extend the velocity field using a diffusion based algorithm. After our level set update we can then calculate the curvature again to solve a time-step of the Stokes problem.
@@ -95,7 +96,7 @@ velocity_extension.FeedInto(wind, time=t, state=velocity_extension.field)
 velocity_extension.SeedExtrapolators()                       # seed the history with w^0
 levelset.transport.SetWind(wind.gf)                          # transport reads the (mid-step) wind
 
-end_time = 2
+end_time = 4
 
 time_loop = TimeLoop(time=t, dt=dt, end_time=end_time)
 time_loop.SetFinalizeRule(lambda: time_loop.i_inner >= 2)   # monolithic coupling

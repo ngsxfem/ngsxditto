@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.3
+#       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -31,7 +31,7 @@ domain.edges.Max(Y).name = "top"
 mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.15))
 
 # %%
-dt = 0.05
+dt = 0.02
 order = 2
 t = Parameter(0)
 starting_levelset = (5*x**2 + y**2)**(1/2) - 2.0/3.0
@@ -40,12 +40,14 @@ levelset = LevelSetGeometry(transport)
 levelset.Initialize(starting_levelset)
 
 # %%
-fluid1_params = FluidParameters(viscosity=1e-2, surface_tension_coeff=0.2)
+fluid1_params = FluidParameters(viscosity=1e-2)
 fluid2_params = FluidParameters(viscosity=1e-3)
 
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
-fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset, surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, nitsche_stab=100)
+fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset,
+                           surface_tension_coeff=0.2, surface_tension=mean_curvature.H, dt=dt, order=order + 1,
+                           ghost_stab=1, nitsche_stab=100)
 fluid.SetOuterBoundaryCondition(StrongDirichletBC(region=".*", values=CF((0, 0))))
 fluid.Initialize()
 fluid.ValidateStep()

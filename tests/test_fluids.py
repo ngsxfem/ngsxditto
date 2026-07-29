@@ -25,6 +25,7 @@ f = CF((pi * (2 * pi ** 2 * nu * sin(pi * y) * cos(pi * x) - sin(pi * x) * cos(p
 @pytest.mark.parametrize("fluid_type", [TaylorHood])
 def test_fitted_stokes(fluid_type):
     fluid = fluid_type(mesh, order=order, fluid_params=fluid_params, f=f, add_number_space=True)
+    print(fluid.boundary_registry.all_bc_dict)
     fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="top|bottom|right|left", values=true_solution_u))
     fluid.Initialize()
 

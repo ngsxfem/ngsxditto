@@ -17,7 +17,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order:int,
                  lset:LevelSetGeometry, wall_params: WallParameters, time_order:int,
                  f1: CoefficientFunction, f2: CoefficientFunction,  g1: CoefficientFunction,
-                 g2: CoefficientFunction, add_convection:bool,
+                 g2: CoefficientFunction, add_convection:bool, surface_tension_coeff:float,
                  surface_tension: CoefficientFunction, dt:float, nitsche_stab:int, ghost_stab:int, extension_radius:float,
                  derivative_jumps:bool, add_number_space=bool, linearization:str = "newton",
                  extrapolated_advection:bool = False):
@@ -45,6 +45,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             The divergence constraint of the first phase.
         g2: CoefficientFunction
             The divergence constraint of the second phase.
+        surface_tension_coeff: float
+            The surface tension coefficient between the two fluids.
         surface_tension: CoefficientFunction
             The surface tension force.
         dt: float
@@ -72,8 +74,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order, lset=lset,
                          wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, add_convection=add_convection,
-                         surface_tension=surface_tension, dt=dt, time_order=time_order,
-                         derivative_jumps=derivative_jumps, add_number_space=add_number_space,
+                         surface_tension_coeff=surface_tension_coeff, surface_tension=surface_tension, dt=dt,
+                         time_order=time_order, derivative_jumps=derivative_jumps, add_number_space=add_number_space,
                          linearization=linearization, extrapolated_advection=extrapolated_advection)
 
         self.els_outer = None
@@ -190,7 +192,6 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
         nus = [self.nu1, self.nu2]
         rhos = [self.rho1, self.rho2]
-        taus = [self.fluid1_params.surface_tension_coeff, self.fluid2_params.surface_tension_coeff]
         dx_neg = self.lset.dx_neg
         dx_pos = self.lset.dx_pos
         dx_list = [dx_neg, dx_pos]
@@ -244,16 +245,16 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
             for (region, values) in self.boundary_registry.strong_neumann_dict.items():
                 self.lf += values * v[i] * dx(definedon=self.mesh.Boundaries(region))
-
-        self.lf += cos(theta_e) * taus[0] * (v[0] - v[1]) * n_line * d_contact_line
+        tau = self.surface_tension_coeff
+        self.lf += cos(theta_e) * tau * (v[0] - v[1]) * n_line * d_contact_line
         P_Gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
         P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
         eta_L = (P_Gamma * n_bnd)/Norm(P_Gamma * n_bnd)
-        self.lf += P_S * taus[0] * P_Gamma * eta_L * (v[0] - v[1]) * d_contact_line
+        self.lf += P_S * tau * P_Gamma * eta_L * (v[0] - v[1]) * d_contact_line
 
 
         if self.surface_tension is not None:
-            self.lf += -taus[0] * self.surface_tension * (kappa[1] * v[0] + kappa[0] * v[1]) * dS
+            self.lf += -tau * self.surface_tension * (kappa[1] * v[0] + kappa[0] * v[1]) * dS
 
         self.lf.Assemble()
 

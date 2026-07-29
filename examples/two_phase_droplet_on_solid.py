@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.3
+#       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -28,12 +28,14 @@ import ngsolve.webgui as ngw
 from netgen.occ import *
 
 # %%
+maxh = 0.2
 domain = MoveTo(-1, -1).Rectangle(2, 2).Face()
 domain.edges.Max(X).name = "right"
 domain.edges.Min(X).name = "left"
 domain.edges.Min(Y).name = "bottom"
 domain.edges.Max(Y).name = "top"
-mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.15))
+domain.edges.Min(Y).maxh = 0.4 * maxh
+mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=maxh))
 
 # %%
 dt = 2e-2
@@ -41,19 +43,19 @@ order = 2
 t = Parameter(0)
 starting_levelset = (x**2 + (y + 0.75)**2)**0.5 - 1/2
 transport = ExplicitDGTransport(mesh, dt=dt, order=order, compile=False)
-levelset = LevelSetGeometry(transport)
+levelset = LevelSetGeometry(transport, boundary_tangential="bottom")
 levelset.Initialize(starting_levelset)
 ngw.Draw(levelset.field)
 
 # %%
-fluid1_params = FluidParameters(viscosity=1e-1, surface_tension_coeff=1)
+fluid1_params = FluidParameters(viscosity=1e-1)
 fluid2_params = FluidParameters(viscosity=1e-2)
 
 wall_params = WallParameters(region="bottom", contact_angle=pi/3, friction_coeff_surface=1)
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
-fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params,
-                           lset=levelset, nitsche_stab=100, f1=CF((0, -9.8)), f2=CF((0, -9.8)),
+fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset,
+                           nitsche_stab=100, f1=CF((0, -9.8)), f2=CF((0, -9.8)), surface_tension_coeff=1,
                            surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1e-2,
                            add_convection=True, add_number_space=False, time_order=1,
                            wall_params=wall_params)

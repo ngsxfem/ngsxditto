@@ -9,7 +9,7 @@ class FluidParameters:
     """
     This class represents the fluid parameters as a dictionary.
     """
-    def __init__(self, viscosity: float = 1e-3, density: float = 1, surface_tension_coeff: float = 0.072):
+    def __init__(self, viscosity: float = 1e-3, density: float = 1):
         """
             parameters:
                 viscosity: viscosity 
@@ -19,13 +19,12 @@ class FluidParameters:
         # TODO: dynamic and kinematic viscosity
         self.viscosity = viscosity
         self.density = density
-        self.surface_tension_coeff = surface_tension_coeff
-        self.dictionary = {"viscosity": viscosity, "density": density, "surface_tension_coeff": surface_tension_coeff}
+        self.dictionary = {"viscosity": viscosity, "density": density}
 
         # do sanity checks
         # ...
 
-    def Update(self, viscosity: Optional[float] = None, density: Optional[float] = None, surface_tension_coeff: Optional[float] = None) -> dict:
+    def Update(self, viscosity: Optional[float] = None, density: Optional[float] = None) -> dict:
         """
         This class represents wall parameters as a dictionary.
     
@@ -34,15 +33,15 @@ class FluidParameters:
                 density: density rho
                 surface_tension_coeff: surface tension coeff
         """
-        self._UpdateDict(viscosity=viscosity, density=density, surface_tension_coeff=surface_tension_coeff)
+        self._UpdateDict(viscosity=viscosity, density=density)
         return self.dictionary
 
-    def _UpdateDict(self, viscosity=None, density=None, surface_tension_coeff=None):
+    def _UpdateDict(self, viscosity=None, density=None):
         # do not update parameter, get from current parameter
-        for param in ["viscosity", "density", "surface_tension_coeff"]:
+        for param in ["viscosity", "density"]:
             if param == None:
                 param = self.dictionary[param]
-        self.dictionary = {"viscosity": viscosity, "density": density, "surface_tension_coeff": surface_tension_coeff}
+        self.dictionary = {"viscosity": viscosity, "density": density}
 
     def __getitem__(self, param: str) -> float:
         return self.dictionary[param]

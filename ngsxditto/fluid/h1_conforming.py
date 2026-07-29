@@ -17,8 +17,9 @@ class H1Conforming(FluidDiscretization):
     """
     def __init__(self, mesh, fluid_params: FluidParameters, order:int, lset:LevelSetGeometry,
                  wall_params: WallParameters, add_convection:bool, f: CoefficientFunction, g: CoefficientFunction,
-                 surface_tension: CoefficientFunction, dt:float, nitsche_stab:int, ghost_stab:int,
-                 extension_radius:float, derivative_jumps:bool, add_number_space:bool, time_order:int, use_supg:bool):
+                 surface_tension_coeff:float, surface_tension: CoefficientFunction, dt:float,
+                 nitsche_stab:int, ghost_stab:int, extension_radius:float, derivative_jumps:bool, add_number_space:bool,
+                 time_order:int, use_supg:bool):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -40,6 +41,8 @@ class H1Conforming(FluidDiscretization):
             The force term
         g: CoefficientFunction
             The divergence constraint
+        surface_tension_coeff: float
+            The surface tension coefficient between the fluid and the surrounding not modeled air/vacuum.
         surface_tension: CoefficientFunction
             The surface tension force.
         dt: float
@@ -60,9 +63,9 @@ class H1Conforming(FluidDiscretization):
             Whether to use SUPG stabilization for the convection term. (Not yet consistent.)
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
-                         surface_tension=surface_tension, dt=dt, add_convection=add_convection,
-                         derivative_jumps=derivative_jumps, add_number_space=add_number_space, time_order=time_order,
-                         use_supg=use_supg)
+                         surface_tension_coeff=surface_tension_coeff, surface_tension=surface_tension, dt=dt,
+                         add_convection=add_convection, derivative_jumps=derivative_jumps,
+                         add_number_space=add_number_space, time_order=time_order, use_supg=use_supg)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
@@ -193,7 +196,7 @@ class H1Conforming(FluidDiscretization):
         if self.add_convection:
             u_approx = self.intermediate.components[0]
             self.lf += (grad(u_approx) * u_approx) * v * self.lset.dx_neg
-        tau = self.fluid_params.surface_tension_coeff
+        tau = self.surface_tension_coeff
         if self.surface_tension is not None:
             self.lf += - 1/self.rho * tau * self.surface_tension * v * dS
 
@@ -392,8 +395,8 @@ class H1Conforming(FluidDiscretization):
         stationary_stokes_op = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer,
                                                 facet_restriction=self.facets_ring, check_unused=False)
         stationary_stokes_op += self.stokes_term
-
-        if "interface" not in self.boundary_registry.all_bc_dict.keys():
+        lset_is_dummy = abs(Integrate(CF(1)*self.lset.dx_neg, self.mesh) - Integrate(CF(1)*dx, self.mesh)) < 1e-8
+        if "interface" not in self.boundary_registry.all_bc_dict.keys() and not lset_is_dummy:
             stationary_stokes_op += (1e-6 * u * v) * self.lset.dx_neg
             stationary_stokes_op += (1e-4 * InnerProduct(grad(u) - grad(u).trans, grad(v) - grad(v).trans)) * self.lset.dx_neg
         stationary_stokes_op.Assemble(reallocate=True)

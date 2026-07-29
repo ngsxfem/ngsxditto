@@ -15,8 +15,8 @@ class FluidDiscretization(GFStepper):
     Base class for a discretized fluid.
     """
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int, lset:LevelSetGeometry,
-                 wall_params: WallParameters, add_convection:bool,
-                 f:CoefficientFunction, g: CoefficientFunction, surface_tension:CoefficientFunction, dt:float,
+                 wall_params: WallParameters, add_convection:bool, f:CoefficientFunction, g: CoefficientFunction,
+                 surface_tension_coeff:float, surface_tension:CoefficientFunction, dt:float,
                  derivative_jumps:bool, add_number_space:bool, time_order:int, use_supg:bool,
                  time: typing.Optional[Parameter]=None
                  ):
@@ -43,6 +43,8 @@ class FluidDiscretization(GFStepper):
             The force term
         g: CoefficientFunction
             The divergence constraint
+        surface_tension_coeff: float
+            The surface tension coefficient between the fluid and the surrounding not modeled air/vacuum.
         surface_tension: CoefficientFunction
             The surface tension force.
         dt: float
@@ -94,6 +96,7 @@ class FluidDiscretization(GFStepper):
         else:
             self.f = f
         self.g = g
+        self.surface_tension_coeff = surface_tension_coeff
         if surface_tension is None:
             self.surface_tension = default
         else:

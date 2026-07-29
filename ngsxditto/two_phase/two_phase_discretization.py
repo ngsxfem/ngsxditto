@@ -14,8 +14,8 @@ class TwoPhaseDiscretization(GFStepper):
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, dt:float, order: int,
                  lset:LevelSetGeometry, wall_params: WallParameters, add_convection:bool, time_order:int,
                  f1:CoefficientFunction, f2: CoefficientFunction, g1: CoefficientFunction, g2: CoefficientFunction,
-                 surface_tension:CoefficientFunction, derivative_jumps:bool, add_number_space:bool,
-                 linearization:str = "newton", extrapolated_advection:bool = False,
+                 surface_tension_coeff:float, surface_tension:CoefficientFunction, derivative_jumps:bool,
+                 add_number_space:bool, linearization:str = "newton", extrapolated_advection:bool = False,
                  time: typing.Optional[Parameter] = None):
         """
         Creates a two-phase fluid discretization on the given mesh defined by the levelset.
@@ -43,6 +43,8 @@ class TwoPhaseDiscretization(GFStepper):
             The divergence constraint of the first phase.
         g2: CoefficientFunction
             The divergence constraint of the second phase.
+        surface_tension_coeff: float
+            The surface tension coefficient between the two fluids.
         surface_tension: CoefficientFunction
             The surface tension force.
         dt: float
@@ -115,6 +117,7 @@ class TwoPhaseDiscretization(GFStepper):
         self.g2 = g2
         self.derivative_jumps = derivative_jumps
         self.add_number_space = add_number_space
+        self.surface_tension_coeff = surface_tension_coeff
         if surface_tension is None:
             self.surface_tension = default
         else:

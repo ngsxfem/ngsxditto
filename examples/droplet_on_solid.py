@@ -39,23 +39,23 @@ mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=maxh))
 ngw.Draw(mesh)
 
 # %%
-dt = 2e-2
-order = 1
+dt = 1e-2
+order = 2
 t = Parameter(0)
 starting_levelset = (x**2 + (y + 0.75)**2)**0.5 - 0.5
 transport = ExplicitDGTransport(mesh, dt=dt, order=order, compile=False)
-levelset = LevelSetGeometry(transport)
+levelset = LevelSetGeometry(transport, boundary_tangential="bottom")
 levelset.Initialize(starting_levelset)
 ngw.Draw(levelset.field)
 
 # %%
-fluid_params = FluidParameters(viscosity=5e-2, surface_tension_coeff=1)
+fluid_params = FluidParameters(viscosity=5e-2)
 wall_params = WallParameters(region="bottom", contact_angle=pi/2, friction_coeff_surface=0, friction_coeff_line=0)
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
-fluid = TaylorHood(mesh, fluid_params, lset=levelset, nitsche_stab=100, f=CF((0, 0)), surface_tension=mean_curvature.H, dt=dt, 
-                   order=order + 1, ghost_stab=1, add_convection=True, add_number_space=False, time_order=1, use_supg=False,
-                  wall_params=wall_params, extension_radius=0.2)
+fluid = TaylorHood(mesh, fluid_params, lset=levelset, nitsche_stab=100, f=CF((0, 0)), surface_tension_coeff=1,
+                   surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, add_convection=True,
+                   add_number_space=False, time_order=1, use_supg=False, wall_params=wall_params, extension_radius=0.2)
 fluid.SetOuterBoundaryCondition(NitscheVelocityBC(region="right|left", values=CF((0, 0))))
 fluid.SetOuterBoundaryCondition(StrongNormalVelocityBC(region="bottom"))
 fluid.Initialize()
@@ -90,3 +90,7 @@ time_loop.Register(fluid, name="moving stokes")
 time_loop.Register(animation, name="animation")
 
 time_loop()
+
+# %%
+
+# %%

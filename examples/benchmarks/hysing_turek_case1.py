@@ -146,13 +146,13 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
     # --- two-phase Navier–Stokes --------------------------------------------
     # surface tension is one interface property -- the solver reads only fluid1's
     # coefficient, so fluid2 does not carry one
-    fluid1_params = FluidParameters(viscosity=mu1, density=rho1, surface_tension_coeff=sigma)
+    fluid1_params = FluidParameters(viscosity=mu1, density=rho1)
     fluid2_params = FluidParameters(viscosity=mu2, density=rho2)
     mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset, gp_param=1)
     mean_curvature.Step()          # prime H before fluid is constructed
     grav = CF((0, -g))
     fluid = TwoPhaseTaylorHood(
-        mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset,
+        mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset, surface_tension_coeff=sigma,
         surface_tension=mean_curvature.H, f1=grav, f2=grav,   # acceleration, see warning
         dt=dt, order=order + 1, time_order=2, add_convection=True,
         ghost_stab=1, nitsche_stab=100,

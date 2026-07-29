@@ -8,7 +8,8 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, dt:float, order:int=4,
                  lset:LevelSetGeometry=None, wall_params: WallParameters = None, time_order:int=1,
                  f1: CoefficientFunction = None, f2: CoefficientFunction = None,  g1: CoefficientFunction = CF(0),
-                 g2: CoefficientFunction = CF(0), surface_tension: CoefficientFunction = None,
+                 g2: CoefficientFunction = CF(0),
+                 surface_tension_coeff:float=1., surface_tension: CoefficientFunction = None,
                  add_convection:bool =False, derivative_jumps:bool=False, add_number_space:bool=False,
                  nitsche_stab:int=100, ghost_stab:int=20, extension_radius:float=0.2,
                  linearization:str = "newton", extrapolated_advection:bool = False):
@@ -27,6 +28,7 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order,
                          lset=lset,wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, time_order=time_order,
+                         surface_tension_coeff=surface_tension_coeff,
                          surface_tension=surface_tension, dt=dt, add_convection=add_convection,
                          nitsche_stab=nitsche_stab, ghost_stab=ghost_stab, extension_radius=extension_radius,
                          derivative_jumps=derivative_jumps, add_number_space=add_number_space,
