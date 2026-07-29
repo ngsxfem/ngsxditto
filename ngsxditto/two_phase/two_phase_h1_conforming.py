@@ -246,6 +246,11 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                 self.lf += values * v[i] * dx(definedon=self.mesh.Boundaries(region))
 
         self.lf += cos(theta_e) * taus[0] * (v[0] - v[1]) * n_line * d_contact_line
+        P_Gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
+        P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
+        eta_L = (P_Gamma * n_bnd)/Norm(P_Gamma * n_bnd)
+        self.lf += P_S * taus[0] * P_Gamma * eta_L * (v[0] - v[1]) * d_contact_line
+
 
         if self.surface_tension is not None:
             self.lf += -taus[0] * self.surface_tension * (kappa[1] * v[0] + kappa[0] * v[1]) * dS
