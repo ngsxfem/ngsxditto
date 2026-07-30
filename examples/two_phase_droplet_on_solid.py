@@ -43,7 +43,11 @@ order = 2
 t = Parameter(0)
 starting_levelset = (x**2 + (y + 0.75)**2)**0.5 - 1/2
 transport = ExplicitDGTransport(mesh, dt=dt, order=order, compile=False)
-levelset = LevelSetGeometry(transport, boundary_tangential="bottom")
+redistancing = MinimizationBasedRedistancing(initializer=FastMarching())
+autoredistancing = PeriodicRedistancing(20)
+levelset = LevelSetGeometry(transport, redistancing=redistancing,
+                            autoredistancing=autoredistancing, 
+                            boundary_tangential="bottom")
 levelset.Initialize(starting_levelset)
 ngw.Draw(levelset.field)
 
