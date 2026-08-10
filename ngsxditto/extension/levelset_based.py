@@ -89,6 +89,7 @@ class LevelsetBasedExtension(ExtrapolatorSource, StatelessStepper):
         self.field = GridFunction(self.V)
         self.rhs = rhs
         self.q = q
+        self._extrapolator_field = self.field
 
 
     def SetRhs(self, rhs):

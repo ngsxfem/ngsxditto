@@ -91,9 +91,7 @@ velocity_extension = LevelsetBasedExtension(levelset, gamma=1e-3, order=order)
 velocity_extension.SetRhs(fluid.gfu)
 velocity_extension.Step()                                    # compute the initial wind w^0
 
-wind = Extrapolator(order=1)
-velocity_extension.FeedInto(wind, time=t, state=velocity_extension.field)
-velocity_extension.SeedExtrapolators()                       # seed the history with w^0
+wind = velocity_extension.Extrapolator(time=t, order=1)      # fed from w, seeded with w^0
 levelset.transport.SetWind(wind.gf)                          # transport reads the (mid-step) wind
 
 end_time = 4

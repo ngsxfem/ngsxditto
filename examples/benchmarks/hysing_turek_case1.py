@@ -174,10 +174,7 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
     velocity_extension.SetRhs(fluid.gfu.components[0])
     velocity_extension.Step()      # initial value at t=0
     if wind == "extrapolate":
-        wind_ex = Extrapolator(order=1)
-        velocity_extension.FeedInto(wind_ex, time=t, state=velocity_extension.field)
-        velocity_extension.SeedExtrapolators()
-        wind_predictor = Predictor(wind_ex, time=t, offset=-dt / 2)
+        wind_predictor = velocity_extension.Predictor(time=t, order=1, offset=-dt / 2)
         levelset.transport.SetWind(wind_predictor.gf)
     else:
         levelset.transport.SetWind(velocity_extension.field)

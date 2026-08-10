@@ -25,11 +25,16 @@
 #   samples and evaluate it at any other time.
 # * `ExtrapolatorSource`: a stepper mixin that feeds an `Extrapolator`
 #   automatically, at the right point in a solver loop.
+#
+# On top of these, `Predictor` (a ready-to-register stepper evaluating an
+# `Extrapolator` at a fixed time offset) and the convenience factories
+# `source.Extrapolator(...)` / `source.Predictor(...)` remove the remaining
+# glue -- see Part 3.
 
 # %%
 import numpy as np
 from ngsolve import *
-from ngsxditto.extrapolation import Extrapolator, ExtrapolatorSource
+from ngsxditto.extrapolation import Extrapolator, ExtrapolatorSource, Predictor
 from ngsxditto.stepper import GFStepper
 
 mesh = Mesh(unit_square.GenerateMesh(maxh=0.3))
@@ -119,3 +124,41 @@ for step in range(2):
               f"exact={exact(mid):.4f}")
         producer.AcceptIntermediate()                       # feeds `every_iter` only
     producer.ValidateStep()                                 # feeds both (validated_only catches up)
+
+# %% [markdown]
+# ## Part 3: convenience factories -- `Extrapolator` / `Predictor` on the source
+#
+# The three lines "create -- `FeedInto` -- `SeedExtrapolators`" of Part 2 are
+# the usual boilerplate, so `ExtrapolatorSource` offers them as one call:
+#
+# ```python
+# wind = producer.Extrapolator(time=t, order=1)     # created, wired up and seeded
+# ```
+#
+# The fed state is the source's `_extrapolator_field` -- a class attribute a
+# stepper sets to whatever it produces (e.g. `LevelsetBasedExtension` sets it to
+# its `field`); if it stays `None`, the stepper's `current` is used, as here.
+# Pass `initialize=False` to skip the initial seeding.
+#
+# The *evaluation* side has a counterpart: `Predictor` is a stepper that
+# evaluates an extrapolator at `time + offset` on every `Step`, so it can be
+# registered in a `TimeLoop` directly instead of a hand-written lambda. Again
+# there is a one-call factory combining both halves:
+
+# %%
+t = Parameter(0.0)
+producer = ToyWind(fes)
+producer.Step(t.Get())                                      # w^0
+
+# the whole wind handover -- extrapolator, feeding, seeding and evaluation:
+wind = producer.Predictor(time=t, order=1, offset=-dt / 2)  # interval-centred
+# time_loop.Register(wind, name="wind")                     # ... before the transport
+
+# %%
+for step in range(2):
+    t.Set(t.Get() + dt)
+    wind.Step()                                             # what the loop would call
+    mid = t.Get() - dt / 2
+    print(f"step {step}: predictor={wind.gf.vec[0]:.4f}  exact={exact(mid):.4f}")
+    producer.Step(t.Get())
+    producer.ValidateStep()                                 # feeds the new endpoint

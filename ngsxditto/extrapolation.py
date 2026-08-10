@@ -1,12 +1,12 @@
 """Time extrapolation/interpolation of state history for coupled problems.
 
-:class:`Extrapolator` stores states with associated time and allows to 
+:class:`Extrapolator` stores states with associated time and allows to
 extra-/interpolate (through polynomial interpolation) at a different time.
 
-It is fed with ``(time, state)`` and stores up to ``order + 1`` states 
-in a ring buffer. 
+It is fed with ``(time, state)`` and stores up to ``order + 1`` states
+in a ring buffer.
 
-At startup (too few states yet) only available data is used reducing 
+At startup (too few states yet) only available data is used reducing
 the *effective* order to ``len(history) - 1``
 (see :meth:`Extrapolator.EffectiveOrder`).
 
@@ -22,9 +22,9 @@ Typical behaviour in a coupled loop:
   between ``w^n`` and the (now available) ``w^{n+1}``.
 
 A :class:`Stepper` is a good candidate to be an `Extrapolator` at the same time.
-A :class:`ExtrapolatorSource` implements such a superclass:  
+A :class:`ExtrapolatorSource` implements such a superclass:
 * at the end of each (sub-)iteration, feeds its state to the extrapolator.
-The default behavior is to do that *every* iteration, but with the 
+The default behavior is to do that *every* iteration, but with the
 ``only_on_validate`` flag feeding is only done on validated steps.
 """
 import bisect
@@ -232,6 +232,12 @@ class ExtrapolatorSource:
     authority); ``state`` defaults to the stepper's ``current`` state.
     """
 
+    #: State handed to the extrapolators created by the :meth:`Extrapolator` /
+    #: :meth:`Predictor` convenience functions. Subclasses that do not keep
+    #: their state in ``current`` set this in their ``__init__``; ``None``
+    #: falls back to ``self.current`` (see :meth:`FeedInto`).
+    _extrapolator_field = None
+
     def FeedInto(self, extrapolator: "Extrapolator", time, state=None,
                  only_on_validate: bool = False):
         """Associate ``extrapolator`` to be fed from ``state`` at ``time``.
@@ -275,6 +281,55 @@ class ExtrapolatorSource:
     def ValidateStep(self):
         self._feed_extrapolators(validated=True)
         super().ValidateStep()
+
+    # --- convenience factories ----------------------------------------------
+    def Extrapolator(self, time, order: int, atol: float = 1e-10,
+                     rtol: float = 1e-9, initialize: bool = True):
+        """Create an :class:`Extrapolator` already fed from this stepper.
+
+        Shorthand for building an :class:`Extrapolator` and wiring it up with
+        :meth:`FeedInto` (from :attr:`_extrapolator_field`, i.e. ``current``
+        unless the subclass says otherwise)::
+
+            wind = velocity_extension.Extrapolator(time=t, order=1)
+
+        Parameters
+        ----------
+        time: ngsolve.Parameter
+            The (loop-owned) time parameter, see :meth:`FeedInto`.
+        order: int
+            Target polynomial order, see :class:`Extrapolator`.
+        atol, rtol: float
+            Coincident-time tolerances, see :class:`Extrapolator`.
+        initialize: bool
+            If ``True`` (default), immediately seed the extrapolator with the
+            current state (:meth:`SeedExtrapolators`), so it is usable before
+            the first step.
+        """
+        extrapolator = Extrapolator(order, atol, rtol)
+        self.FeedInto(extrapolator, time, self._extrapolator_field)
+        if initialize:
+            self.SeedExtrapolators()
+        return extrapolator
+
+    def Predictor(self, time, order: int, offset: float = 0.0,
+                  atol: float = 1e-10, rtol: float = 1e-9,
+                  initialize: bool = True):
+        """Create a ready-to-register :class:`Predictor` fed from this stepper.
+
+        Combines :meth:`Extrapolator` with the evaluation side, yielding a
+        stepper that predicts this stepper's state at ``time.Get() + offset``::
+
+            wind = velocity_extension.Predictor(time=t, order=1, offset=-dt / 2)
+            transport.SetWind(wind.gf)
+            time_loop.Register(wind, name="wind")
+
+        Parameters are those of :meth:`Extrapolator`, plus ``offset`` (see
+        :class:`Predictor`: 0 for an end-point predictor, ``-dt/2`` for the
+        interval-centred midpoint).
+        """
+        extrapolator = self.Extrapolator(time, order, atol, rtol, initialize)
+        return Predictor(extrapolator, time, offset)
 
 
 class Predictor(StatelessStepper):
