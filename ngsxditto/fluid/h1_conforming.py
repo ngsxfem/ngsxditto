@@ -7,6 +7,7 @@ from ngsxditto.levelset import LevelSetGeometry, DummyLevelSet
 from ngsxditto import direct_solver_spd, direct_solver_nonspd
 from ngsxditto.progress_info import TimeProgressTracker
 from .meancurv import *
+import typing
 import ngsolve.webgui as ngw
 
 logger = logging.getLogger(__name__)
