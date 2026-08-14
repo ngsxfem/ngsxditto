@@ -19,6 +19,9 @@ build_src:
 test_src:
     stage: test
     image: python:3.12
+    variables:
+        NGS_NUM_THREADS: "1"
+        OMP_NUM_THREADS: "1"
     script:
         - python3 -m venv .venv
         - source .venv/bin/activate
