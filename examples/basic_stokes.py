@@ -65,6 +65,7 @@ uin = CF((4*y*(1-y),0)) # parabolic inflow
 fluid = TaylorHood(mesh, order=order, fluid_params=fluid_params, f=CF((8, 0)), add_number_space=True)
 fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="left|bottom|top", values=uin))
 fluid.InitializeSpaces()
+fluid.InitializeGridFunctions()
 
 # %% [markdown]
 # Next up, we want to initialize and assemble the variational formulation.

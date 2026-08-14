@@ -3,7 +3,7 @@ from ngsolve import Parameter
 import typing
 
 
-class ProgressInfo(StatefulStepper):
+class ProgressTracker(StatefulStepper):
     """
     This class keeps track of the progress.
     """
@@ -15,7 +15,7 @@ class ProgressInfo(StatefulStepper):
         raise NotImplementedError("GetProgressInfo not implemented in base class")
 
 
-class DummyProgressInfo(ProgressInfo):
+class DummyProgressTracker(ProgressTracker):
     """
     Always returns 0 and can not be incremented.
     """
@@ -41,7 +41,7 @@ class DummyProgressInfo(ProgressInfo):
     def ComputeDifference2Intermediate(self):
         return 0
 
-class TimeProgressInfo(ProgressInfo):
+class TimeProgressTracker(ProgressTracker):
     """
     In this class the progress is defined by elapsed time.
     """
@@ -76,8 +76,6 @@ class TimeProgressInfo(ProgressInfo):
         """
         return (self.time.Get() - self.start_time) / (self.end_time - self.start_time)
 
-
-
     def Step(self):
         self.Increment()
 
@@ -110,7 +108,7 @@ class TimeProgressInfo(ProgressInfo):
         return abs(self.intermediate.Get() - self.current.Get())
 
 
-class IterationProgressInfo(ProgressInfo):
+class IterationProgressTracker(ProgressTracker):
     def __init__(self, n_end: int=10, n_start: int=0):
         super().__init__()
         self.n = self.n_start =  n_start

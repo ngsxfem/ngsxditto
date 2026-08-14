@@ -14,7 +14,7 @@ def timed_method(fn=None, name=None):
 
         def wrapper(self, *args, **kwargs):
             # if object is registered in solver -> exclusive
-            exclusive = getattr(self, "_solver", None) is not None
+            exclusive = getattr(self, "_progress_tracker", None) is not None
             with self.timer(section, exclusive=exclusive, timed_method=True):
                 return fn(self, *args, **kwargs)
         wrapper._timed_section = True
@@ -29,7 +29,7 @@ _current_object = threading.local()
 class Timed:
     def __init__(self):
         self.times = defaultdict(float)
-        self._solver = None
+        self._progress_tracker = None
 
     @contextmanager
     def timer(self, section, exclusive=True, timed_method=False):
@@ -71,7 +71,7 @@ class Timed:
 
     def TimeExtra(self, fn, name):
         def wrapper(*args, **kwargs):
-            exclusive = self._solver is not None
+            exclusive = self._progress_tracker is not None
             with self.timer(name, exclusive=exclusive):
                 return fn(*args, **kwargs)
 

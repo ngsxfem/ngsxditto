@@ -74,7 +74,7 @@ fluid_params = FluidParameters(viscosity=1e-2)
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
 
-fluid = TaylorHood(mesh, fluid_params, lset=levelset, f=CF((0, 0)), surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, time_order=2,
+fluid = TaylorHood(mesh, fluid_params, lset=levelset, f=CF((0, 0)), surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, time_order=2, advection=False,
                   surface_tension_coeff=0.072)
 fluid.Initialize(initial_velocity=CF((0, 0)))
 # %% [markdown]

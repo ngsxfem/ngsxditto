@@ -3,8 +3,8 @@ from ngsxditto.solver import *
 
 def test_solver_without_inner_loop():
     n_iterations = 10
-    progress_info = IterationProgressInfo(n_end=n_iterations)
-    solver = Solver(stopping_rule=None, progress_info=progress_info)
+    progress_info = IterationProgressTracker(n_end=n_iterations)
+    solver = Solver(stopping_rule=None, progress_tracker=progress_info)
     solver.stopping_rule = lambda: solver.i_outer == n_iterations
 
     n_list = []
@@ -19,13 +19,13 @@ def test_solver_without_inner_loop():
     solver()
     assert solver.i_outer == n_iterations
     assert n_list == ["start"] + [i for i in range(n_iterations)] + ["end"]
-    assert solver.progress_info.GetProgressInfo() == 1.
+    assert solver.progress_tracker.GetProgressInfo() == 1.
 
 
 def test_solver_with_inner_loop():
     n_iterations = 10
-    progress_info = IterationProgressInfo(n_end=n_iterations)
-    solver = Solver(stopping_rule=None, progress_info=progress_info)
+    progress_info = IterationProgressTracker(n_end=n_iterations)
+    solver = Solver(stopping_rule=None, progress_tracker=progress_info)
     solver.stopping_rule = lambda: solver.i_outer == n_iterations
     solver.should_finalize = lambda: solver.i_inner % 2 == 0
 
@@ -43,5 +43,5 @@ def test_solver_with_inner_loop():
     solver()
     assert solver.i_outer == n_iterations
     assert n_list == ["start"] + [i for i in range(n_iterations)] + ["end"]
-    assert solver.progress_info.GetProgressInfo() == 1.
+    assert solver.progress_tracker.GetProgressInfo() == 1.
 

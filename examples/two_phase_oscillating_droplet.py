@@ -47,7 +47,7 @@ mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
 fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset,
                            surface_tension_coeff=0.2, surface_tension=mean_curvature.H, dt=dt, order=order + 1,
-                           ghost_stab=1, nitsche_stab=100)
+                           ghost_stab=1, nitsche_stab=100, advection=False)
 fluid.SetOuterBoundaryCondition(StrongDirichletBC(region=".*", values=CF((0, 0))))
 fluid.Initialize()
 fluid.ValidateStep()

@@ -84,7 +84,7 @@ def test_stokes_convergence():
             levelset = LevelSetGeometry.from_cf(levelset_function, order=order, mesh=mesh)
             fluid_params = FluidParameters(viscosity=nu)
             fluid = TaylorHood(mesh, fluid_params, lset=levelset, order=order, dt=dt,
-                               f=grad_pressure, add_convection=False, ghost_stab=1e-3, nitsche_stab=200,
+                               f=grad_pressure, advection=False, ghost_stab=1e-3, nitsche_stab=200,
                                extension_radius=0.2, add_number_space=True)
             fluid.SetInnerBoundaryCondition(true_velocity)
             fluid.Initialize(initial_velocity=true_velocity)

@@ -54,7 +54,7 @@ ngw.Draw(levelset.field)
 
 # %%
 fluid_params = FluidParameters(viscosity=1e-1)
-fluid = TaylorHood(mesh, fluid_params, order=order, lset=levelset, dt=dt)
+fluid = TaylorHood(mesh, fluid_params, order=order, lset=levelset, dt=dt, advection=False)
 
 fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="left", values=CF(((1-y)*(1+y), 0))))
 fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="top|bottom", values=CF((0, 0))))

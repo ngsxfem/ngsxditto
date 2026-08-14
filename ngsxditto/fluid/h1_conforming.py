@@ -5,6 +5,7 @@ from .params import FluidParameters, WallParameters
 from .discretization import FluidDiscretization
 from ngsxditto.levelset import LevelSetGeometry, DummyLevelSet
 from ngsxditto import direct_solver_spd, direct_solver_nonspd
+from ngsxditto.progress_info import TimeProgressTracker
 from .meancurv import *
 import ngsolve.webgui as ngw
 
@@ -16,10 +17,10 @@ class H1Conforming(FluidDiscretization):
     This class handles all H1-conforming fluid discretizations.
     """
     def __init__(self, mesh, fluid_params: FluidParameters, order:int, lset:LevelSetGeometry,
-                 wall_params: WallParameters, add_convection:bool, f: CoefficientFunction, g: CoefficientFunction,
+                 wall_params: WallParameters, advection:typing.Union[bool, CoefficientFunction], f: CoefficientFunction, g: CoefficientFunction,
                  surface_tension_coeff:float, surface_tension: CoefficientFunction, dt:float,
                  nitsche_stab:int, ghost_stab:int, extension_radius:float, derivative_jumps:bool, add_number_space:bool,
-                 time_order:int, use_supg:bool):
+                 time_order:int, use_supg:bool, linearization: str, extrapolated_advection: bool):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -64,8 +65,9 @@ class H1Conforming(FluidDiscretization):
         """
         super().__init__(mesh=mesh, fluid_params=fluid_params, order=order, lset=lset, wall_params=wall_params, f=f, g=g,
                          surface_tension_coeff=surface_tension_coeff, surface_tension=surface_tension, dt=dt,
-                         add_convection=add_convection, derivative_jumps=derivative_jumps,
-                         add_number_space=add_number_space, time_order=time_order, use_supg=use_supg)
+                         advection=advection, derivative_jumps=derivative_jumps,
+                         add_number_space=add_number_space, time_order=time_order, use_supg=use_supg,
+                         linearization=linearization, extrapolated_advection=extrapolated_advection)
         self.active_dofs=None
         self.els_outer = None
         self.facets_ring = None
@@ -157,6 +159,24 @@ class H1Conforming(FluidDiscretization):
                            "ghost penalty for this step", e)
             self.ghost_facets = self.facets_ring
 
+    def _advection_velocity(self):
+        """The (frozen, non-unknown) advecting velocity beta used to linearize
+        the convective term for phase i, per ``self.extrapolated_advection``
+        (see ``__init__``): the current Picard/Newton iterate, or a
+        history-extrapolated, sub-iteration-refined predictor for u^{n+1}
+        (`self._adv_extrapolator`, fed in `ValidateStep`/`AcceptIntermediate`)."""
+        if isinstance(self.advection, CoefficientFunction):
+            beta = self.advection
+            return beta
+        if self.extrapolated_advection:
+            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+                beta = self._adv_extrapolator.Evaluate(self._progress_tracker.time.Get() + self._progress_tracker.dt)
+            else:
+                beta = self._adv_extrapolator.Evaluate(self.n_validated_steps + 1)
+        else:
+            beta = self.intermediate.components[0]
+        return beta
+
     def InitializeForms(self):
         self.AssembleAllForms()
         self.InvertTimeStepping()
@@ -164,7 +184,7 @@ class H1Conforming(FluidDiscretization):
     def AssembleAllForms(self):
         self.AssembleLf()
 
-        if self.add_convection:
+        if self.advection != False:
             self.AssembleConvection()
 
         self.AssembleStokes()
@@ -193,8 +213,8 @@ class H1Conforming(FluidDiscretization):
         self.lf = LinearForm(self.fes)
         self.lf += self.f * v * dx_neg
         self.lf += self.g * q * dx_neg
-        if self.add_convection:
-            u_approx = self.intermediate.components[0]
+        if self.advection==True and self.linearization == "newton":
+            u_approx = self._advection_velocity()
             self.lf += (grad(u_approx) * u_approx) * v * self.lset.dx_neg
         tau = self.surface_tension_coeff
         if self.surface_tension is not None:
@@ -341,18 +361,19 @@ class H1Conforming(FluidDiscretization):
         v, q = test[0], test[1]
 
         dx_neg = self.lset.dx_neg
-        u_approx = self.intermediate.components[0]
+        beta = self._advection_velocity()
 
-        self.conv = self.conv = (grad(u) * u_approx) * v * dx_neg + (grad(u_approx) * u) * v * dx_neg
-
+        self.conv = self.conv = (grad(u) * beta) * v * dx_neg
+        if self.advection == True and self.linearization == "newton":
+            self.conv += (grad(beta) * u) * v * dx_neg
         if self.use_supg:
             h = specialcf.mesh_size
             W = L2(self.mesh, order=0)
             gamma_gfu = GridFunction(W)
-            gamma_gfu.Set(h / (2 * Norm(u_approx) + 1e-8))
+            gamma_gfu.Set(h / (2 * Norm(beta) + 1e-8))
             gamma_cf = CoefficientFunction(gamma_gfu)
 
-            self.conv += gamma_cf * (InnerProduct(grad(u) * u_approx,  grad(v) * u_approx)) * dx_neg
+            self.conv += gamma_cf * (InnerProduct(grad(u) * beta,  grad(v) * beta)) * dx_neg
 
     @timed_method
     def AssembleTimeStepping(self):
@@ -368,13 +389,13 @@ class H1Conforming(FluidDiscretization):
         self.mass_op.Assemble(reallocate=True)
         # implicit factor of the effective scheme: the first validated step
         # runs backward Euler (full dt), afterwards BDF2 (startup consistency).
-        beta = 1.0 if self.EffectiveTimeOrder() == 1 else 2.0 / 3.0
+        time_factor = 1.0 if self.EffectiveTimeOrder() == 1 else 2.0 / 3.0
         self.m_star = RestrictedBilinearForm(self.fes, element_restriction=self.els_outer, facet_restriction=self.facets_ring, check_unused=False)
-        self.m_star += self.mass + beta * self.dt * self.stokes_term
-        if self.add_convection:
-            self.m_star += beta * self.dt * self.conv
+        self.m_star += self.mass + time_factor * self.dt * self.stokes_term
+        if self.advection != False:
+            self.m_star += time_factor * self.dt * self.conv
         self.m_star.Assemble(reallocate=True)
-        self._assembled_beta = beta
+        self._assembled_time_factor = time_factor
 
     @timed_method
     def InvertTimeStepping(self):
@@ -408,15 +429,15 @@ class H1Conforming(FluidDiscretization):
     def Step(self):
         # BDF scheme of the effective order (startup: step 1 = backward Euler).
         if self.EffectiveTimeOrder() == 1:   # startup: backward Euler
-            weights, beta = (1.0,), 1.0
+            weights, time_factor = (1.0,), 1.0
         else:                                # BDF2
-            weights, beta = (4.0 / 3.0, -1.0 / 3.0), 2.0 / 3.0
-        if beta != self._assembled_beta:
+            weights, time_factor = (4.0 / 3.0, -1.0 / 3.0), 2.0 / 3.0
+        if time_factor != self._assembled_time_factor:
             self.AssembleTimeStepping()
             self.InvertTimeStepping()
         self.AssembleLf()
         history = (self.past, self.ancient)
-        res = beta * self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+        res = time_factor * self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
         for w_i, u_i in zip(weights, history):
             res += w_i * (self.mass_op.mat * u_i.vec)
         self.gfup.vec.data += self.inv * res
