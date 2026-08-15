@@ -258,12 +258,12 @@ class TimeLoop(Solver):
             return self.time.Get() >= self.end_time - 0.1*self.dt
 
 
-        self.progress_info = TimeProgressTracker(self.time, self.end_time, self.dt)
+        self.progress_tracker = TimeProgressTracker(self.time, self.end_time, self.dt)
         self.show_profiles = show_profiles
-        super().__init__(stopping_rule=reached_final_time, progress_tracker=self.progress_info,
+        super().__init__(stopping_rule=reached_final_time, progress_tracker=self.progress_tracker,
                          should_finalize=should_finalize, should_revert=should_revert, display_progress_bar=display_progress_bar,
                          show_profiles=show_profiles, pajetrace=pajetrace, num_threads=num_threads)
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
-        self.progress_info.SetTimeStepSize(dt)
+        self.progress_tracker.SetTimeStepSize(dt)
