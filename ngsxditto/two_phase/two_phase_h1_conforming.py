@@ -21,8 +21,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                  f1: CoefficientFunction, f2: CoefficientFunction,  g1: CoefficientFunction,
                  g2: CoefficientFunction, advection:typing.Union[bool, CoefficientFunction], surface_tension_coeff:float,
                  surface_tension: CoefficientFunction, dt:float, nitsche_stab:int, ghost_stab:int, extension_radius:float,
-                 derivative_jumps:bool, add_number_space=bool, linearization:str = "newton",
-                 extrapolated_advection:bool = False):
+                 derivative_jumps:bool, add_number_space:bool, linearization:str,
+                 extrapolated_advection:bool):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:

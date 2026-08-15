@@ -16,7 +16,7 @@ class TwoPhaseDiscretization(GFStepper):
                  lset:LevelSetGeometry, wall_params: WallParameters, advection:typing.Union[bool, CoefficientFunction], time_order:int,
                  f1:CoefficientFunction, f2: CoefficientFunction, g1: CoefficientFunction, g2: CoefficientFunction,
                  surface_tension_coeff:float, surface_tension:CoefficientFunction, derivative_jumps:bool,
-                 add_number_space:bool, linearization:str = "newton", extrapolated_advection:bool = False,
+                 add_number_space:bool, linearization:str, extrapolated_advection:bool,
                  time: typing.Optional[Parameter] = None):
         """
         Creates a two-phase fluid discretization on the given mesh defined by the levelset.
@@ -308,7 +308,8 @@ class TwoPhaseDiscretization(GFStepper):
     def ValidateStep(self):
         self.ancient.vec.data = self.past.vec
         super().ValidateStep()
-        self.n_validated_steps += 1
+        if not self._priming:
+            self.n_validated_steps += 1
         if self.extrapolated_advection and not self._priming:
             if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
                 self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.past.components[0])
