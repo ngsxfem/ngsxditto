@@ -1,35 +1,53 @@
-"""Redistancing as a distance-function solver -- a tangible fitted warm-up.
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.19.4
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
+# ---
 
-Before the abstract two-phase level-set setting (see
-``redistancing_initializers.py``), here is the most tangible possible picture
-of *what redistancing computes*: the distance, within a room, to the door.
+# %% [markdown]
+# # Redistancing as a distance solver: distance to a door
+#
+# Before the abstract two-phase level-set setting (see
+# `redistancing_initializers.ipynb`), here is the most tangible possible picture
+# of *what redistancing computes*: the distance, within a room, to the door.
+#
+# Redistancing turns an arbitrary field into a signed-distance function by
+# iterating `|grad(phi)| = 1` while keeping `phi = 0` fixed on a source set.
+# `MinimizationBasedRedistancing` does exactly this on an UNFITTED level set:
+# it pins `phi = 0` on the cut interface (via `dCut(...)`) and, each
+# iteration, solves the lagged-diffusivity linear system
+#
+# ```
+# grad(phi_new) . grad(v) dX  +  alpha * phi_new * v * dS_source
+#     =  (1/|grad(phi_cur)|) * grad(phi_cur) . grad(v) dX .
+# ```
+#
+# This script runs the *identical* iteration, but on a plain FITTED mesh with
+# the source being a real mesh BOUNDARY segment (the "door", via `ds(...)`)
+# rather than a level-set interface -- so `phi` becomes the (unsigned)
+# distance to the door. No unfitted/CutFEM machinery at all; the room even has a
+# few tables cut out as holes, so the mesh geometry is non-trivial.
+#
+# It also shows an important limitation that directly motivates the
+# `initializer=` option in `redistancing_initializers.ipynb`: this elliptic
+# relaxation is diffusive, so it produces a smooth distance-*like* field but does
+# NOT resolve the causal "shadow" behind an obstacle (a point tucked behind a
+# table comes out at almost the same value as an equally-far point in the open).
+# A causal method -- graph shortest-path / fast marching -- does resolve it. In
+# the level-set setting that causal method is exactly `FastMarching`, which is
+# why using it as an `initializer=` for the elliptic minimizer gives the best
+# of both worlds: the causal method lays down the correct global structure, the
+# elliptic minimizer polishes it to `|grad(phi)| = 1`.
 
-Redistancing turns an arbitrary field into a signed-distance function by
-iterating ``|grad(phi)| = 1`` while keeping ``phi = 0`` fixed on a source set.
-``MinimizationBasedRedistancing`` does exactly this on an UNFITTED level set:
-it pins ``phi = 0`` on the cut interface (via ``dCut(...)``) and, each
-iteration, solves the lagged-diffusivity linear system
-
-    grad(phi_new) . grad(v) dX  +  alpha * phi_new * v * dS_source
-        =  (1/|grad(phi_cur)|) * grad(phi_cur) . grad(v) dX .
-
-This script runs the *identical* iteration, but on a plain FITTED mesh with
-the source being a real mesh BOUNDARY segment (the "door", via ``ds(...)``)
-rather than a level-set interface -- so ``phi`` becomes the (unsigned)
-distance to the door. No unfitted/CutFEM machinery at all; the room even has a
-few tables cut out as holes, so the mesh geometry is non-trivial.
-
-It also shows an important limitation that directly motivates the
-``initializer=`` option in ``redistancing_initializers.py``: this elliptic
-relaxation is diffusive, so it produces a smooth distance-*like* field but does
-NOT resolve the causal "shadow" behind an obstacle (a point tucked behind a
-table comes out at almost the same value as an equally-far point in the open).
-A causal method -- graph shortest-path / fast marching -- does resolve it. In
-the level-set setting that causal method is exactly ``FastMarching``, which is
-why using it as an ``initializer=`` for the elliptic minimizer gives the best
-of both worlds: the causal method lays down the correct global structure, the
-elliptic minimizer polishes it to ``|grad(phi)| = 1``.
-"""
+# %%
 import heapq
 import numpy as np
 from netgen.occ import WorkPlane, OCCGeometry
@@ -39,7 +57,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 
-# ── Fitted room geometry: door boundary segment + tables as holes ──────────────
+# %% [markdown]
+# ## Fitted room geometry: door boundary segment + tables as holes
+
+# %%
 W, H = 8.0, 5.0
 door_lo, door_hi = 3.0, 4.0
 
@@ -64,7 +85,10 @@ for e in domain.edges:
 mesh = Mesh(OCCGeometry(domain, dim=2).GenerateMesh(maxh=0.12))
 print(f"room mesh: {mesh.ne} elements, {mesh.nv} vertices")
 
-# ── (1) elliptic distance-to-door: the MinimizationBasedRedistancing iteration ─
+# %% [markdown]
+# ## (1) Elliptic distance-to-door: the MinimizationBasedRedistancing iteration
+
+# %%
 order, n_iter = 2, 25
 fes = H1(mesh, order=order)
 phi, v = fes.TnT()
@@ -87,9 +111,13 @@ for _ in range(n_iter):
 res = sqrt(Integrate((Norm(grad(phi_ell)) - 1) ** 2, mesh) / Integrate(CF(1), mesh))
 print(f"elliptic relaxation: rms(|grad phi| - 1) = {res:.4f}")
 
-# ── (2) causal distance-to-door: graph shortest path (Dijkstra) from the door ──
-# same idea as FastMarching, propagating along mesh edges -- obstacles (holes)
+# %% [markdown]
+# ## (2) Causal distance-to-door: graph shortest path (Dijkstra) from the door
+#
+# Same idea as `FastMarching`, propagating along mesh edges -- obstacles (holes)
 # have no edges through them, so the distance must genuinely detour around them.
+
+# %%
 V1 = H1(mesh, order=1)
 v2d = {vtx: V1.GetDofNrs(vtx)[0] for vtx in mesh.vertices}
 d2v = {d: vtx for vtx, d in v2d.items()}
@@ -119,7 +147,10 @@ phi_causal = GridFunction(V1)
 for vtx, d in v2d.items():
     phi_causal.vec[d] = dist[d]
 
-# ── figure ─────────────────────────────────────────────────────────────────────
+# %% [markdown]
+# ## Figure
+
+# %%
 verts = np.array([list(p.point) for p in mesh.vertices])
 tris = np.array([[w.nr for w in el.vertices] for el in mesh.Elements(VOL)])
 tri = mtri.Triangulation(verts[:, 0], verts[:, 1], tris)

@@ -17,7 +17,11 @@ they are built on.
 
    mean_curv_ditto.ipynb
 
+   redistancing_distance_to_door.ipynb
+
    transport_and_redistancing.ipynb
+
+   redistancing_initializers.ipynb
 
    element_based_extension.ipynb
 

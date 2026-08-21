@@ -11,7 +11,7 @@ class GPExtensionRedistancing(BaseRedistancing):
     interface instead of matching a normal-velocity boundary condition.
 
     This is **not really a redistancer**: it does not iterate toward
-    |grad(phi)|=1 and should not be used as the final result of a
+    ``|grad(phi)|=1`` and should not be used as the final result of a
     redistancing step. What it does well is produce, in one cheap linear
     solve, a smooth field that already respects the interface -- which makes
     it a good (and much cheaper) alternative to `FastMarching` as the

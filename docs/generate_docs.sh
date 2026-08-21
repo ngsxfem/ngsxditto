@@ -23,7 +23,16 @@ done
 # "execute: never" metadata so their code is rendered but never run in CI; the
 # reported numbers and all figures/animations are pre-computed and embedded
 # (large assets tracked with git-LFS, kept under source/ alongside the pages).
+#
+# Not every *.py here is its own doc page: viz_*.py and ht_redist_probe.py are
+# small companion CLI scripts referenced *by name* from hysing_turek_case1.py
+# ("Reproducing the figures") for readers to adapt to their own runs -- they
+# were never meant to become standalone notebook pages, so they are excluded
+# from conversion here (and stay plain, importable/runnable .py files).
 for f in ../examples/benchmarks/*.py; do
+    case "$(basename "$f")" in
+        viz_*.py|ht_redist_probe.py) continue ;;
+    esac
     jupytext --to ipynb --update-metadata '{"nbsphinx":{"execute":"never"}}' \
         "$f" -o "source/$(basename "${f%.py}").ipynb"
 done

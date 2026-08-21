@@ -1,36 +1,52 @@
-"""Pluggable initializers for MinimizationBasedRedistancing.
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.19.4
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
+# ---
 
-(For a gentle, tangible warm-up on what redistancing computes at all -- the
-distance to a door in a room, on a plain fitted mesh -- see
-``redistancing_distance_to_door.py`` first; it also shows, in a picture, why
-the causal ``FastMarching`` initializer used below helps the elliptic
-minimizer.)
+# %% [markdown]
+# # Pluggable initializers for MinimizationBasedRedistancing
+#
+# (For a gentle, tangible warm-up on what redistancing computes at all -- the
+# distance to a door in a room, on a plain fitted mesh -- see
+# `redistancing_distance_to_door.ipynb` first; it also shows, in a picture, why
+# the causal `FastMarching` initializer used below helps the elliptic
+# minimizer.)
+#
+# `MinimizationBasedRedistancing` only ever *corrects* whatever field it is
+# handed: each Newton/fixed-point iteration nudges phi towards `|grad(phi)|=1`
+# while pinning it to zero on the (P1-interpolated) interface. Handed a rough
+# or noisy input -- e.g. a level set that has accumulated high-frequency
+# dispersion noise from many explicit transport steps -- it needs many
+# iterations to smooth that out, and far from the interface (where the pinning
+# term has no direct influence) that convergence is particularly slow.
+#
+# `initializer=` lets another redistancer clean up/replace the input ONCE,
+# in place, before the main iteration starts:
+#
+# * `FastMarching()` -- a causally correct global distance computation
+#   (graph propagation from the interface). Gets the right answer near
+#   singular/medial-axis-like structure essentially for free, at the cost of
+#   its own mesh-graph discretization noise (which the main iteration then
+#   polishes away).
+# * `GPExtensionRedistancing()` -- NOT a real redistancer (does not aim for
+#   `|grad(phi)|=1` at all), just one cheap ghost-penalty diffusion solve pinned
+#   to the interface. Directly targets removing exactly the kind of
+#   high-frequency noise a drifted level set tends to carry.
+#
+# This script builds a synthetic "drifted-like" input (true signed distance to
+# a circle, plus added high-frequency noise, mimicking transport dispersion)
+# and compares: no initializer, FastMarching, GPExtensionRedistancing.
 
-MinimizationBasedRedistancing only ever *corrects* whatever field it is
-handed: each Newton/fixed-point iteration nudges phi towards |grad(phi)|=1
-while pinning it to zero on the (P1-interpolated) interface. Handed a rough
-or noisy input -- e.g. a level set that has accumulated high-frequency
-dispersion noise from many explicit transport steps -- it needs many
-iterations to smooth that out, and far from the interface (where the pinning
-term has no direct influence) that convergence is particularly slow.
-
-`initializer=` lets another redistancer clean up/replace the input ONCE,
-in place, before the main iteration starts:
-
-* `FastMarching()` -- a causally correct global distance computation
-  (graph propagation from the interface). Gets the right answer near
-  singular/medial-axis-like structure essentially for free, at the cost of
-  its own mesh-graph discretization noise (which the main iteration then
-  polishes away).
-* `GPExtensionRedistancing()` -- NOT a real redistancer (does not aim for
-  |grad(phi)|=1 at all), just one cheap ghost-penalty diffusion solve pinned
-  to the interface. Directly targets removing exactly the kind of
-  high-frequency noise a drifted level set tends to carry.
-
-This script builds a synthetic "drifted-like" input (true signed distance to
-a circle, plus added high-frequency noise, mimicking transport dispersion)
-and compares: no initializer, FastMarching, GPExtensionRedistancing.
-"""
+# %%
 import numpy as np
 from ngsolve import *
 from netgen.geom2d import SplineGeometry
@@ -75,15 +91,21 @@ for name, init in variants:
     fields.append(phi)
     print(f"{name.replace(chr(10), ' '):32s} {e:20.5f} {g:20.5f}")
 
-# for reference: GPExtensionRedistancing alone, to make explicit that it does
-# NOT solve the Eikonal equation on its own (that's the whole point of it
-# only ever being used as an initializer, never as the final redistancer)
+# %% [markdown]
+# For reference: `GPExtensionRedistancing` alone, to make explicit that it
+# does NOT solve the Eikonal equation on its own (that's the whole point of
+# it only ever being used as an initializer, never as the final redistancer).
+
+# %%
 phi_gp_alone = GridFunction(H1(mesh, order=order)); phi_gp_alone.Set(rough)
 GPExtensionRedistancing().Redistance(phi_gp_alone)
 print(f"\n{'GPExtensionRedistancing ALONE (not a real redistancer)':32s} "
       f"{l2_err(phi_gp_alone):20.5f} {grad_rms(phi_gp_alone):20.5f}  <- rms(|grad phi|-1) stays large, as expected")
 
-# -------------------------------------------------------------------- plot --
+# %% [markdown]
+# ## Figure
+
+# %%
 fig, axes = plt.subplots(1, len(variants), figsize=(5 * len(variants), 5))
 levels = np.linspace(-0.5, 0.5, 21)
 for ax, (name, _), phi in zip(axes, variants, fields):
