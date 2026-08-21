@@ -52,8 +52,6 @@ from ngsolve import *
 from netgen.geom2d import SplineGeometry
 from ngsxditto.redistancing import (MinimizationBasedRedistancing, FastMarching,
                                      GPExtensionRedistancing)
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 domain = SplineGeometry()
@@ -125,4 +123,4 @@ fig.colorbar(cf, ax=axes, shrink=0.8, label="phi")
 fig.suptitle("MinimizationBasedRedistancing: effect of the initializer= choice\n"
              "(synthetic noisy input, same n_iter for all three)")
 fig.savefig("redistancing_initializers.png", dpi=140, bbox_inches="tight")
-print("\nwrote redistancing_initializers.png")
+plt.show()

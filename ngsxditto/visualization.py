@@ -23,7 +23,14 @@ except ImportError:
                    "(PyVistaAnimation, PyVistaVisualizer) are replaced by no-op dummies; "
                    "for some visualizations it may be better to have pyvista installed.")
 
-matplotlib.use("Agg")
+# Headless-safe default for this module's own GIF/animation rendering
+# (SphericityDiagram, IsoContourPlot, ...). Only force it if nothing has
+# already set up a real (e.g. Jupyter inline) backend -- unconditionally
+# forcing Agg here previously clobbered nbsphinx's inline backend for every
+# notebook that imports ngsxditto (via `ngsxditto/__init__.py`) before
+# plotting its own, unrelated matplotlib figures, silently dropping them.
+if not matplotlib.get_backend().startswith("module://matplotlib_inline"):
+    matplotlib.use("Agg")
 
 
 class Visualization(StatelessStepper):

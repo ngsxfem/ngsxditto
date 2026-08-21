@@ -52,8 +52,6 @@ import heapq
 import numpy as np
 from netgen.occ import WorkPlane, OCCGeometry
 from ngsolve import *
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 
@@ -174,4 +172,4 @@ axes[0].legend(loc="upper right", fontsize=8)
 fig.colorbar(cf, ax=axes, label="distance to the door", shrink=0.85)
 fig.suptitle('Redistancing as a distance solver: "distance to the door" on a fitted room mesh', fontsize=13)
 fig.savefig("redistancing_distance_to_door.png", dpi=140, bbox_inches="tight")
-print("wrote redistancing_distance_to_door.png")
+plt.show()
