@@ -170,8 +170,8 @@ class H1Conforming(FluidDiscretization):
             beta = self.advection
             return beta
         if self.extrapolated_advection:
-            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
-                beta = self._adv_extrapolator.Evaluate(self._progress_tracker.time.Get() + self._progress_tracker.dt)
+            if isinstance(self._progress_tracker, TimeProgressTracker):
+                beta = self._adv_extrapolator.Evaluate(self._progress_tracker.time.Get())
             else:
                 beta = self._adv_extrapolator.Evaluate(self.n_validated_steps + 1)
         else:

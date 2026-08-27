@@ -6,6 +6,7 @@ from ngsxditto.boundary_registry import *
 from ngsxditto.levelset import *
 from ngsxditto.multistepper import MultiStepper
 from ngsxditto.stepper import *
+from ngsxditto.extrapolation import Extrapolator
 from ngsxditto.progress_info import TimeProgressTracker
 from xfem import *
 import typing
@@ -167,7 +168,7 @@ class FluidDiscretization(GFStepper):
                                             self.ancient.components[0], self.ancient.components[1]],
                                            update_domain=self.els_outer)
         if self.extrapolated_advection:
-            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+            if isinstance(self._progress_tracker, TimeProgressTracker):
                 self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.current.components[0])
             else:
                 self._adv_extrapolator.Feed(0, self.current.components[0])
@@ -205,7 +206,7 @@ class FluidDiscretization(GFStepper):
         # so that the first step runs backward Euler (see EffectiveTimeOrder).
         self.n_validated_steps = 0
         if self.extrapolated_advection:
-            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+            if isinstance(self._progress_tracker, TimeProgressTracker):
                 self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.current.components[0])
             else:
                 self._adv_extrapolator.Feed(0, self.current.components[0])   # seed u^0 at time 0
@@ -302,7 +303,7 @@ class FluidDiscretization(GFStepper):
         super().ValidateStep()
         self.n_validated_steps += 1
         if self.extrapolated_advection and not self._priming:
-            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+            if isinstance(self._progress_tracker, TimeProgressTracker):
                 self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.past.components[0])
             else:
                 self._adv_extrapolator.Feed(self.n_validated_steps, self.past.components[0])
