@@ -187,12 +187,12 @@ class Solver:
                         bar(self.progress_info.GetProgressInfo())
 
                     else:
-                        self.progress_info.AcceptIntermediate()
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
                             if should_run_dict[stepper_name]:
                                 stepper_object.AcceptIntermediate()
+                        self.progress_info.AcceptIntermediate()
 
                     if self.stopping_rule():
                         break
