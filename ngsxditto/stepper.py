@@ -41,7 +41,7 @@ class Stepper(ABC, Timed):
             return fn
 
         def wrapper(self, *args, **kwargs):
-            exclusive = getattr(self, "_solver", None) is not None
+            exclusive = getattr(self, "_progress_tracker", None) is not None
             with self.timer(section="__total__", exclusive=exclusive):
                 return fn(self, *args, **kwargs)
 

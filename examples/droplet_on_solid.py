@@ -54,7 +54,7 @@ wall_params = WallParameters(region="bottom", contact_angle=pi/2, friction_coeff
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
 fluid = TaylorHood(mesh, fluid_params, lset=levelset, nitsche_stab=100, f=CF((0, 0)), surface_tension_coeff=1,
-                   surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, add_convection=True,
+                   surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1, advection=True,
                    add_number_space=False, time_order=1, use_supg=False, wall_params=wall_params, extension_radius=0.2)
 fluid.SetOuterBoundaryCondition(NitscheVelocityBC(region="right|left", values=CF((0, 0))))
 fluid.SetOuterBoundaryCondition(StrongNormalVelocityBC(region="bottom"))

@@ -6,8 +6,12 @@ from ngsxditto.boundary_registry import *
 from ngsxditto.levelset import *
 from ngsxditto.multistepper import MultiStepper
 from ngsxditto.stepper import *
+from ngsxditto.extrapolation import Extrapolator
+from ngsxditto.progress_info import TimeProgressTracker
 from xfem import *
 import typing
+
+LINEARIZATIONS = ("newton", "picard")
 
 
 class FluidDiscretization(GFStepper):
@@ -15,11 +19,11 @@ class FluidDiscretization(GFStepper):
     Base class for a discretized fluid.
     """
     def __init__(self, mesh: Mesh, fluid_params: FluidParameters, order: int, lset:LevelSetGeometry,
-                 wall_params: WallParameters, add_convection:bool, f:CoefficientFunction, g: CoefficientFunction,
+                 wall_params: WallParameters, advection:typing.Union[bool, CoefficientFunction], f:CoefficientFunction, g: CoefficientFunction,
                  surface_tension_coeff:float, surface_tension:CoefficientFunction, dt:float,
                  derivative_jumps:bool, add_number_space:bool, time_order:int, use_supg:bool,
-                 time: typing.Optional[Parameter]=None
-                 ):
+                 linearization:str, extrapolated_advection:bool,
+                 time: typing.Optional[Parameter]=None):
         """
         Creates a fluid discretization on the given mesh under consideration of the levelset.
         If None is given, create a DummyLevelSet that covers the whole domain.
@@ -71,9 +75,18 @@ class FluidDiscretization(GFStepper):
         # number of validated (accepted) time steps; drives the BDF startup:
         # the first step runs backward Euler (full dt), from step 2 on BDF2.
         self.n_validated_steps = 0
-        self._assembled_beta = None   # beta the current m_star was assembled with
+        self._assembled_time_factor = None   # beta the current m_star was assembled with
 
-        self.add_convection = add_convection
+        self.advection = advection
+        self.linearization = linearization
+        if isinstance(self.advection, CoefficientFunction) and self.linearization == "newton":
+            print("Warning: external advection velocity not compatible with linearization='newton'. "
+                  "'picard' will be used instead.")
+
+        self.extrapolated_advection = extrapolated_advection
+        self._adv_extrapolator = Extrapolator(order=1) if extrapolated_advection else None
+        self._priming = False
+
         self.derivative_jumps = derivative_jumps
         if derivative_jumps and order > 2:
             print("Warning: Derivative jump ghost penalty only implemented up to order 2. To use higher order ghost penalty set `derivative_jump=False`.")
@@ -154,6 +167,12 @@ class FluidDiscretization(GFStepper):
                                             self.past.components[0], self.past.components[1],
                                             self.ancient.components[0], self.ancient.components[1]],
                                            update_domain=self.els_outer)
+        if self.extrapolated_advection:
+            if isinstance(self._progress_tracker, TimeProgressTracker):
+                self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.current.components[0])
+            else:
+                self._adv_extrapolator.Feed(0, self.current.components[0])
+
 
         self.InitializeForms()
         if initial_velocity is None:
@@ -180,10 +199,17 @@ class FluidDiscretization(GFStepper):
         self.gfp.Set(initial_pressure)
         self.mesh.UnsetDeformation()
 
+        self._priming = True
         self.ValidateStep()
+        self._priming = False
         # initialization is not a time step: keep the BDF startup counter at 0
         # so that the first step runs backward Euler (see EffectiveTimeOrder).
         self.n_validated_steps = 0
+        if self.extrapolated_advection:
+            if isinstance(self._progress_tracker, TimeProgressTracker):
+                self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.current.components[0])
+            else:
+                self._adv_extrapolator.Feed(0, self.current.components[0])   # seed u^0 at time 0
 
 
     def ApplyBoundaryConditions(self):
@@ -276,3 +302,9 @@ class FluidDiscretization(GFStepper):
         self.ancient.vec.data = self.past.vec
         super().ValidateStep()
         self.n_validated_steps += 1
+        if self.extrapolated_advection and not self._priming:
+            if isinstance(self._progress_tracker, TimeProgressTracker):
+                self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.past.components[0])
+            else:
+                self._adv_extrapolator.Feed(self.n_validated_steps, self.past.components[0])
+

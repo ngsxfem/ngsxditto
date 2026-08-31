@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.3
+#       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -100,7 +100,7 @@ from netgen.occ import OCCGeometry, MoveTo, X, Y
 #   step's — feeding an `Extrapolator` (via `FeedInto`/`Predictor`) as the
 #   **interval-centred transport wind**.
 # * Two flags on `TwoPhaseTaylorHood` control how the convective nonlinearity is
-#   linearized: `linearization` (`"newton"` or `"banach"`, i.e. the classical
+#   linearized: `linearization` (`"newton"` or `"picard"`, i.e. the classical
 #   Oseen fixed-point) and `extrapolated_advection` (`True`/`False`) — see
 #   *Second order in time* for why both matter and how they combine to give
 #   second order **without** any Picard sub-iterations.
@@ -112,7 +112,7 @@ from netgen.occ import OCCGeometry, MoveTo, X, Y
 
 # %%
 def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", redist=True,
-            linearization="banach", extrapolated_advection=True):
+            linearization="picard", extrapolated_advection=True):
     """Run Hysing–Turek case 1 on one mesh/time-step and return the QoI history.
 
     `wind` selects the transport wind: `"endpoint"` (the value at t^{n+1}, 1st
@@ -121,7 +121,7 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
     dt-refinement study (its step-based schedule is otherwise dt-dependent).
     `linearization`/`extrapolated_advection` control the convective
     linearization -- see the "Second order in time" section for why the default
-    (`"banach"`, `True`) already reaches second order at `n_subiter=1`, with no
+    (`"picard"`, `True`) already reaches second order at `n_subiter=1`, with no
     Picard iteration at all."""
     g = 0.98
     rho1, mu1, sigma = 100.0, 1.0, 24.5   # bubble  (inside, negative levelset)
@@ -154,7 +154,7 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
     fluid = TwoPhaseTaylorHood(
         mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset, surface_tension_coeff=sigma,
         surface_tension=mean_curvature.H, f1=grav, f2=grav,   # acceleration, see warning
-        dt=dt, order=order + 1, time_order=2, add_convection=True,
+        dt=dt, order=order + 1, time_order=2, advection=True,
         ghost_stab=1, nitsche_stab=100,
         linearization=linearization, extrapolated_advection=extrapolated_advection)
     fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="top|bottom", values=CF((0, 0))))
@@ -226,7 +226,7 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
 #
 # We run three successively finer meshes (halving both $h$ and $\Delta t$ each
 # level) with `run_case`'s defaults — interval-centred wind, `linearization=
-# "banach"`, `extrapolated_advection=True`, **`n_subiter=1`** (no Picard
+# "picard"`, `extrapolated_advection=True`, **`n_subiter=1`** (no Picard
 # iteration at all — see *Second order in time* for why this already suffices) —
 # and compare the QoI against the published reference values (and their
 # inter-group range). All runs use `order=2` (quadratic isoparametric geometry,
@@ -241,7 +241,7 @@ cases = {
 }
 results = {}
 for label, cfg in cases.items():
-    results[label] = run_case(**cfg)      # n_subiter=1, banach + extrapolated_advection (defaults)
+    results[label] = run_case(**cfg)      # n_subiter=1, picard + extrapolated_advection (defaults)
 
 # %% [markdown]
 # ### Results
@@ -312,7 +312,7 @@ for label, cfg in cases.items():
 # an **extrapolated, sub-iteration-refined predictor** for $u^{n+1}$
 # (`extrapolated_advection=True`) instead of the current Picard/Newton iterate —
 # orthogonal to `linearization` (`"newton"`'s full Jacobian + residual correction,
-# or `"banach"`'s plain Oseen fixed-point): both reach second order once $\beta$ is
+# or `"picard"`'s plain Oseen fixed-point): both reach second order once $\beta$ is
 # the extrapolated predictor. A clean $\Delta t$ study at a fixed mesh
 # (redistancing off, so its step-based schedule does not pollute the
 # self-convergence) confirms it on the centroid — the QoI most sensitive to the
@@ -328,23 +328,23 @@ def centroid_temporal_order(linearization, extrapolated_advection, n_subiter=1, 
     d01 = np.sqrt(np.mean((yc[0] - yc[1]) ** 2)); d12 = np.sqrt(np.mean((yc[1] - yc[2]) ** 2))
     return math.log2(d01 / d12)
 
-for lin, ea, ns in [("banach", True, 1), ("newton", True, 1), ("banach", False, 1), ("newton", False, 3)]:
+for lin, ea, ns in [("picard", True, 1), ("newton", True, 1), ("picard", False, 1), ("newton", False, 3)]:
     order = centroid_temporal_order(lin, ea, ns)
     print(f"{lin:>7}, extrapolated_advection={ea!s:5}, subiter={ns}: centroid temporal order {order:.2f}")
 
 # %% [markdown]
 # | linearization | extrapolated advection | sub-iterations | centroid temporal order |
 # |------|:---:|:---:|:---:|
-# | banach | True | 1 | $1.905$ |
+# | picard | True | 1 | $1.905$ |
 # | newton | True | 1 | $1.903$ |
-# | banach | False | 1 | $1.035$ |
+# | picard | False | 1 | $1.035$ |
 # | newton | False | 3 | $1.906$ |
 #
 # `extrapolated_advection=True` at `n_subiter=1` matches the old `n_subiter=3`
 # baseline almost exactly — for **either** linearization, confirming the two
 # flags are genuinely orthogonal — while `extrapolated_advection=False` at
 # `n_subiter=1` reproduces the old first-order behaviour. This is why `run_case`
-# now defaults to `linearization="banach"`, `extrapolated_advection=True`,
+# now defaults to `linearization="picard"`, `extrapolated_advection=True`,
 # `n_subiter=1`: the combined-refinement campaign above already uses it, at
 # roughly a third of the cost of the equivalent `n_subiter=3` runs. The centroid
 # error also drops by well over an order of magnitude:

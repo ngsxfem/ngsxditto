@@ -65,7 +65,7 @@ mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
 fluid = TaylorHood(mesh, fluid_params, lset=levelset, nitsche_stab=100, f=CF((0, -9.8)), surface_tension_coeff=1e-2,
                    surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1,
-                   add_convection=True, add_number_space=False, extension_radius=0.3, time_order=1, use_supg=True)
+                   advection=True, extension_radius=0.3, time_order=1, use_supg=True)
 fluid.SetOuterBoundaryCondition(NitscheNormalVelocityBC(region="right|left", values=CF(0)))
 fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="bottom", values=CF((0, 0))))
 fluid.Initialize()

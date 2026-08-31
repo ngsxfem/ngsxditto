@@ -61,7 +61,7 @@ mean_curvature.Step()
 fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset,
                            nitsche_stab=100, f1=CF((0, -9.8)), f2=CF((0, -9.8)), surface_tension_coeff=1,
                            surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1e-2,
-                           add_convection=True, add_number_space=False, time_order=1,
+                           advection=True, time_order=1,
                            wall_params=wall_params)
 fluid.SetOuterBoundaryCondition(NitscheVelocityBC(region="right|left|top", values=CF((0, 0))))
 fluid.SetOuterBoundaryCondition(NitscheNormalVelocityBC(region="bottom", values=CF(0)))

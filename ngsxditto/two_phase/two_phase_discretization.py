@@ -1,10 +1,11 @@
 from ngsxditto.fluid import *
 from ngsxditto.stepper import *
 from ngsxditto.extrapolation import Extrapolator
+from ngsxditto.progress_info import TimeProgressTracker
 from ngsolve import *
 import typing
 
-LINEARIZATIONS = ("newton", "banach")
+LINEARIZATIONS = ("newton", "picard")
 
 
 class TwoPhaseDiscretization(GFStepper):
@@ -12,10 +13,10 @@ class TwoPhaseDiscretization(GFStepper):
     Base class for two-phase fluid discretizations.
     """
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, dt:float, order: int,
-                 lset:LevelSetGeometry, wall_params: WallParameters, add_convection:bool, time_order:int,
+                 lset:LevelSetGeometry, wall_params: WallParameters, advection:typing.Union[bool, CoefficientFunction], time_order:int,
                  f1:CoefficientFunction, f2: CoefficientFunction, g1: CoefficientFunction, g2: CoefficientFunction,
                  surface_tension_coeff:float, surface_tension:CoefficientFunction, derivative_jumps:bool,
-                 add_number_space:bool, linearization:str = "newton", extrapolated_advection:bool = False,
+                 add_number_space:bool, linearization:str, extrapolated_advection:bool,
                  time: typing.Optional[Parameter] = None):
         """
         Creates a two-phase fluid discretization on the given mesh defined by the levelset.
@@ -35,6 +36,10 @@ class TwoPhaseDiscretization(GFStepper):
             The levelset that characterizes the unfitted domain.
         wall_params: WallParameters
             wall parameters for contact problems
+        advection: bool or CoefficientFunction
+            If True, add the convective term to the bilinear form. If a GridFunction is given, use it as the advecting velocity.
+        time_order: int
+            The order of the time discretization (1 or 2).
         f1: CoefficientFunction
             The force term of the first phase.
         f2: CoefficientFunction
@@ -53,7 +58,7 @@ class TwoPhaseDiscretization(GFStepper):
             How the convective term is linearized around its advecting
             velocity beta: "newton" (default) -- the full Newton Jacobian
             grad(u)*beta + grad(beta)*u plus the residual correction N(beta);
-            or "banach" -- the classical Oseen fixed-point grad(u)*beta only.
+            or "picard" -- the classical Oseen fixed-point grad(u)*beta only.
             See TwoPhaseH1Conforming for the precise schemes.
         extrapolated_advection: bool
             What beta is, orthogonal to `linearization`: False (default) uses
@@ -82,16 +87,26 @@ class TwoPhaseDiscretization(GFStepper):
         # BDF startup counter (see fluid/discretization.py): first validated
         # step runs backward Euler.
         self.n_validated_steps = 0
-        self._assembled_beta = None
+        self._assembled_time_factor = None
 
         if lset is None:
             self.lset = DummyLevelSet(mesh)
         else:
             self.SetLevelSet(lset)
 
-        self.add_convection = add_convection
+        self.advection = advection
         self.linearization = linearization
+        if isinstance(self.advection, CoefficientFunction) and self.linearization == "newton":
+            print("Warning: external advection velocity not compatible with linearization='newton'. "
+                  "'picard' will be used instead.")
+
         self.extrapolated_advection = extrapolated_advection
+        # allow extrapolated_advection=True if advection is a CoefficientFunction?
+        #if isinstance(self.advection, CoefficientFunction) and self.extrapolated_advection:
+        #    print("Warning: external advection velocity not compatible with extrapolated_advection=True. "
+        #          "Using extrapolated_advection=False instead.")
+        #    self.extrapolated_advection = False
+
         # advecting-velocity predictor (only built/used if extrapolated_advection);
         # fed with validated states (ValidateStep) and, to refine it across
         # sub-iterations, with the current iterate too (AcceptIntermediate) --
@@ -195,7 +210,10 @@ class TwoPhaseDiscretization(GFStepper):
             # before SetInitialValues sets the real initial condition) has
             # something to Evaluate(); SetInitialValues re-feeds the same
             # (time=0) node with the true initial velocity right after.
-            self._adv_extrapolator.Feed(0, self.current.components[0])
+            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+                self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.current.components[0])
+            else:
+                self._adv_extrapolator.Feed(0, self.current.components[0])
         self.InitializeForms()
         self.SetInitialValues(initial_velocity1, initial_velocity2, initial_pressure1, initial_pressure2)
 
@@ -212,7 +230,7 @@ class TwoPhaseDiscretization(GFStepper):
 
     def SetInitialValues(self, initial_velocity1:CoefficientFunction, initial_velocity2:CoefficientFunction,
                          initial_pressure1:CoefficientFunction=CF(0), initial_pressure2:CoefficientFunction=CF(0),
-                         mean_pressure_fix=None):
+                         ):
         """
         Sets the initial values for velocity and pressure
         """
@@ -290,13 +308,21 @@ class TwoPhaseDiscretization(GFStepper):
     def ValidateStep(self):
         self.ancient.vec.data = self.past.vec
         super().ValidateStep()
-        self.n_validated_steps += 1
+        if not self._priming:
+            self.n_validated_steps += 1
         if self.extrapolated_advection and not self._priming:
-            self._adv_extrapolator.Feed(self.n_validated_steps, self.past.components[0])
+            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+                self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.past.components[0])
+            else:
+                self._adv_extrapolator.Feed(self.n_validated_steps, self.past.components[0])
+
 
     def AcceptIntermediate(self):
         super().AcceptIntermediate()
         if self.extrapolated_advection:
-            # refine the "upcoming" (t^{n+1}) node with the latest Newton/Banach
+            # refine the "upcoming" (t^{n+1}) node with the latest Newton/Picard
             # iterate -- an extrapolate-then-interpolate predictor, see Predictor
-            self._adv_extrapolator.Feed(self.n_validated_steps + 1, self.current.components[0])
+            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+                self._adv_extrapolator.Feed(self._progress_tracker.time.Get() + self._progress_tracker.dt, self.current.components[0])
+            else:
+                self._adv_extrapolator.Feed(self.n_validated_steps + 1, self.current.components[0])

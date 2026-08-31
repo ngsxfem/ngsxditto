@@ -5,9 +5,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.3
+#       jupytext_version: 1.19.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -49,7 +49,7 @@ transport = ImplicitSUPGTransport(mesh, wind, order=2, inflow_values=None, dt=dt
 transport.SetInitialValues(phi_start)
 transport.time = t
 
-redistancing = FastMarching()
+redistancing = MinimizationBasedRedistancing(initializer=FastMarching())
 levelset = LevelSetGeometry(transport, redistancing)
 
 # %% [markdown]
@@ -85,7 +85,7 @@ dt = 0.01
 transport = ExplicitDGTransport(mesh, wind, order=1, inflow_values=None, dt=dt, compile=False)
 transport.SetInitialValues(phi_start)
 transport.time = t
-redistancing = FastMarching()
+redistancing = MinimizationBasedRedistancing(initializer=FastMarching())
 gradient_tester = NaiveGradientTester(mesh)
 autoredistancing = GradientRedistancing(gradient_tester=gradient_tester, gradient_bounds=(0.6, 1.5))
 levelset = LevelSetGeometry(transport, redistancing, autoredistancing=autoredistancing)

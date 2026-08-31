@@ -12,7 +12,7 @@ class Solver:
     A solver class that registers functions and loops over them when called.
     """
     def __init__(self, stopping_rule: typing.Callable[[], bool] = None,
-                 progress_info: ProgressInfo = DummyProgressInfo(),
+                 progress_tracker: ProgressTracker = DummyProgressTracker(),
                  should_finalize: typing.Callable[[], bool] = None,
                  should_revert: typing.Callable[[], bool] = None,
                  display_progress_bar:bool=True,
@@ -27,7 +27,7 @@ class Solver:
         -----------
         stopping_rule: typing.Callable[[], bool]
             Determines when to stop the loop.
-        progress_info: ProgressInfo
+        progress_tracker: ProgressInfo
             Determines what the progress bar shows
         should_finalize: typing.Callable[[], bool]
             The criteria to determine if the solver should finalize the step.
@@ -42,7 +42,7 @@ class Solver:
         self.stepper_dict = {}
         self.stepper_names = []
         self.stopping_rule = stopping_rule
-        self.progress_info = progress_info
+        self.progress_tracker = progress_tracker
         self.i_outer = 0
         self.i_inner = 0
         if should_finalize is None:
@@ -106,7 +106,8 @@ class Solver:
                                    "time_frequency": time_frequency,
                                    "next_trigger": 0}
         self.stepper_names.append(name)
-        stepper_object._solver = self
+        #stepper_object._solver = self
+        stepper_object._progress_tracker = self.progress_tracker
 
 
     def __call__(self):
@@ -130,7 +131,7 @@ class Solver:
                        bar='smooth') as bar:
             with TaskManager(pajetrace=self.pajetrace):
                 while True:
-                    self.progress_info.Step()
+                    self.progress_tracker.Step()
 
                     for stepper_name in self.stepper_names:
                         bar.text = "Current step: " + stepper_name
@@ -159,8 +160,8 @@ class Solver:
                     self.i_inner += 1
 
                     if self.should_finalize():
-                        #self.progress_info.Increment()
-                        self.progress_info.ValidateStep()
+                        #self.progress_tracker.Increment()
+                        self.progress_tracker.ValidateStep()
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
@@ -172,10 +173,10 @@ class Solver:
 
                         self.i_outer += 1
                         self.i_inner = 0
-                        bar(self.progress_info.GetProgressInfo())
+                        bar(self.progress_tracker.GetProgressInfo())
 
                     elif self.should_revert():
-                        self.progress_info.RevertStep()
+                        self.progress_tracker.RevertStep()
                         for stepper_name in self.stepper_names:
                             entry = self.stepper_dict[stepper_name]
                             stepper_object = entry["object"]
@@ -184,7 +185,7 @@ class Solver:
                                 stepper_object.RevertStep()
                         self.i_outer += 1
                         self.i_inner = 0
-                        bar(self.progress_info.GetProgressInfo())
+                        bar(self.progress_tracker.GetProgressInfo())
 
                     else:
                         for stepper_name in self.stepper_names:
@@ -192,7 +193,7 @@ class Solver:
                             stepper_object = entry["object"]
                             if should_run_dict[stepper_name]:
                                 stepper_object.AcceptIntermediate()
-                        self.progress_info.AcceptIntermediate()
+                        self.progress_tracker.AcceptIntermediate()
 
                     if self.stopping_rule():
                         break
@@ -257,12 +258,12 @@ class TimeLoop(Solver):
             return self.time.Get() >= self.end_time - 0.1*self.dt
 
 
-        self.progress_info = TimeProgressInfo(self.time, self.end_time, self.dt)
+        self.progress_tracker = TimeProgressTracker(self.time, self.end_time, self.dt)
         self.show_profiles = show_profiles
-        super().__init__(stopping_rule=reached_final_time, progress_info=self.progress_info,
+        super().__init__(stopping_rule=reached_final_time, progress_tracker=self.progress_tracker,
                          should_finalize=should_finalize, should_revert=should_revert, display_progress_bar=display_progress_bar,
                          show_profiles=show_profiles, pajetrace=pajetrace, num_threads=num_threads)
 
     def SetTimeStepSize(self, dt):
         self.dt = dt
-        self.progress_info.SetTimeStepSize(dt)
+        self.progress_tracker.SetTimeStepSize(dt)

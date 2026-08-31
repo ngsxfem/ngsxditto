@@ -1,9 +1,11 @@
 import logging
+import typing
+
 from ngsolve import *
 from xfem import *
 
 from ngsxditto.levelset import LevelSetGeometry, DummyLevelSet
-from ngsxditto import direct_solver_spd, direct_solver_nonspd
+from ngsxditto import direct_solver_spd, direct_solver_nonspd, TimeProgressTracker, IterationProgressTracker
 import ngsolve.webgui as ngw
 from ngsxditto.fluid import *
 from .two_phase_discretization import *
@@ -17,10 +19,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
     def __init__(self, mesh: Mesh, fluid1_params: FluidParameters, fluid2_params: FluidParameters, order:int,
                  lset:LevelSetGeometry, wall_params: WallParameters, time_order:int,
                  f1: CoefficientFunction, f2: CoefficientFunction,  g1: CoefficientFunction,
-                 g2: CoefficientFunction, add_convection:bool, surface_tension_coeff:float,
+                 g2: CoefficientFunction, advection:typing.Union[bool, CoefficientFunction], surface_tension_coeff:float,
                  surface_tension: CoefficientFunction, dt:float, nitsche_stab:int, ghost_stab:int, extension_radius:float,
-                 derivative_jumps:bool, add_number_space=bool, linearization:str = "newton",
-                 extrapolated_advection:bool = False):
+                 derivative_jumps:bool, add_number_space:bool, linearization:str,
+                 extrapolated_advection:bool):
         """
         Initializes the fluid discretization with the given parameters and levelset.
         Parameters:
@@ -64,7 +66,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             * "newton" (default) -- both Jacobian terms
               grad(u)*beta + grad(beta)*u plus the residual correction
               N(beta) in the right-hand side.
-            * "banach" -- the classical Oseen fixed-point: only the single
+            * "picard" -- the classical Oseen fixed-point: only the single
               term grad(u)*beta, no Jacobian term, no residual correction.
         extrapolated_advection: bool
             What beta is, orthogonal to `linearization`: False (default) uses
@@ -73,7 +75,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             u^{n+1} -- see `_advection_velocity`.
         """
         super().__init__(mesh=mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, order=order, lset=lset,
-                         wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, add_convection=add_convection,
+                         wall_params=wall_params, f1=f1, f2=f2, g1=g1, g2=g2, advection=advection,
                          surface_tension_coeff=surface_tension_coeff, surface_tension=surface_tension, dt=dt,
                          time_order=time_order, derivative_jumps=derivative_jumps, add_number_space=add_number_space,
                          linearization=linearization, extrapolated_advection=extrapolated_advection)
@@ -103,8 +105,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
 
     def SetInitialValues(self, initial_velocity1:CoefficientFunction, initial_velocity2:CoefficientFunction,
-                         initial_pressure1:CoefficientFunction=CF(0), initial_pressure2:CoefficientFunction=CF(0),
-                         mean_pressure_fix=None):
+                         initial_pressure1:CoefficientFunction=CF(0), initial_pressure2:CoefficientFunction=CF(0)):
         self.mesh.SetDeformation(self.lset.deformation)
         self.gfu.components[0].Set(initial_velocity1)
         self.gfp.components[0].Set(initial_pressure1)
@@ -121,7 +122,10 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         # so that the first step runs backward Euler (see EffectiveTimeOrder).
         self.n_validated_steps = 0
         if self.extrapolated_advection:
-            self._adv_extrapolator.Feed(0, self.current.components[0])   # seed u^0 at time 0
+            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+                self._adv_extrapolator.Feed(self._progress_tracker.time.Get(), self.current.components[0])
+            else:
+                self._adv_extrapolator.Feed(0, self.current.components[0])   # seed u^0 at time 0
 
 
     def UpdateActiveDofs(self):
@@ -169,15 +173,22 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         (see ``__init__``): the current Picard/Newton iterate, or a
         history-extrapolated, sub-iteration-refined predictor for u^{n+1}
         (`self._adv_extrapolator`, fed in `ValidateStep`/`AcceptIntermediate`)."""
+        if isinstance(self.advection, CoefficientFunction):
+            beta = self.advection
+            return beta
         if self.extrapolated_advection:
-            beta = self._adv_extrapolator.Evaluate(self.n_validated_steps + 1)
-            return beta.components[i]
-        return self.intermediate.components[0].components[i]
+            if self._progress_tracker.__class__.__name__ == TimeProgressTracker:
+                beta = self._adv_extrapolator.Evaluate(self._progress_tracker.time.Get() + self._progress_tracker.dt)
+            else:
+                beta = self._adv_extrapolator.Evaluate(self.n_validated_steps + 1)
+        else:
+            beta = self.intermediate.components[0]
+        return beta.components[i]
 
     def InitializeForms(self):
         self.AssembleLf()
 
-        if self.add_convection:
+        if self.advection != False:
             self.AssembleConvection()
 
         self.AssembleStokes()
@@ -218,7 +229,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         for i in range(2):
             self.lf += rhos[i] * f_list[i] * v[i] * dx_list[i]
             self.lf += g_list[i] * q[i] * dx_list[i]
-            if self.add_convection and self.linearization == "newton":
+            if self.advection==True and self.linearization == "newton":
                 # residual correction N(u_approx) -- only needed for the full
                 # Newton linearization (see _advection_velocity / AssembleConvection);
                 # "picard" and "extrapolate" are already linear in the unknown u.
@@ -392,12 +403,8 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         for i in range(2):
             beta_i = self._advection_velocity(i)
             self.conv += rhos[i] * (grad(u[i]) * beta_i) * v[i] * dx_list[i]
-            if self.linearization == "newton":
+            if self.advection == True and self.linearization == "newton":
                 self.conv += rhos[i] * (grad(beta_i) * u[i]) * v[i] * dx_list[i]
-
-        self.conv_op = BilinearForm(self.fes)
-        self.conv_op += self.conv
-        self.conv_op.Assemble()
 
     @timed_method
     def AssembleTimeStepping(self):
@@ -418,18 +425,18 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         self.mass_op += mass1 + mass2
         self.mass_op.Assemble()
         # implicit factor of the effective scheme (startup: step 1 = BE).
-        beta = 1.0 if self.EffectiveTimeOrder() == 1 else 2.0 / 3.0
+        time_factor = 1.0 if self.EffectiveTimeOrder() == 1 else 2.0 / 3.0
         self.m_star = BilinearForm(self.fes)
 
         for i in range(2):
             self.m_star += mass_list[i]
 
-        self.m_star += beta * self.dt * self.stokes_term
-        if self.add_convection:
-            self.m_star += beta * self.dt * self.conv
+        self.m_star += time_factor * self.dt * self.stokes_term
+        if self.advection != False:
+            self.m_star += time_factor * self.dt * self.conv
 
         self.m_star.Assemble()
-        self._assembled_beta = beta
+        self._assembled_time_factor = time_factor
 
     @timed_method
     def InvertTimeStepping(self):
@@ -455,17 +462,17 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         # reassemble m_star if the effective scheme switched since the last
         # assembly (fixed-domain path, see H1Conforming.Step).
         if self.EffectiveTimeOrder() == 1:   # startup: backward Euler
-            weights, beta = (1.0,), 1.0
+            weights, time_factor = (1.0,), 1.0
         else:                                # BDF2
-            weights, beta = (4.0 / 3.0, -1.0 / 3.0), 2.0 / 3.0
-        if beta != self._assembled_beta:
+            weights, time_factor = (4.0 / 3.0, -1.0 / 3.0), 2.0 / 3.0
+        if time_factor != self._assembled_time_factor:
             self.AssembleTimeStepping()
             self.InvertTimeStepping()
 
         self.AssembleLf()
 
         history = (self.past, self.ancient)
-        res = beta * self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
+        res = time_factor * self.dt * self.lf.vec - self.m_star.mat * self.gfup.vec
         for w_i, u_i in zip(weights, history):
             res += w_i * (self.mass_op.mat * u_i.vec)
         self.gfup.vec.data += self.inv * res
