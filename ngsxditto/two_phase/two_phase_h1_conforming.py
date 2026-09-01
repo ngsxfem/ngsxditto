@@ -257,10 +257,13 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             for (region, values) in self.boundary_registry.strong_neumann_dict.items():
                 self.lf += values * v[i] * dx(definedon=self.mesh.Boundaries(region))
         tau = self.surface_tension_coeff
-        self.lf += cos(theta_e) * tau * (v[0] - v[1]) * n_line * d_contact_line
         P_Gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
         P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
         eta_L = (P_Gamma * n_bnd)/Norm(P_Gamma * n_bnd)
+
+        self.lf += cos(theta_e) * tau * (v[0] + v[1]) * n_line * d_contact_line
+        #self.lf += -cos(pi - theta_e) * tau * v[1] * n_line * d_contact_line
+
         self.lf += P_S * tau * P_Gamma * eta_L * (v[0] - v[1]) * d_contact_line
 
 
@@ -305,6 +308,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         d_contact_plane2 = dCut(self.lset.lsetp1, domain_type=POS,
                                deformation=self.lset.deformation, vb=BND,
                                 definedon=self.mesh.Boundaries(self.wall_params.region))
+
         d_contact_planes = [d_contact_plane1, d_contact_plane2]
         d_contact_line = dCut(self.lset.lsetp1, domain_type=IF,
                                deformation=self.lset.deformation, vb=BND,
@@ -373,7 +377,7 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
             self.stokes_term += basic_stokes + ghost_penalty + pressure_stab
 
             self.stokes_term += beta_S * InnerProduct(P_S * u[i], P_S * v[i]) * d_contact_planes[i]
-            self.stokes_term += beta_L * (u[i]*n_line) * v[i]*n_line * d_contact_line
+            self.stokes_term += beta_L * (u[i]*n_line) * (v[i]*n_line) * d_contact_line
 
         nitsche = (-(kappa[0]*nus[0]*2*Sym(grad(u[0])) * n_lset + kappa[1] * nus[1]*2*Sym(grad(u[1])) * n_lset) * (v[0] - v[1]) -
                    (kappa[0]*nus[0]*2*Sym(grad(v[0])) * n_lset + kappa[1] * nus[1]*2*Sym(grad(v[1])) * n_lset) * (u[0] - u[1]) +
