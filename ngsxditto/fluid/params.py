@@ -1,9 +1,9 @@
 """
 This file introduces placeholder classes working just as an dictionary, holding corresponding parameters values for some fluid.
 """
-
-from typing import Optional
-from ngsolve import pi
+import typing
+from typing import Optional, Union
+from ngsolve import pi, CF
 
 class FluidParameters:
     """
@@ -51,19 +51,43 @@ class WallParameters:
     """
     This class represents wall parameters as a dictionary.
     """
-    def __init__(self, friction_coeff_surface: float = 0, friction_coeff_line: float = 0, contact_angle: float = pi,
-                 region: str = ""):
+    def __init__(self, friction_coeff_surface: Union[float, dict[str, float]] = 0,
+                 friction_coeff_line: Union[float, dict[str, float]] = 0,
+                 contact_angle: float = pi, region: str = "", wall_velocities:dict=None):
         """
             parameters:
                 friction_coeff: friction coefficient
                 contact_angle: contact angle
         """
-        self.friction_coeff_surface = friction_coeff_surface
-        self.friction_coeff_line = friction_coeff_line
+
         self.contact_angle = contact_angle
-        self.dictionary = {"friction_coeff_surface": friction_coeff_surface, "friction_coeff_line": friction_coeff_line,
-                           "contact_angle": contact_angle}
         self.region = region
+        regions = region.split("|")
+
+        if isinstance(friction_coeff_surface, dict):
+            self.friction_coeff_surface = friction_coeff_surface
+            for reg in regions:
+                if reg not in self.friction_coeff_surface.keys():
+                    self.friction_coeff_surface[reg] = 0
+        else:
+            self.friction_coeff_surface = {reg: friction_coeff_surface for reg in regions}
+
+        if isinstance(friction_coeff_line, dict):
+            self.friction_coeff_line = friction_coeff_line
+            for reg in regions:
+                if reg not in self.friction_coeff_line.keys():
+                    self.friction_coeff_line[reg] = 0
+        else:
+            self.friction_coeff_line = {reg: friction_coeff_line for reg in regions}
+
+
+        self.wall_velocities = wall_velocities if wall_velocities is not None else {}
+        for reg in regions:
+            if reg not in self.wall_velocities.keys():
+                self.wall_velocities[reg] = CF((0,0))
+
+        self.dictionary = {"friction_coeff_surface": friction_coeff_surface, "friction_coeff_line": friction_coeff_line,
+                           "contact_angle": contact_angle, "wall_velocities": wall_velocities}
 
     def Update(self, friction_coeff_surface: Optional[float] = None, friction_coeff_line: Optional[float] = None,
                contact_angle: Optional[float] = None):

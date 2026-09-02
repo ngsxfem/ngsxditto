@@ -220,9 +220,16 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                                deformation=self.lset.deformation, vb=BND)
         d_contact_plane2 = dCut(self.lset.lsetp1, domain_type=POS,
                                deformation=self.lset.deformation, vb=BND)
+        d_contact_plane_list = [d_contact_plane1, d_contact_plane2]
         d_contact_line = dCut(self.lset.lsetp1, domain_type=IF,
                                deformation=self.lset.deformation, vb=BND)
         theta_e = self.wall_params.contact_angle
+        tau = self.surface_tension_coeff
+        P_Gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
+        P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
+        eta_L = (P_Gamma * n_bnd)/Norm(P_Gamma * n_bnd)
+        beta_S = self.wall_params.friction_coeff_surface
+
 
 
         self.lf = LinearForm(self.fes)
@@ -256,16 +263,18 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
 
             for (region, values) in self.boundary_registry.strong_neumann_dict.items():
                 self.lf += values * v[i] * dx(definedon=self.mesh.Boundaries(region))
-        tau = self.surface_tension_coeff
-        P_Gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
-        P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
-        eta_L = (P_Gamma * n_bnd)/Norm(P_Gamma * n_bnd)
+
+            for (region, beta_S) in self.wall_params.friction_coeff_surface.items():
+                d_region_list = [dCut(self.lset.lsetp1, domain_type=NEG, deformation=self.lset.deformation,
+                                 vb=BND, definedon=self.mesh.Boundaries(region)),
+                            dCut(self.lset.lsetp1, domain_type=POS, deformation=self.lset.deformation,
+                                 vb=BND, definedon=self.mesh.Boundaries(region))]
+                u_wall = self.wall_params.wall_velocities[region]
+                self.lf += beta_S * InnerProduct(P_S * u_wall, P_S * v[i]) * d_region_list[i]
+
 
         self.lf += cos(theta_e) * tau * (v[0] + v[1]) * n_line * d_contact_line
-        #self.lf += -cos(pi - theta_e) * tau * v[1] * n_line * d_contact_line
-
         self.lf += P_S * tau * P_Gamma * eta_L * (v[0] - v[1]) * d_contact_line
-
 
         if self.surface_tension is not None:
             self.lf += -tau * self.surface_tension * (kappa[1] * v[0] + kappa[0] * v[1]) * dS
@@ -301,24 +310,13 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
         P_gamma = Id(self.mesh.dim) - OuterProduct(n_lset, n_lset)
         P_S = Id(self.mesh.dim) - OuterProduct(n_bnd, n_bnd)
         div_gamma = lambda w: div(w) - InnerProduct(n_lset, grad(w) * n_lset)
+        if self.mesh.dim == 2:
+            t = specialcf.tangential(2)
+            n_line = IfPos(InnerProduct(t, n_lset), t, -t)
+        else:
+            n_lset_surf = n_lset - InnerProduct(n_lset, n_bnd) * n_bnd
+            n_line = n_lset_surf / (Norm(n_lset_surf) + 1e-12)
 
-        d_contact_plane1 = dCut(self.lset.lsetp1, domain_type=NEG,
-                               deformation=self.lset.deformation, vb=BND,
-                                definedon=self.mesh.Boundaries(self.wall_params.region))
-        d_contact_plane2 = dCut(self.lset.lsetp1, domain_type=POS,
-                               deformation=self.lset.deformation, vb=BND,
-                                definedon=self.mesh.Boundaries(self.wall_params.region))
-
-        d_contact_planes = [d_contact_plane1, d_contact_plane2]
-        d_contact_line = dCut(self.lset.lsetp1, domain_type=IF,
-                               deformation=self.lset.deformation, vb=BND,
-                              definedon=self.mesh.Boundaries(self.wall_params.region))
-
-        beta_S = self.wall_params.friction_coeff_surface
-        beta_L = self.wall_params.friction_coeff_line
-        theta_e = self.wall_params.contact_angle
-        t = specialcf.tangential(2)
-        n_line  = IfPos(InnerProduct(t, n_lset), t, -t)
 
         self.stokes_term = 0
         for i in range(2):
@@ -376,8 +374,18 @@ class TwoPhaseH1Conforming(TwoPhaseDiscretization):
                 pressure_stab = 1e-10 * p[i] * q[i] * dx_list[i]
             self.stokes_term += basic_stokes + ghost_penalty + pressure_stab
 
-            self.stokes_term += beta_S * InnerProduct(P_S * u[i], P_S * v[i]) * d_contact_planes[i]
-            self.stokes_term += beta_L * (u[i]*n_line) * (v[i]*n_line) * d_contact_line
+            for (region, beta_S) in self.wall_params.friction_coeff_surface.items():
+                d_region_list = [dCut(self.lset.lsetp1, domain_type=NEG, deformation=self.lset.deformation,
+                                 vb=BND, definedon=self.mesh.Boundaries(region)),
+                            dCut(self.lset.lsetp1, domain_type=POS, deformation=self.lset.deformation,
+                                 vb=BND, definedon=self.mesh.Boundaries(region))]
+
+                self.stokes_term += beta_S * InnerProduct(P_S * u[i], P_S * v[i]) * d_region_list[i]
+            for (region, beta_L) in self.wall_params.friction_coeff_line.items():
+                d_contact_line_region = dCut(self.lset.lsetp1, domain_type=IF, deformation=self.lset.deformation,
+                                 vb=BND, definedon=self.mesh.Boundaries(region))
+
+                self.stokes_term += beta_L * (u[i]*n_line) * (v[i]*n_line) * d_contact_line_region
 
         nitsche = (-(kappa[0]*nus[0]*2*Sym(grad(u[0])) * n_lset + kappa[1] * nus[1]*2*Sym(grad(u[1])) * n_lset) * (v[0] - v[1]) -
                    (kappa[0]*nus[0]*2*Sym(grad(v[0])) * n_lset + kappa[1] * nus[1]*2*Sym(grad(v[1])) * n_lset) * (u[0] - u[1]) +
