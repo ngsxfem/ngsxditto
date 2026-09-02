@@ -78,6 +78,56 @@ class TwoPhaseTaylorHood(TwoPhaseH1Conforming):
                 self.Q_neg * self.Q_pos,
             ],
                 dgjumps=True)
+        self.free_dofs = self.fes.FreeDofs()
+        components = list(self.V_base.components)
+        normal_dofs = BitArray(self.fes.ndof)
+        normal_dofs[:] = False
+
+        offset_phase2 = self.V_base.ndof
+
+        if self.mesh.dim == 2:
+            self.V_x, self.V_y = components
+            offset_y = self.V_x.ndof
+
+            bnd_x = self.V_x.GetDofs(self.mesh.Boundaries("left|right"))
+            bnd_y = self.V_y.GetDofs(self.mesh.Boundaries("top|bottom"))
+
+            for i, is_on_bnd in enumerate(bnd_x):
+                if is_on_bnd:
+                    normal_dofs[i] = True
+                    normal_dofs[offset_phase2 + i] = True
+            for i, is_on_bnd in enumerate(bnd_y):
+                if is_on_bnd:
+                    normal_dofs[offset_y + i] = True
+                    normal_dofs[offset_phase2 + offset_y + i] = True
+        else:
+            self.V_x, self.V_y, self.V_z = components
+            offset_y = self.V_x.ndof
+            offset_z = self.V_x.ndof + self.V_y.ndof
+
+            _bnd_names = self.mesh.GetBoundaries()
+            x_bnds = "|".join(b for b in _bnd_names if b in ("left", "right"))
+            y_bnds = "|".join(b for b in _bnd_names if b in ("top", "bottom"))
+            z_bnds = "|".join(b for b in _bnd_names if b in ("front", "back"))
+
+            if x_bnds:
+                for i, v in enumerate(self.V_x.GetDofs(self.mesh.Boundaries(x_bnds))):
+                    if v:
+                        normal_dofs[i] = True
+                        normal_dofs[offset_phase2 + i] = True
+            if y_bnds:
+                for i, v in enumerate(self.V_y.GetDofs(self.mesh.Boundaries(y_bnds))):
+                    if v:
+                        normal_dofs[offset_y + i] = True
+                        normal_dofs[offset_phase2 + offset_y + i] = True
+            if z_bnds:
+                for i, v in enumerate(self.V_z.GetDofs(self.mesh.Boundaries(z_bnds))):
+                    if v:
+                        normal_dofs[offset_z + i] = True
+                        normal_dofs[offset_phase2 + offset_z + i] = True
+        zero_normal_region = "|".join(self.boundary_registry.strong_normal_velocity_dict.keys())
+        zero_normal_dofs = normal_dofs & self.fes.GetDofs(self.mesh.Boundaries(zero_normal_region))
+        self.free_dofs &= ~zero_normal_dofs
 
 
     def InitializeGfu(self):
