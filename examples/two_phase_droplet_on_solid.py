@@ -59,12 +59,12 @@ wall_params = WallParameters(region="bottom", contact_angle=pi/3, friction_coeff
 mean_curvature = MeanCurvatureSolver(mesh, order=order, lset=levelset)
 mean_curvature.Step()
 fluid = TwoPhaseTaylorHood(mesh, fluid1_params=fluid1_params, fluid2_params=fluid2_params, lset=levelset,
-                           nitsche_stab=100, f1=CF((0, -9.8)), f2=CF((0, -9.8)), surface_tension_coeff=1,
+                           nitsche_stab=100, f1=CF((0, 0)), f2=CF((0, 0)), surface_tension_coeff=1,
                            surface_tension=mean_curvature.H, dt=dt, order=order + 1, ghost_stab=1e-2,
                            advection=True, time_order=1,
                            wall_params=wall_params)
-fluid.SetOuterBoundaryCondition(NitscheVelocityBC(region="right|left|top", values=CF((0, 0))))
-fluid.SetOuterBoundaryCondition(NitscheNormalVelocityBC(region="bottom", values=CF(0)))
+fluid.SetOuterBoundaryCondition(StrongDirichletBC(region="right|left|top", values=CF((0, 0))))
+fluid.SetOuterBoundaryCondition(StrongNormalVelocityBC(region="bottom"))
 fluid.Initialize()
 
 sol = fluid.SolveStokes()
@@ -100,6 +100,6 @@ time_loop.Register(mean_curvature, name="mean curvature")
 time_loop.Register(fluid, name="moving stokes")
 time_loop.Register(animation, name="animation")
 
-time_loop()
+#time_loop()
 
 # %%
