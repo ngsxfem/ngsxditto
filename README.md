@@ -4,6 +4,8 @@
 
 > *"Like its namesake, ngsxditto smoothly adapts to evolving shapes — with mathematical rigor."*
 
+📖 **[Documentation, API reference and rendered examples](https://ngsxfem.github.io/ngsxditto/)**
+
 ## 🚀 Features
 
 - Level-set based interface capturing
@@ -55,7 +57,36 @@ Planned / in progress:
 
 ## Examples
 
-see in the `examples` directory.
+See the `examples` directory for the source, or browse them rendered (with output plots and
+interactive 3D previews) in the **[documentation](https://ngsxfem.github.io/ngsxditto/)**.
+A couple of favourites to start with:
+
+<table>
+<tr>
+<td width="50%">
+
+**[Two-phase oscillating droplet](https://ngsxfem.github.io/ngsxditto/two_phase_oscillating_droplet.html)**<br>
+A droplet oscillating under surface tension, cut two-phase Stokes flow with curvature-driven
+forcing — the core capability the library was built around.
+
+<a href="https://ngsxfem.github.io/ngsxditto/two_phase_oscillating_droplet.html">
+<img src="https://ngsxfem.github.io/ngsxditto/_images/two_phase_oscillating_droplet_5_1.png" width="320">
+</a>
+
+</td>
+<td width="50%">
+
+**[Oscillating droplet](https://ngsxfem.github.io/ngsxditto/oscillating_droplet.html)**<br>
+The single-phase counterpart: unfitted Stokes flow driven by surface tension alone, a good
+starting point before combining interface and boundary handling.
+
+<a href="https://ngsxfem.github.io/ngsxditto/oscillating_droplet.html">
+<img src="https://ngsxfem.github.io/ngsxditto/_images/oscillating_droplet_11_1.png" width="320">
+</a>
+
+</td>
+</tr>
+</table>
 
 The examples are stored as plain python files (jupytext percent format) — these are the only versioned source. Matching jupyter notebooks can be generated from them and edited notebooks can be synced back into the python files (`.ipynb` files are git-ignored):
 
