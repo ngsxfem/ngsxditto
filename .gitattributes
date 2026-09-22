@@ -1,7 +1,10 @@
-# Pre-computed figures/animations for the (non-executed) benchmark examples are
-# stored with git-LFS so the repository stays lightweight. See
-# docs/source/benchmark_examples.rst.
-docs/source/hysing_turek/*.png filter=lfs diff=lfs merge=lfs -text
-docs/source/hysing_turek/*.gif filter=lfs diff=lfs merge=lfs -text
-docs/source/hysing_turek/*.mp4 filter=lfs diff=lfs merge=lfs -text
-docs/source/_static/hysing_turek_pajetrace_sunburst.html filter=lfs diff=lfs merge=lfs -text
+# These documentation assets used to be tracked with git-LFS to keep the
+# repository lightweight. That broke the published site: the GitLab ->
+# GitHub push mirror (github.com/ngsxfem/ngsxditto, source for GitHub Pages
+# at ngsxfem.github.io/ngsxditto/) does not transfer LFS binary objects --
+# only the small pointer files -- so GitHub's LFS store never had the real
+# content, and the deployed site served raw "version
+# https://git-lfs.github.com/spec/v1 ..." pointer text as if it were the
+# image/gif/html file. At ~4.5 MB total these assets are small enough that
+# storing them as ordinary git blobs (which the mirror *does* replicate
+# correctly) is simpler and more robust than fixing LFS mirroring.
