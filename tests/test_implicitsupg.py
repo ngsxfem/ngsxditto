@@ -102,3 +102,29 @@ def test_narrow_band_propagation():
     l2_error = Integrate((reduced_field - reduced_true_sol)**2, mesh)**(1/2)
     assert l2_error < 1e-1
 
+
+
+def test_wind_set_while_at_rest():
+    """The SUPG parameter must follow the wind, not the wind at SetWind() time.
+
+    Coupled flow solvers hand the transport a GridFunction wind that is still
+    zero at t=0 (fluid at rest).  If tau = h/(2|w|) is frozen at that moment it
+    becomes h/1e-5 -- five orders of magnitude too large -- and the scheme blows
+    up as soon as the flow develops.
+    """
+    gf_wind = GridFunction(VectorH1(mesh, order=2))      # zero, as at t=0
+    transport = ImplicitSUPGTransport(mesh, dt=dt, order=2)
+    transport.SetWind(gf_wind)
+    transport.time = t
+    t.Set(0)
+    transport.SetInitialValues(true_circle)
+
+    gf_wind.Set(wind)                                    # flow develops
+    for _ in range(10):
+        transport.Step()
+        transport.ValidateStep()
+        t.Set(t.Get() + dt)
+
+    field = transport.field
+    assert Integrate(field**2, mesh) < 1e3               # no blow-up
+    assert Integrate((field - true_circle)**2, mesh)**(1/2) < 1e-2

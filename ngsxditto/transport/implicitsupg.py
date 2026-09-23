@@ -40,6 +40,7 @@ class ImplicitSUPGTransport(BaseTransport):
 
         self.wind = wind
         self.gamma = None
+        self.gamma_gfu = None
 
         self.bfa = RestrictedBilinearForm(self.fes, element_restriction=self.active_elements,
                                           facet_restriction=self.active_facets, check_unused=False)
@@ -74,11 +75,15 @@ class ImplicitSUPGTransport(BaseTransport):
 
     def UpdateForms(self):
         u, v = self.u, self.v
-        h = specialcf.mesh_size
-        W = L2(self.mesh, order=0)
-        gamma_gfu = GridFunction(W)
-        gamma_gfu.Set(h / (2 * Norm(self.wind) + 10**(-5)))
-        self.gamma = CoefficientFunction(gamma_gfu)
+        # SUPG parameter tau = h/(2|w|).  It is kept as an element-wise constant
+        # GridFunction that the forms reference, and refreshed in Step(): the wind
+        # is usually still zero when SetWind() is first called (fluid at rest at
+        # t=0), so a value frozen here would be h/1e-5 -- orders of magnitude too
+        # large -- and would stay that way for the whole simulation.
+        if self.gamma_gfu is None:
+            self.gamma_gfu = GridFunction(L2(self.mesh, order=0))
+            self.gamma = CoefficientFunction(self.gamma_gfu)
+        self.UpdateStabilizationParameter()
 
         self.mass_term = u * (v + self.gamma * self.wind * grad(v)) * dx(definedonelements=self.active_elements)
         self.conv = self.wind * grad(u) * (v + self.gamma * self.wind * grad(v)) * dx(definedonelements=self.active_elements)
@@ -98,7 +103,15 @@ class ImplicitSUPGTransport(BaseTransport):
         self.UpdateForms()
 
 
+    def UpdateStabilizationParameter(self):
+        """Recompute tau = h/(2|w|) from the *current* wind field."""
+        if self.wind is None or self.gamma_gfu is None:
+            return
+        h = specialcf.mesh_size
+        self.gamma_gfu.Set(h / (2 * Norm(self.wind) + 10**(-5)))
+
     def Step(self):
+        self.UpdateStabilizationParameter()
         self.bnd_facets[:] = GetFacetsWithNeighborTypes(self.mesh, a=self.active_elements, b=~self.active_elements,
                                                         bnd_val_a=False, bnd_val_b=True)
         self.bnd_facets_ind.vec[:] = 0
