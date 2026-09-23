@@ -63,6 +63,7 @@
 
 # %%
 import math
+import os
 import numpy as np
 
 from ngsxditto import *
@@ -112,7 +113,9 @@ from netgen.occ import OCCGeometry, MoveTo, X, Y
 
 # %%
 def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", redist=True,
-            linearization="picard", extrapolated_advection=True):
+            linearization="picard", extrapolated_advection=True,
+            snapshot_dir=None, snapshot_label="snap", n_snapshots=40,
+            snapshot_subdivision=4):
     """Run Hysing–Turek case 1 on one mesh/time-step and return the QoI history.
 
     `wind` selects the transport wind: `"endpoint"` (the value at t^{n+1}, 1st
@@ -122,7 +125,20 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
     `linearization`/`extrapolated_advection` control the convective
     linearization -- see the "Second order in time" section for why the default
     (`"picard"`, `True`) already reaches second order at `n_subiter=1`, with no
-    Picard iteration at all."""
+    Picard iteration at all.
+
+    Passing `snapshot_dir` writes `<snapshot_label>_snap*.vtu` (plus a
+    `_meta.npz` with the background mesh) for the visualisation scripts.
+
+    `snapshot_subdivision` controls how finely the level set is sampled when it
+    is written out, and it matters more than it looks: the level set is P1 and
+    the geometry lives in the *isoparametric deformation*, so an interface
+    written with too little subdivision is drawn as one straight chord per cut
+    element. On a coarse mesh that reads as a kinked, oscillating interface even
+    when the computed interface is smooth -- at h=0.08 a perfectly smooth
+    analytic ellipse picks up an apparent high-frequency deviation of 7.3e-3
+    with `subdivision=0` versus 1.1e-3 with `subdivision=4`. Keep this at 3-4
+    for anything that ends up in a figure."""
     g = 0.98
     rho1, mu1, sigma = 100.0, 1.0, 24.5   # bubble  (inside, negative levelset)
     rho2, mu2        = 1000.0, 10.0       # liquid  (outside, positive levelset)
@@ -183,6 +199,19 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
     #   centroid height  y_c = (∫ y) / (∫ 1)
     #   rise velocity    v   = (∫ u_y) / (∫ 1)
     #   circularity      c   = 2 sqrt(pi |Ω1|) / |∂Ω1|   (= 1 for a circle)
+    # --- optional snapshots for the visualisation scripts --------------------
+    # NOTE the field is written as "phi": that is the name viz_common expects.
+    _snap_vtk = None
+    if snapshot_dir is not None:
+        os.makedirs(snapshot_dir, exist_ok=True)
+        _snap_vtk = VTKOutput(ma=mesh,
+                              coefs=[levelset.lsetadap.lset_p1, levelset.lsetadap.deform],
+                              names=["phi", "deform"],
+                              filename=os.path.join(snapshot_dir, f"{snapshot_label}_snap"),
+                              subdivision=snapshot_subdivision, floatsize="single")
+        _snap_every = max(1, int(round(end_time / dt / max(1, n_snapshots))))
+        _snap_count = [0]
+
     u_neg_y = fluid.gfu.components[0][1]
     hist = {"t": [], "yc": [], "vrise": [], "circ": [], "area": []}
     def record_qoi():
@@ -195,6 +224,10 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
         hist["vrise"].append(Integrate(u_neg_y * levelset.dx_neg, mesh) / area)
         hist["circ"].append(2.0 * math.sqrt(math.pi * area) / perim if perim > 0 else 0.0)
         hist["area"].append(area)
+        if _snap_vtk is not None:
+            _snap_count[0] += 1
+            if _snap_count[0] % _snap_every == 0:
+                _snap_vtk.Do(time=t.Get())
 
     # --- time loop ------------------------------------------------------------
     # module order: level set moves first (curvature rides along via its
@@ -218,6 +251,12 @@ def run_case(maxh, dt, order=2, end_time=3.0, n_subiter=1, wind="extrapolate", r
         # the P1 cut can degenerate at the strongest deformation ("Cutting this
         # part of a tetraeder ..."); keep the history collected up to that point
         print(f"  stopped early at t={t.Get():.3f}: {exc}")
+    if snapshot_dir is not None:
+        np.savez(os.path.join(snapshot_dir, f"{snapshot_label}_qoi.npz"),
+                 verts=np.array([list(v.point) for v in mesh.vertices]),
+                 tris=np.array([[w.nr for w in el.vertices] for el in mesh.Elements(VOL)]),
+                 ne=mesh.ne, order=order,
+                 **{k: np.array(v) for k, v in hist.items()})
     return {k: np.array(v) for k, v in hist.items()}, mesh.ne
 
 

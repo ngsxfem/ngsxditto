@@ -26,11 +26,11 @@ import imageio.v2 as imageio
 import viz_common as V
 
 
-def _frame(ax, tri, vtu, ymax=2.0):
+def _frame(ax, tri, vtu, ymax=2.0, lw=1.1):
     V.draw_mesh(ax, tri, color="#c4cad4", lw=0.5)
     polys = V.interface_polylines(vtu, warp=True)
     for p in polys:
-        ax.plot(p[:, 0], p[:, 1], color="#d62728", lw=2.2)
+        ax.plot(p[:, 0], p[:, 1], color="#d62728", lw=lw, solid_capstyle="round")
     # shade only the largest loop, explicitly closed -> never a chord across the bubble
     if polys:
         main = max(polys, key=len)
@@ -58,23 +58,33 @@ def plot_storyboard(run_dir, label="re_h08", out="storyboard.png",
             ax.set_yticklabels([])
     fig.suptitle(f"Rising bubble (coarse mesh, order={order}, {ne} elements)", fontsize=12)
     fig.tight_layout()
-    fig.savefig(out, dpi=130)
+    fig.savefig(out, dpi=170)
     plt.close(fig)
     print(f"wrote {out}")
     return out
 
 
-def make_gif(run_dir, label="re_h08", out="rising_bubble.gif"):
+def make_gif(run_dir, label="re_h08", out="rising_bubble.gif", dpi=170, lw=1.1):
+    """Animate the interface.
+
+    ``dpi`` and ``lw`` are deliberately not at their old values (90 / 2.2): at
+    90 dpi the domain is only ~270 px wide, so a 2.2 pt interface line covers
+    about 0.02 in domain units -- wider than the interface features one is
+    trying to show, which turns ordinary discretisation error into what looks
+    like an oscillating interface. Drawing the interface thinner than the
+    detail it carries is the point. This only helps if the snapshots were
+    written with enough subdivision (see ``run_case``); otherwise the contour
+    is one straight chord per cut element no matter how it is drawn."""
     tri, tmap, ne, order = _mesh_and_times(run_dir, label)
     tmp = os.path.join(os.path.dirname(out) or ".", "_frames"); os.makedirs(tmp, exist_ok=True)
     frames = []
     for k, tt in enumerate(sorted(tmap.values())):
         f = min(tmap, key=lambda kk: abs(tmap[kk] - tt))
         fig, ax = plt.subplots(figsize=(3.0, 5.2))
-        _frame(ax, tri, f)
+        _frame(ax, tri, f, lw=lw)
         ax.set_title(f"t = {tt:.2f}", fontsize=9)
         fig.tight_layout(); p = os.path.join(tmp, f"f{k:03d}.png")
-        fig.savefig(p, dpi=90); plt.close(fig); frames.append(imageio.imread(p))
+        fig.savefig(p, dpi=dpi); plt.close(fig); frames.append(imageio.imread(p))
     imageio.mimsave(out, frames, duration=0.12, loop=0)
     print(f"wrote {out} ({len(frames)} frames)")
     return out
