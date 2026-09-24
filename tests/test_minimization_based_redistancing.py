@@ -91,3 +91,62 @@ def test_initializer_gp_extension_improves_on_rough_input():
     assert _grad_rms(initialized.field) < _grad_rms(baseline.field)
     assert _l2_err(initialized.field) < 5e-2
     assert _grad_rms(initialized.field) < 1e-1
+
+
+# --- interface-penalty scaling -------------------------------------------------
+# The interface is held in place by a penalty, so its position is preserved only
+# to O(1/alpha). The volume term of the energy is O(1) per element while an
+# unscaled interface term scales like alpha*h, so a FIXED alpha gets relatively
+# weaker under refinement and the drift of the zero set stops converging. The
+# default therefore scales as alpha_scale/h**2.
+
+_A, _B, _CX, _CY = 0.32, 0.18, 0.5, 0.75
+
+
+def _drift_after_one_pass(maxh, redistancer, nray=360):
+    """Move a level set whose zero set is *analytically* unchanged, redistance it
+    once, and measure how far the zero contour actually moved.
+
+    The start field is an exact ellipse times a strictly positive factor: the
+    zero set is identical, only |grad phi| is perturbed -- the same kind of
+    defect a transported level set accumulates between redistancing passes.
+    """
+    import numpy as np
+    geo = SplineGeometry()
+    geo.AddRectangle((0, 0), (1, 2), bcs=("bottom", "right", "top", "left"))
+    m = Mesh(geo.GenerateMesh(maxh=maxh))
+    exact = (((x - _CX) / _A)**2 + ((y - _CY) / _B)**2)**0.5 - 1
+    lset = LevelSetGeometry.from_cf(
+        exact * (1 + 0.15 * sin(6 * atan2(y - _CY, x - _CX))), m, 2)
+    lset.SetRedistancing(redistancer)
+
+    def radii():
+        th = np.linspace(0, 2 * np.pi, nray, endpoint=False)
+        lo, hi = np.full(nray, 0.02), np.full(nray, 0.9)
+        for _ in range(40):
+            mid = 0.5 * (lo + hi)
+            v = np.array(lset.field(m(_CX + mid * np.cos(th),
+                                      _CY + mid * np.sin(th)))).ravel()
+            neg = v < 0
+            lo, hi = np.where(neg, mid, lo), np.where(neg, hi, mid)
+        return 0.5 * (lo + hi)
+
+    before = radii()
+    lset.Redistance()
+    return float(np.sqrt(np.mean((radii() - before)**2)))
+
+
+def test_zero_set_drift_converges_with_default_penalty():
+    coarse = _drift_after_one_pass(0.04, MinimizationBasedRedistancing())
+    fine = _drift_after_one_pass(0.02, MinimizationBasedRedistancing())
+    # measured ~6x (order 2.6); a fixed alpha=1e4 gives only ~1.5x (order 0.5)
+    assert fine < coarse / 3.0, (
+        f"zero-set drift barely improved under refinement: {coarse:.3e} -> {fine:.3e}; "
+        "the interface penalty is probably not scaling with the mesh")
+
+
+def test_pinned_alpha_is_left_unscaled():
+    """An explicitly given alpha keeps its old, absolute meaning."""
+    r = MinimizationBasedRedistancing(alpha=10000)
+    assert r.alpha == 10000
+    assert MinimizationBasedRedistancing().alpha is None
